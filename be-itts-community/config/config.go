@@ -8,12 +8,12 @@ import (
 )
 
 type Config struct {
-	AppName        string
-	AppEnv         string
-	AppPort        string
-	Prefork        bool
-	Workers        int
-	VerifyEmailURL string
+    AppName        string
+    AppEnv         string
+    AppPort        string
+    Prefork        bool
+    Workers        int
+    VerifyEmailURL string
 
 	DB struct {
 		Host     string
@@ -25,15 +25,27 @@ type Config struct {
 		Timezone string
 	}
 
-	Mail struct {
-		Host     string
-		Port     int
-		User     string
-		Password string
-		From     string
-	}
+    Mail struct {
+        Host     string
+        Port     int
+        User     string
+        Password string
+        From     string
+    }
 
-	LogLevel string
+    LogLevel string
+
+    Redis struct {
+        Addr     string
+        DB       int
+        Password string
+    }
+
+    NewRelic struct {
+        Enabled  bool
+        AppName  string
+        License  string
+    }
 }
 
 func LoadConfig() *Config {
@@ -68,6 +80,14 @@ func LoadConfig() *Config {
 	cfg.Mail.Password = viper.GetString("MAIL_PASSWORD")
 	cfg.Mail.From = viper.GetString("MAIL_FROM")
 
-	cfg.LogLevel = viper.GetString("LOG_LEVEL")
-	return cfg
+    cfg.LogLevel = viper.GetString("LOG_LEVEL")
+
+    cfg.Redis.Addr = viper.GetString("REDIS_ADDR")
+    cfg.Redis.DB = viper.GetInt("REDIS_DB")
+    cfg.Redis.Password = viper.GetString("REDIS_PASSWORD")
+
+    cfg.NewRelic.Enabled = viper.GetBool("NEW_RELIC_ENABLED")
+    cfg.NewRelic.AppName = viper.GetString("NEW_RELIC_APP_NAME")
+    cfg.NewRelic.License = viper.GetString("NEW_RELIC_LICENSE_KEY")
+    return cfg
 }

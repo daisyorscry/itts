@@ -13,6 +13,8 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+    redis "github.com/redis/go-redis/v9"
+    newrelic "github.com/newrelic/go-agent/v3/newrelic"
 
 	"go.uber.org/automaxprocs/maxprocs"
 
@@ -57,8 +59,24 @@ func main() {
 	r.Use(core.ContextMiddleware())
 	r.Use(core.RecoveryMiddleware(log))
 	r.Use(core.LoggingMiddleware(log))
-	// New Relic (noop by default; wire real tracer later)
-	tracer := nr.NewNoopTracer()
+	// Tracer: attempt New Relic if enabled and license present; fallback to noop
+	var tracer nr.Tracer
+	if cfg.NewRelic.Enabled && cfg.NewRelic.License != "" {
+		app, err := newrelic.NewApplication(
+			newrelic.ConfigAppName(cfg.NewRelic.AppName),
+			newrelic.ConfigLicense(cfg.NewRelic.License),
+			newrelic.ConfigDistributedTracerEnabled(true),
+		)
+		if err == nil {
+			tracer = nr.NewNRTracer(app)
+			log.Info("new relic enabled")
+		} else {
+			log.WithError(err).Warn("failed to init new relic; using noop tracer")
+			tracer = nr.NewNoopTracer()
+		}
+	} else {
+		tracer = nr.NewNoopTracer()
+	}
 	r.Use(nr.Middleware(tracer))
 
 	// CORS
@@ -89,12 +107,24 @@ func main() {
 	// Wire repository tracer for instrumentation
 	repository.RepoTracer = tracer
 
+	// Locker: use Redis if configured; else noop
+	locker := lock.NewNoopLocker()
+	if cfg.Redis.Addr != "" {
+		client := redis.NewClient(&redis.Options{Addr: cfg.Redis.Addr, Password: cfg.Redis.Password, DB: cfg.Redis.DB})
+		if err := client.Ping(context.Background()).Err(); err != nil {
+			log.WithError(err).Warn("failed to connect redis; using noop locker")
+		} else {
+			locker = lock.NewRedisLocker(client)
+			log.Info("redis locker enabled")
+		}
+	}
+
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DB:             gormDB,
 		VerifyEmailURL: cfg.VerifyEmailURL,
 		Mailer:         nil,
-		Locker:         lock.NewNoopLocker(),
+		Locker:         locker,
 		Tracer:         tracer,
 	})
 
