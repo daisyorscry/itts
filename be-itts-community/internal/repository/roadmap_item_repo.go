@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"be-itts-community/model"
+	"be-itts-community/internal/model"
 )
 
 type RoadmapItemRepository interface {
@@ -24,22 +24,27 @@ func NewRoadmapItemRepository(d *gorm.DB) RoadmapItemRepository {
 }
 
 func (r *roadmapItemRepo) Create(ctx context.Context, m *model.RoadmapItem) error {
-	return r.db.WithContext(ctx).Create(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Create")() }
+    return r.db.WithContext(ctx).Create(m).Error
 }
 func (r *roadmapItemRepo) GetByID(ctx context.Context, id string) (*model.RoadmapItem, error) {
-	var out model.RoadmapItem
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "GetByID")() }
+    var out model.RoadmapItem
 	if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 func (r *roadmapItemRepo) Update(ctx context.Context, m *model.RoadmapItem) error {
-	return r.db.WithContext(ctx).Save(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Update")() }
+    return r.db.WithContext(ctx).Save(m).Error
 }
 func (r *roadmapItemRepo) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.RoadmapItem{}, "id = ?", id).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Delete")() }
+    return r.db.WithContext(ctx).Delete(&model.RoadmapItem{}, "id = ?", id).Error
 }
 func (r *roadmapItemRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.RoadmapItem], error) {
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "List")() }
 	searchable := []string{"item_text"}
 	sorts := map[string]string{
 		"id":         "id",

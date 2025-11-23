@@ -6,7 +6,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"be-itts-community/model"
+	"be-itts-community/internal/model"
 )
 
 // Satu repo untuk Event + Speakers + EventRegistrations
@@ -42,7 +42,8 @@ func NewEventRepository(d *gorm.DB) EventRepository {
 // =====================
 
 func (r *eventRepo) CreateEvent(ctx context.Context, m *model.Event) error {
-	return r.db.WithContext(ctx).Create(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "events", "Create")() }
+    return r.db.WithContext(ctx).Create(m).Error
 }
 
 func (r *eventRepo) preloadChildren(db *gorm.DB) *gorm.DB {
@@ -53,7 +54,8 @@ func (r *eventRepo) preloadChildren(db *gorm.DB) *gorm.DB {
 }
 
 func (r *eventRepo) GetEventByID(ctx context.Context, id string) (*model.Event, error) {
-	var out model.Event
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "events", "GetByID")() }
+    var out model.Event
 	if err := r.preloadChildren(r.db.WithContext(ctx)).
 		First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
@@ -62,7 +64,8 @@ func (r *eventRepo) GetEventByID(ctx context.Context, id string) (*model.Event, 
 }
 
 func (r *eventRepo) GetEventBySlug(ctx context.Context, slug string) (*model.Event, error) {
-	var out model.Event
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "events", "GetBySlug")() }
+    var out model.Event
 	if err := r.preloadChildren(r.db.WithContext(ctx)).
 		First(&out, "slug = ?", slug).Error; err != nil {
 		return nil, err
@@ -71,14 +74,17 @@ func (r *eventRepo) GetEventBySlug(ctx context.Context, slug string) (*model.Eve
 }
 
 func (r *eventRepo) UpdateEvent(ctx context.Context, m *model.Event) error {
-	return r.db.WithContext(ctx).Save(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "events", "Update")() }
+    return r.db.WithContext(ctx).Save(m).Error
 }
 
 func (r *eventRepo) DeleteEvent(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.Event{}, "id = ?", id).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "events", "Delete")() }
+    return r.db.WithContext(ctx).Delete(&model.Event{}, "id = ?", id).Error
 }
 
 func (r *eventRepo) ListEvents(ctx context.Context, p *ListParams) (*PageResult[model.Event], error) {
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "events", "List")() }
 	// kolom untuk search
 	searchable := []string{"title", "summary", "description", "slug", "venue", "program", "status"}
 	// whitelist sort
@@ -112,18 +118,22 @@ func (r *eventRepo) ListEvents(ctx context.Context, p *ListParams) (*PageResult[
 // =====================
 
 func (r *eventRepo) CreateSpeaker(ctx context.Context, m *model.EventSpeaker) error {
-	return r.db.WithContext(ctx).Create(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Create")() }
+    return r.db.WithContext(ctx).Create(m).Error
 }
 
 func (r *eventRepo) UpdateSpeaker(ctx context.Context, m *model.EventSpeaker) error {
-	return r.db.WithContext(ctx).Save(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Update")() }
+    return r.db.WithContext(ctx).Save(m).Error
 }
 
 func (r *eventRepo) DeleteSpeaker(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Delete")() }
+    return r.db.WithContext(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
 }
 
 func (r *eventRepo) ListSpeakers(ctx context.Context, p *ListParams) (*PageResult[model.EventSpeaker], error) {
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "List")() }
 	searchable := []string{"name", "title"}
 	sorts := map[string]string{
 		"id":         "id",
@@ -145,14 +155,17 @@ func (r *eventRepo) ListSpeakers(ctx context.Context, p *ListParams) (*PageResul
 // =====================
 
 func (r *eventRepo) CreateRegistration(ctx context.Context, m *model.EventRegistration) error {
-	return r.db.WithContext(ctx).Create(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "Create")() }
+    return r.db.WithContext(ctx).Create(m).Error
 }
 
 func (r *eventRepo) DeleteRegistration(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.EventRegistration{}, "id = ?", id).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "Delete")() }
+    return r.db.WithContext(ctx).Delete(&model.EventRegistration{}, "id = ?", id).Error
 }
 
 func (r *eventRepo) ListRegistrations(ctx context.Context, p *ListParams) (*PageResult[model.EventRegistration], error) {
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "List")() }
 	searchable := []string{"full_name", "email"}
 	sorts := map[string]string{
 		"id":         "id",

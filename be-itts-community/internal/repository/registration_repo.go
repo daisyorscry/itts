@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"be-itts-community/model"
+	"be-itts-community/internal/model"
 )
 
 type RegistrationRepository interface {
@@ -24,37 +24,43 @@ func NewRegistrationRepository(d *gorm.DB) RegistrationRepository {
 }
 
 func (r *registrationRepo) Create(ctx context.Context, m *model.Registration) error {
-	return r.db.WithContext(ctx).Create(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "Create")() }
+    return r.db.WithContext(ctx).Create(m).Error
 }
 
 func (r *registrationRepo) GetByID(ctx context.Context, id string) (*model.Registration, error) {
-	var out model.Registration
-	if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
-		return nil, err
-	}
-	return &out, nil
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "GetByID")() }
+    var out model.Registration
+    if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
+        return nil, err
+    }
+    return &out, nil
 }
 
 func (r *registrationRepo) FindByEmail(ctx context.Context, email string) (*model.Registration, error) {
-	var out model.Registration
-	if err := r.db.WithContext(ctx).First(&out, "email = ?", email).Error; err != nil {
-		return nil, err
-	}
-	return &out, nil
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "FindByEmail")() }
+    var out model.Registration
+    if err := r.db.WithContext(ctx).First(&out, "email = ?", email).Error; err != nil {
+        return nil, err
+    }
+    return &out, nil
 }
 
 func (r *registrationRepo) Update(ctx context.Context, m *model.Registration) error {
-	return r.db.WithContext(ctx).Save(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "Update")() }
+    return r.db.WithContext(ctx).Save(m).Error
 }
 
 func (r *registrationRepo) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.Registration{}, "id = ?", id).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "Delete")() }
+    return r.db.WithContext(ctx).Delete(&model.Registration{}, "id = ?", id).Error
 }
 
 func (r *registrationRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.Registration], error) {
-	searchable := []string{"full_name", "email", "student_id", "motivation", "status", "program"}
-	sorts := map[string]string{
-		"id":          "id",
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "List")() }
+    searchable := []string{"full_name", "email", "student_id", "motivation", "status", "program"}
+    sorts := map[string]string{
+        "id":          "id",
 		"full_name":   "full_name",
 		"email":       "email",
 		"program":     "program",

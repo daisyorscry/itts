@@ -1,0 +1,41 @@
+services:
+  loki:
+    image: grafana/loki:2.9.4
+    command: -config.file=/etc/loki/config.yml
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki/config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.4
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./promtail:/etc/promtail:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Mount application access log directory
+      - ../logs:/var/log/laondry-order-service:ro
+    depends_on: [loki]
+    restart: unless-stopped
+
+
+  grafana:
+    image: grafana/grafana:10.4.5
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_DEFAULT_THEME=dark
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on: [loki]
+    restart: unless-stopped
+
+volumes:
+  loki-data:
+  grafana-data:

@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"be-itts-community/model"
+	"be-itts-community/internal/model"
 )
 
 type EventSpeakerRepository interface {

@@ -1,12 +1,14 @@
 package service
 
 import (
-	"context"
+    "context"
 
-	"gorm.io/gorm"
+    "gorm.io/gorm"
 
-	"be-itts-community/internal/repository"
-	"be-itts-community/model"
+    "be-itts-community/internal/repository"
+    "be-itts-community/internal/model"
+    "be-itts-community/pkg/lock"
+    "be-itts-community/pkg/observability/nr"
 )
 
 type MentorService interface {
@@ -41,16 +43,19 @@ type UpdateMentor struct {
 }
 
 type mentorService struct {
-	db   *gorm.DB
-	repo repository.MentorRepository
+    db     *gorm.DB
+    repo   repository.MentorRepository
+    locker lock.Locker
+    tracer nr.Tracer
 }
 
-func NewMentorService(db *gorm.DB, repo repository.MentorRepository) MentorService {
-	return &mentorService{db: db, repo: repo}
+func NewMentorService(db *gorm.DB, repo repository.MentorRepository, locker lock.Locker, tracer nr.Tracer) MentorService {
+    return &mentorService{db: db, repo: repo, locker: locker, tracer: tracer}
 }
 
 func (s *mentorService) Create(ctx context.Context, in CreateMentor) (*model.Mentor, error) {
-	m := &model.Mentor{
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "MentorService.Create")() }
+    m := &model.Mentor{
 		FullName:  in.FullName,
 		Title:     in.Title,
 		Bio:       in.Bio,
@@ -63,10 +68,15 @@ func (s *mentorService) Create(ctx context.Context, in CreateMentor) (*model.Men
 	if in.Priority != nil {
 		m.Priority = *in.Priority
 	}
-	if err := s.repo.Create(ctx, m); err != nil {
-		return nil, err
-	}
-	return m, nil
+    if err := s.locker.WithLock(ctx, "lock:mentors:create", 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewMentorRepository(tx)
+            return txRepo.Create(ctx, m)
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return m, nil
 }
 
 func (s *mentorService) Get(ctx context.Context, id string) (*model.Mentor, error) {
@@ -74,7 +84,8 @@ func (s *mentorService) Get(ctx context.Context, id string) (*model.Mentor, erro
 }
 
 func (s *mentorService) Update(ctx context.Context, id string, in UpdateMentor) (*model.Mentor, error) {
-	m, err := s.repo.GetByID(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "MentorService.Update")() }
+    m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -99,14 +110,25 @@ func (s *mentorService) Update(ctx context.Context, id string, in UpdateMentor) 
 	if in.Priority != nil {
 		m.Priority = *in.Priority
 	}
-	if err := s.repo.Update(ctx, m); err != nil {
-		return nil, err
-	}
-	return m, nil
+    if err := s.locker.WithLock(ctx, "lock:mentors:"+id, 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewMentorRepository(tx)
+            return txRepo.Update(ctx, m)
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return m, nil
 }
 
 func (s *mentorService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "MentorService.Delete")() }
+    return s.locker.WithLock(ctx, "lock:mentors:"+id, 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewMentorRepository(tx)
+            return txRepo.Delete(ctx, id)
+        })
+    })
 }
 
 func (s *mentorService) List(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.Mentor], error) {
@@ -114,25 +136,37 @@ func (s *mentorService) List(ctx context.Context, p *repository.ListParams) (*re
 }
 
 func (s *mentorService) SetActive(ctx context.Context, id string, active bool) (*model.Mentor, error) {
-	m, err := s.repo.GetByID(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "MentorService.SetActive")() }
+    m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	m.IsActive = active
-	if err := s.repo.Update(ctx, m); err != nil {
-		return nil, err
-	}
-	return m, nil
+    if err := s.locker.WithLock(ctx, "lock:mentors:"+id, 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewMentorRepository(tx)
+            return txRepo.Update(ctx, m)
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return m, nil
 }
 
 func (s *mentorService) SetPriority(ctx context.Context, id string, priority int) (*model.Mentor, error) {
-	m, err := s.repo.GetByID(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "MentorService.SetPriority")() }
+    m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	m.Priority = priority
-	if err := s.repo.Update(ctx, m); err != nil {
-		return nil, err
-	}
-	return m, nil
+    if err := s.locker.WithLock(ctx, "lock:mentors:"+id, 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewMentorRepository(tx)
+            return txRepo.Update(ctx, m)
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return m, nil
 }

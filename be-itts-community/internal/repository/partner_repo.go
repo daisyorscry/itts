@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"be-itts-community/model"
+	"be-itts-community/internal/model"
 )
 
 type PartnerRepository interface {
@@ -24,22 +24,27 @@ func NewPartnerRepository(d *gorm.DB) PartnerRepository {
 }
 
 func (r *partnerRepo) Create(ctx context.Context, m *model.Partner) error {
-	return r.db.WithContext(ctx).Create(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "Create")() }
+    return r.db.WithContext(ctx).Create(m).Error
 }
 func (r *partnerRepo) GetByID(ctx context.Context, id string) (*model.Partner, error) {
-	var out model.Partner
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "GetByID")() }
+    var out model.Partner
 	if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 func (r *partnerRepo) Update(ctx context.Context, m *model.Partner) error {
-	return r.db.WithContext(ctx).Save(m).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "Update")() }
+    return r.db.WithContext(ctx).Save(m).Error
 }
 func (r *partnerRepo) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.Partner{}, "id = ?", id).Error
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "Delete")() }
+    return r.db.WithContext(ctx).Delete(&model.Partner{}, "id = ?", id).Error
 }
 func (r *partnerRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.Partner], error) {
+    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "List")() }
 	searchable := []string{"name", "subtitle", "description", "website_url"}
 	sorts := map[string]string{
 		"id":         "id",

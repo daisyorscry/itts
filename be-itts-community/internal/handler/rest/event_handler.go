@@ -1,14 +1,16 @@
 package rest
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/core"
+	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
-	"be-itts-community/model"
 )
 
 type EventHandler struct {
@@ -21,171 +23,184 @@ func NewEventHandler(svc service.EventService) *EventHandler {
 }
 
 // POST /api/v1/admin/events
-func (h *EventHandler) CreateEvent(c *fiber.Ctx) error {
+func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	var req service.CreateEvent
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
 	}
-	// parsing aman untuk time jika body string ISO; kalau perlu custom, tambahkan binder
-	ev, err := h.svc.Create(c.Context(), req)
+	ev, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		return
 	}
-	return c.Status(http.StatusCreated).JSON(ev)
+	core.Created(w, r, ev)
 }
 
 // GET /api/v1/admin/events/:id
-func (h *EventHandler) GetEvent(c *fiber.Ctx) error {
-	id := c.Params("id")
-	ev, err := h.svc.Get(c.Context(), id)
+func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	ev, err := h.svc.Get(r.Context(), id)
 	if err != nil {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		return
 	}
-	return c.JSON(ev)
+	core.OK(w, r, ev)
 }
 
 // GET /api/v1/events/slug/:slug  (public)
-func (h *EventHandler) GetEventBySlug(c *fiber.Ctx) error {
-	slug := c.Params("slug")
-	ev, err := h.svc.GetBySlug(c.Context(), slug)
+func (h *EventHandler) GetEventBySlug(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	ev, err := h.svc.GetBySlug(r.Context(), slug)
 	if err != nil {
-		return c.Status(http.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		return
 	}
-	return c.JSON(ev)
+	core.OK(w, r, ev)
 }
 
 // PATCH /api/v1/admin/events/:id
-func (h *EventHandler) UpdateEvent(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
 	var req service.UpdateEvent
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
 	}
-	ev, err := h.svc.Update(c.Context(), id, req)
+	ev, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		return
 	}
-	return c.JSON(ev)
+	core.OK(w, r, ev)
 }
 
 // DELETE /api/v1/admin/events/:id
-func (h *EventHandler) DeleteEvent(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if err := h.svc.Delete(c.Context(), id); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+func (h *EventHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.svc.Delete(r.Context(), id); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		return
 	}
-	return c.SendStatus(http.StatusNoContent)
+	core.NoContent(w, r)
 }
 
 // GET /api/v1/admin/events
 // Query: search, program, status, from, to, sort, page, page_size
-func (h *EventHandler) ListEvents(c *fiber.Ctx) error {
+func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
 	lp := &repository.ListParams{
-		Search:   c.Query("search"),
+		Search:   q.Get("search"),
 		Filters:  map[string]any{},
-		Sort:     parseSorts(c.Query("sort")),
-		Page:     atoiDefault(c.Query("page"), 1),
-		PageSize: atoiDefault(c.Query("page_size"), 20),
+		Sort:     parseSorts(q.Get("sort")),
+		Page:     atoiDefault(q.Get("page"), 1),
+		PageSize: atoiDefault(q.Get("page_size"), 20),
 	}
 
-	if v := c.Query("program"); v != "" {
+	if v := q.Get("program"); v != "" {
 		lp.Filters["program"] = v
 	}
-	if v := c.Query("status"); v != "" {
+	if v := q.Get("status"); v != "" {
 		lp.Filters["status"] = v
 	}
-	if v := c.Query("from"); v != "" {
+	if v := q.Get("from"); v != "" {
 		if t, err := time.Parse(time.RFC3339, v); err == nil {
 			lp.Filters["starts_at_gte"] = t
 		}
 	}
-	if v := c.Query("to"); v != "" {
+	if v := q.Get("to"); v != "" {
 		if t, err := time.Parse(time.RFC3339, v); err == nil {
 			lp.Filters["starts_at_lte"] = t
 		}
 	}
 
-	res, err := h.svc.List(c.Context(), lp)
+	res, err := h.svc.List(r.Context(), lp)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		return
 	}
-	return c.JSON(res)
+	core.OK(w, r, res)
 }
 
-func (h *EventHandler) SetEventStatus(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *EventHandler) SetEventStatus(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
 	var body struct {
 		Status string `json:"status"`
 	}
-	if err := c.BodyParser(&body); err != nil || body.Status == "" {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.Status == "" {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
 	}
 	st := model.EventStatus(body.Status)
-	ev, err := h.svc.SetStatus(c.Context(), id, st)
+	ev, err := h.svc.SetStatus(r.Context(), id, st)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "SET_STATUS_FAILED", err.Error(), nil)
+		return
 	}
-	return c.JSON(ev)
+	core.OK(w, r, ev)
 }
 
-func (h *EventHandler) AddSpeaker(c *fiber.Ctx) error {
-	eventID := c.Params("event_id")
+func (h *EventHandler) AddSpeaker(w http.ResponseWriter, r *http.Request) {
+	eventID := chi.URLParam(r, "event_id")
 	var req service.CreateSpeaker
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
 	}
 	req.EventID = eventID
-
-	sp, err := h.svc.AddSpeaker(c.Context(), req)
+	sp, err := h.svc.AddSpeaker(r.Context(), req)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "ADD_SPEAKER_FAILED", err.Error(), nil)
+		return
 	}
-	return c.Status(http.StatusCreated).JSON(sp)
+	core.Created(w, r, sp)
 }
 
-func (h *EventHandler) UpdateSpeaker(c *fiber.Ctx) error {
-	id := c.Params("id")
+func (h *EventHandler) UpdateSpeaker(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
 	var req service.UpdateSpeaker
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
 	}
-	sp, err := h.svc.UpdateSpeaker(c.Context(), id, req)
+	sp, err := h.svc.UpdateSpeaker(r.Context(), id, req)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_SPEAKER_FAILED", err.Error(), nil)
+		return
 	}
-	return c.JSON(sp)
+	core.OK(w, r, sp)
 }
 
-func (h *EventHandler) DeleteSpeaker(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if err := h.svc.DeleteSpeaker(c.Context(), id); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+func (h *EventHandler) DeleteSpeaker(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.svc.DeleteSpeaker(r.Context(), id); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "DELETE_SPEAKER_FAILED", err.Error(), nil)
+		return
 	}
-	return c.SendStatus(http.StatusNoContent)
+	core.NoContent(w, r)
 }
 
-func (h *EventHandler) ListSpeakers(c *fiber.Ctx) error {
+func (h *EventHandler) ListSpeakers(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
 	lp := &repository.ListParams{
-		Search:   c.Query("search"),
+		Search:   q.Get("search"),
 		Filters:  map[string]any{},
-		Sort:     parseSorts(c.Query("sort")),
-		Page:     atoiDefault(c.Query("page"), 1),
-		PageSize: atoiDefault(c.Query("page_size"), 20),
+		Sort:     parseSorts(q.Get("sort")),
+		Page:     atoiDefault(q.Get("page"), 1),
+		PageSize: atoiDefault(q.Get("page_size"), 20),
 	}
-
-	// support nested param :event_id
-	if evID := c.Params("event_id"); evID != "" {
+	if evID := chi.URLParam(r, "event_id"); evID != "" {
 		lp.Filters["event_id"] = evID
 	}
-	if v := c.Query("event_id"); v != "" {
+	if v := q.Get("event_id"); v != "" {
 		lp.Filters["event_id"] = v
 	}
-
-	res, err := h.svc.ListSpeakers(c.Context(), lp)
+	res, err := h.svc.ListSpeakers(r.Context(), lp)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "LIST_SPEAKERS_FAILED", err.Error(), nil)
+		return
 	}
-	return c.JSON(res)
+	core.OK(w, r, res)
 }
 
 /* ======================
@@ -193,46 +208,50 @@ func (h *EventHandler) ListSpeakers(c *fiber.Ctx) error {
    ====================== */
 
 // POST /api/v1/events/:event_id/register (public)
-func (h *EventHandler) RegisterToEvent(c *fiber.Ctx) error {
-	eventID := c.Params("event_id")
+func (h *EventHandler) RegisterToEvent(w http.ResponseWriter, r *http.Request) {
+	eventID := chi.URLParam(r, "event_id")
 	var req service.CreateEventRegistration
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": "invalid body"})
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
 	}
 	req.EventID = eventID
-
-	reg, err := h.svc.RegisterToEvent(c.Context(), req)
+	reg, err := h.svc.RegisterToEvent(r.Context(), req)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "RSVP_FAILED", err.Error(), nil)
+		return
 	}
-	return c.Status(http.StatusCreated).JSON(reg)
+	core.Created(w, r, reg)
 }
 
-func (h *EventHandler) ListRegistrations(c *fiber.Ctx) error {
+func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
 	lp := &repository.ListParams{
-		Search:   c.Query("search"),
+		Search:   q.Get("search"),
 		Filters:  map[string]any{},
-		Sort:     parseSorts(c.Query("sort")),
-		Page:     atoiDefault(c.Query("page"), 1),
-		PageSize: atoiDefault(c.Query("page_size"), 20),
+		Sort:     parseSorts(q.Get("sort")),
+		Page:     atoiDefault(q.Get("page"), 1),
+		PageSize: atoiDefault(q.Get("page_size"), 20),
 	}
-	if v := c.Query("event_id"); v != "" {
+	if v := q.Get("event_id"); v != "" {
 		lp.Filters["event_id"] = v
 	}
-	if v := c.Query("email"); v != "" {
+	if v := q.Get("email"); v != "" {
 		lp.Filters["email"] = v
 	}
-	res, err := h.svc.ListRegistrations(c.Context(), lp)
+	res, err := h.svc.ListRegistrations(r.Context(), lp)
 	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		core.WriteError(w, r, http.StatusBadRequest, "LIST_EVENT_REG_FAILED", err.Error(), nil)
+		return
 	}
-	return c.JSON(res)
+	core.OK(w, r, res)
 }
 
-func (h *EventHandler) Unregister(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if err := h.svc.Unregister(c.Context(), id); err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+func (h *EventHandler) Unregister(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	if err := h.svc.Unregister(r.Context(), id); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "UNREGISTER_FAILED", err.Error(), nil)
+		return
 	}
-	return c.SendStatus(http.StatusNoContent)
+	core.NoContent(w, r)
 }

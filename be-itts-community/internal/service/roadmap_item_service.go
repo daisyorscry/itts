@@ -1,12 +1,14 @@
 package service
 
 import (
-	"context"
+    "context"
 
-	"gorm.io/gorm"
+    "gorm.io/gorm"
 
-	"be-itts-community/internal/repository"
-	"be-itts-community/model"
+    "be-itts-community/internal/repository"
+    "be-itts-community/internal/model"
+    "be-itts-community/pkg/lock"
+    "be-itts-community/pkg/observability/nr"
 )
 
 type RoadmapItemService interface {
@@ -29,26 +31,34 @@ type UpdateRoadmapItem struct {
 }
 
 type roadmapItemService struct {
-	db   *gorm.DB
-	repo repository.RoadmapItemRepository
+    db     *gorm.DB
+    repo   repository.RoadmapItemRepository
+    locker lock.Locker
+    tracer nr.Tracer
 }
 
-func NewRoadmapItemService(db *gorm.DB, repo repository.RoadmapItemRepository) RoadmapItemService {
-	return &roadmapItemService{db: db, repo: repo}
+func NewRoadmapItemService(db *gorm.DB, repo repository.RoadmapItemRepository, locker lock.Locker, tracer nr.Tracer) RoadmapItemService {
+    return &roadmapItemService{db: db, repo: repo, locker: locker, tracer: tracer}
 }
 
 func (s *roadmapItemService) Create(ctx context.Context, in CreateRoadmapItem) (*model.RoadmapItem, error) {
-	it := &model.RoadmapItem{
-		RoadmapID: in.RoadmapID,
-		ItemText:  in.ItemText,
-	}
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RoadmapItemService.Create")() }
+    it := &model.RoadmapItem{
+        RoadmapID: in.RoadmapID,
+        ItemText:  in.ItemText,
+    }
 	if in.SortOrder != nil {
 		it.SortOrder = *in.SortOrder
 	}
-	if err := s.repo.Create(ctx, it); err != nil {
-		return nil, err
-	}
-	return it, nil
+    if err := s.locker.WithLock(ctx, "lock:roadmap_items:create", 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewRoadmapItemRepository(tx)
+            return txRepo.Create(ctx, it)
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return it, nil
 }
 
 func (s *roadmapItemService) Get(ctx context.Context, id string) (*model.RoadmapItem, error) {
@@ -56,7 +66,8 @@ func (s *roadmapItemService) Get(ctx context.Context, id string) (*model.Roadmap
 }
 
 func (s *roadmapItemService) Update(ctx context.Context, id string, in UpdateRoadmapItem) (*model.RoadmapItem, error) {
-	it, err := s.repo.GetByID(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RoadmapItemService.Update")() }
+    it, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -69,14 +80,25 @@ func (s *roadmapItemService) Update(ctx context.Context, id string, in UpdateRoa
 	if in.SortOrder != nil {
 		it.SortOrder = *in.SortOrder
 	}
-	if err := s.repo.Update(ctx, it); err != nil {
-		return nil, err
-	}
-	return it, nil
+    if err := s.locker.WithLock(ctx, "lock:roadmap_items:"+id, 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewRoadmapItemRepository(tx)
+            return txRepo.Update(ctx, it)
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return it, nil
 }
 
 func (s *roadmapItemService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RoadmapItemService.Delete")() }
+    return s.locker.WithLock(ctx, "lock:roadmap_items:"+id, 5*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            txRepo := repository.NewRoadmapItemRepository(tx)
+            return txRepo.Delete(ctx, id)
+        })
+    })
 }
 
 func (s *roadmapItemService) List(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.RoadmapItem], error) {

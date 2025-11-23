@@ -1,12 +1,13 @@
 package repository
 
 import (
-	"context"
-	"errors"
-	"fmt"
-	"strings"
+    "context"
+    "errors"
+    "fmt"
+    "strings"
 
-	"gorm.io/gorm"
+    "gorm.io/gorm"
+    "be-itts-community/pkg/observability/nr"
 )
 
 type ListParams struct {
@@ -24,6 +25,10 @@ type PageResult[T any] struct {
 	PageSize   int   `json:"page_size"`
 	TotalPages int   `json:"total_pages"`
 }
+
+// RepoTracer is a package-level tracer used by repository methods for instrumentation.
+// It defaults to a noop tracer and can be overridden by wiring in main.
+var RepoTracer nr.Tracer = nr.NewNoopTracer()
 
 func SanitizePaging(p *ListParams) {
 	if p.Page <= 0 {
@@ -104,19 +109,24 @@ func ApplyListQuery(db *gorm.DB, p *ListParams, searchableColumns []string, sort
 }
 
 func Paginate[T any](ctx context.Context, q *gorm.DB, p *ListParams, out *[]T) (*PageResult[T], error) {
-	SanitizePaging(p)
+    end := func() {}
+    if RepoTracer != nil {
+        end = RepoTracer.StartDatastoreSegment(ctx, "paginate", "count+find")
+    }
+    defer end()
+    SanitizePaging(p)
 
 	var total int64
-	if err := q.WithContext(ctx).Count(&total).Error; err != nil {
-		return nil, err
-	}
+    if err := q.WithContext(ctx).Count(&total).Error; err != nil {
+        return nil, err
+    }
 
-	if err := q.WithContext(ctx).
-		Offset((p.Page - 1) * p.PageSize).
-		Limit(p.PageSize).
-		Find(out).Error; err != nil {
-		return nil, err
-	}
+    if err := q.WithContext(ctx).
+        Offset((p.Page - 1) * p.PageSize).
+        Limit(p.PageSize).
+        Find(out).Error; err != nil {
+        return nil, err
+    }
 
 	totalPages := int(total) / p.PageSize
 	if int(total)%p.PageSize != 0 {

@@ -1,20 +1,22 @@
 package service
 
 import (
-	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
-	"errors"
-	"fmt"
-	"strconv"
-	"time"
+    "context"
+    "crypto/rand"
+    "crypto/sha256"
+    "encoding/base64"
+    "encoding/hex"
+    "errors"
+    "fmt"
+    "strconv"
+    "time"
 
-	"gorm.io/gorm"
+    "gorm.io/gorm"
 
-	"be-itts-community/internal/repository"
-	"be-itts-community/model"
+    "be-itts-community/internal/repository"
+    "be-itts-community/internal/model"
+    "be-itts-community/pkg/lock"
+    "be-itts-community/pkg/observability/nr"
 )
 
 type Mailer interface {
@@ -42,31 +44,37 @@ type RegistrationService interface {
 }
 
 type registrationService struct {
-	db       *gorm.DB
-	regRepo  repository.RegistrationRepository
-	evRepo   repository.EmailVerificationRepository
-	mailer   Mailer
-	tokenTTL time.Duration
+    db       *gorm.DB
+    regRepo  repository.RegistrationRepository
+    evRepo   repository.EmailVerificationRepository
+    mailer   Mailer
+    tokenTTL time.Duration
+    locker   lock.Locker
+    tracer   nr.Tracer
 }
 
 func NewRegistrationService(
-	db *gorm.DB,
-	regRepo repository.RegistrationRepository,
-	evRepo repository.EmailVerificationRepository,
-	mailer Mailer,
+    db *gorm.DB,
+    regRepo repository.RegistrationRepository,
+    evRepo repository.EmailVerificationRepository,
+    mailer Mailer,
+    locker lock.Locker,
+    tracer nr.Tracer,
 ) RegistrationService {
-	return &registrationService{
-		db: db, regRepo: regRepo, evRepo: evRepo, mailer: mailer,
-		tokenTTL: 24 * time.Hour,
-	}
+    return &registrationService{
+        db: db, regRepo: regRepo, evRepo: evRepo, mailer: mailer,
+        tokenTTL: 24 * time.Hour,
+        locker: locker, tracer: tracer,
+    }
 }
 
 func (s *registrationService) Register(ctx context.Context, req RegisterRequest, verifyURL string) (*model.Registration, error) {
-	if _, err := s.regRepo.FindByEmail(ctx, req.Email); err == nil {
-		return nil, fmt.Errorf("email already registered")
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RegistrationService.Register")() }
+    if _, err := s.regRepo.FindByEmail(ctx, req.Email); err == nil {
+        return nil, fmt.Errorf("email already registered")
+    } else if !errors.Is(err, gorm.ErrRecordNotFound) {
+        return nil, err
+    }
 
 	reg := &model.Registration{
 		FullName:   req.FullName,
@@ -80,15 +88,16 @@ func (s *registrationService) Register(ctx context.Context, req RegisterRequest,
 
 	var rawToken string
 
-	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(reg).Error; err != nil {
-			return err
-		}
-		tRaw, tHash, err := generateToken()
-		if err != nil {
-			return err
-		}
-		rawToken = tRaw
+    if err := s.locker.WithLock(ctx, "lock:registrations:"+req.Email, 10*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            if err := tx.Create(reg).Error; err != nil {
+                return err
+            }
+            tRaw, tHash, err := generateToken()
+            if err != nil {
+                return err
+            }
+            rawToken = tRaw
 
 		ev := &model.EmailVerification{
 			RegistrationID: reg.ID,
@@ -98,10 +107,11 @@ func (s *registrationService) Register(ctx context.Context, req RegisterRequest,
 		if err := tx.Create(ev).Error; err != nil {
 			return err
 		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
+            return nil
+        })
+    }); err != nil {
+        return nil, err
+    }
 
 	if s.mailer != nil && verifyURL != "" {
 		link := fmt.Sprintf("%s?token=%s", verifyURL, rawToken)
@@ -119,9 +129,10 @@ func (s *registrationService) Register(ctx context.Context, req RegisterRequest,
 }
 
 func (s *registrationService) VerifyEmail(ctx context.Context, rawToken string) (*model.Registration, error) {
-	if rawToken == "" {
-		return nil, errors.New("missing token")
-	}
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RegistrationService.VerifyEmail")() }
+    if rawToken == "" {
+        return nil, errors.New("missing token")
+    }
 	sum := sha256.Sum256([]byte(rawToken))
 	hashHex := hex.EncodeToString(sum[:])
 
@@ -133,26 +144,28 @@ func (s *registrationService) VerifyEmail(ctx context.Context, rawToken string) 
 	var reg *model.Registration
 	now := time.Now()
 
-	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.evRepo.MarkUsed(ctx, ev.ID, now); err != nil {
-			return err
-		}
-		var r model.Registration
-		if err := tx.First(&r, "id = ?", ev.RegistrationID).Error; err != nil {
-			return err
-		}
-		if r.EmailVerifiedAt == nil {
-			r.EmailVerifiedAt = &now
-			if err := tx.Save(&r).Error; err != nil {
-				return err
-			}
-		}
-		reg = &r
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return reg, nil
+    if err := s.locker.WithLock(ctx, "lock:registrations:verify:"+hashHex, 10*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            if err := s.evRepo.MarkUsed(ctx, ev.ID, now); err != nil {
+                return err
+            }
+            var r model.Registration
+            if err := tx.First(&r, "id = ?", ev.RegistrationID).Error; err != nil {
+                return err
+            }
+            if r.EmailVerifiedAt == nil {
+                r.EmailVerifiedAt = &now
+                if err := tx.Save(&r).Error; err != nil {
+                    return err
+                }
+            }
+            reg = &r
+            return nil
+        })
+    }); err != nil {
+        return nil, err
+    }
+    return reg, nil
 }
 
 func (s *registrationService) AdminList(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.Registration], error) {
@@ -164,31 +177,34 @@ func (s *registrationService) AdminGet(ctx context.Context, id string) (*model.R
 }
 
 func (s *registrationService) AdminApprove(ctx context.Context, id, adminID string) (*model.Registration, error) {
-	var out *model.Registration
-	now := time.Now()
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RegistrationService.AdminApprove")() }
+    var out *model.Registration
+    now := time.Now()
 
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		r, err := s.regRepo.GetByID(ctx, id)
-		if err != nil {
-			return err
-		}
-		if r.EmailVerifiedAt == nil {
-			return fmt.Errorf("email not verified")
-		}
-		if r.Status == model.RegRejected {
-			return fmt.Errorf("already rejected")
-		}
-		r.Status = model.RegApproved
-		r.ApprovedBy = &adminID
-		r.ApprovedAt = &now
-		r.RejectedReason = nil
+    err := s.locker.WithLock(ctx, "lock:registrations:"+id, 10*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            r, err := s.regRepo.GetByID(ctx, id)
+            if err != nil {
+                return err
+            }
+            if r.EmailVerifiedAt == nil {
+                return fmt.Errorf("email not verified")
+            }
+            if r.Status == model.RegRejected {
+                return fmt.Errorf("already rejected")
+            }
+            r.Status = model.RegApproved
+            r.ApprovedBy = &adminID
+            r.ApprovedAt = &now
+            r.RejectedReason = nil
 
-		if err := s.regRepo.Update(ctx, r); err != nil {
-			return err
-		}
-		out = r
-		return nil
-	})
+            if err := s.regRepo.Update(ctx, r); err != nil {
+                return err
+            }
+            out = r
+            return nil
+        })
+    })
 	if err != nil {
 		return nil, err
 	}
@@ -196,28 +212,31 @@ func (s *registrationService) AdminApprove(ctx context.Context, id, adminID stri
 }
 
 func (s *registrationService) AdminReject(ctx context.Context, id, adminID, reason string) (*model.Registration, error) {
-	var out *model.Registration
-	now := time.Now()
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RegistrationService.AdminReject")() }
+    var out *model.Registration
+    now := time.Now()
 
-	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		r, err := s.regRepo.GetByID(ctx, id)
-		if err != nil {
-			return err
-		}
-		if r.Status == model.RegApproved {
-			return fmt.Errorf("already approved")
-		}
-		r.Status = model.RegRejected
-		r.ApprovedBy = &adminID
-		r.ApprovedAt = &now
-		r.RejectedReason = &reason
+    err := s.locker.WithLock(ctx, "lock:registrations:"+id, 10*time.Second, func(ctx context.Context) error {
+        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+            r, err := s.regRepo.GetByID(ctx, id)
+            if err != nil {
+                return err
+            }
+            if r.Status == model.RegApproved {
+                return fmt.Errorf("already approved")
+            }
+            r.Status = model.RegRejected
+            r.ApprovedBy = &adminID
+            r.ApprovedAt = &now
+            r.RejectedReason = &reason
 
-		if err := s.regRepo.Update(ctx, r); err != nil {
-			return err
-		}
-		out = r
-		return nil
-	})
+            if err := s.regRepo.Update(ctx, r); err != nil {
+                return err
+            }
+            out = r
+            return nil
+        })
+    })
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +244,8 @@ func (s *registrationService) AdminReject(ctx context.Context, id, adminID, reas
 }
 
 func (s *registrationService) AdminDelete(ctx context.Context, id string) error {
-	return s.regRepo.Delete(ctx, id)
+    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "RegistrationService.AdminDelete")() }
+    return s.regRepo.Delete(ctx, id)
 }
 
 func generateToken() (raw string, hash string, err error) {
