@@ -2,16 +2,16 @@
 package service
 
 import (
-    "context"
-    "fmt"
-    "time"
+	"context"
+	"fmt"
+	"time"
 
-    "gorm.io/gorm"
+	"gorm.io/gorm"
 
-    "be-itts-community/internal/repository"
-    "be-itts-community/internal/model"
-    "be-itts-community/pkg/lock"
-    "be-itts-community/pkg/observability/nr"
+	"be-itts-community/internal/model"
+	"be-itts-community/internal/repository"
+	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/observability/nr"
 )
 
 type EventService interface {
@@ -92,20 +92,22 @@ type CreateEventRegistration struct {
    ====================== */
 
 type eventService struct {
-    db     *gorm.DB
-    repo   repository.EventRepository
-    locker lock.Locker
-    tracer nr.Tracer
+	db     *gorm.DB
+	repo   repository.EventRepository
+	locker lock.Locker
+	tracer nr.Tracer
 }
 
 func NewEventService(db *gorm.DB, repo repository.EventRepository, locker lock.Locker, tracer nr.Tracer) EventService {
-    return &eventService{db: db, repo: repo, locker: locker, tracer: tracer}
+	return &eventService{db: db, repo: repo, locker: locker, tracer: tracer}
 }
 
 /* -------- Events -------- */
 
 func (s *eventService) Create(ctx context.Context, in CreateEvent) (*model.Event, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.Create")() }
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.Create")()
+	}
 	// validasi sederhana waktu
 	if in.EndsAt != nil && in.EndsAt.Before(in.StartsAt) {
 		return nil, fmt.Errorf("ends_at must be after starts_at")
@@ -123,22 +125,22 @@ func (s *eventService) Create(ctx context.Context, in CreateEvent) (*model.Event
 		Venue:       in.Venue,
 		Status:      model.EventDraft,
 	}
-    if in.Status != nil {
-        ev.Status = *in.Status
-    }
-    if err := s.locker.WithLock(ctx, "lock:events:create", 10*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            if err := txRepo.CreateEvent(ctx, ev); err != nil {
-                return err
-            }
-            return nil
-        })
-    }); err != nil {
-        return nil, err
-    }
-    // kembalikan dengan child preloaded (repo GetEventByID sudah preload)
-    return s.repo.GetEventByID(ctx, ev.ID)
+	if in.Status != nil {
+		ev.Status = *in.Status
+	}
+	if err := s.locker.WithLock(ctx, "lock:events:create", 10*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			if err := txRepo.CreateEvent(ctx, ev); err != nil {
+				return err
+			}
+			return nil
+		})
+	}); err != nil {
+		return nil, err
+	}
+	// kembalikan dengan child preloaded (repo GetEventByID sudah preload)
+	return s.repo.GetEventByID(ctx, ev.ID)
 }
 
 func (s *eventService) Get(ctx context.Context, id string) (*model.Event, error) {
@@ -150,11 +152,13 @@ func (s *eventService) GetBySlug(ctx context.Context, slug string) (*model.Event
 }
 
 func (s *eventService) Update(ctx context.Context, id string, in UpdateEvent) (*model.Event, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.Update")() }
-    ev, err := s.repo.GetEventByID(ctx, id)
-    if err != nil {
-        return nil, err
-    }
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.Update")()
+	}
+	ev, err := s.repo.GetEventByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 
 	if in.Slug != nil {
 		ev.Slug = in.Slug
@@ -192,25 +196,27 @@ func (s *eventService) Update(ctx context.Context, id string, in UpdateEvent) (*
 		return nil, fmt.Errorf("ends_at must be after starts_at")
 	}
 
-    if err := s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.UpdateEvent(ctx, ev)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return s.repo.GetEventByID(ctx, id)
+	if err := s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.UpdateEvent(ctx, ev)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return s.repo.GetEventByID(ctx, id)
 }
 
 func (s *eventService) Delete(ctx context.Context, id string) error {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.Delete")() }
-    return s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.DeleteEvent(ctx, id)
-        })
-    })
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.Delete")()
+	}
+	return s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.DeleteEvent(ctx, id)
+		})
+	})
 }
 
 func (s *eventService) List(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.Event], error) {
@@ -218,57 +224,63 @@ func (s *eventService) List(ctx context.Context, p *repository.ListParams) (*rep
 }
 
 func (s *eventService) SetStatus(ctx context.Context, id string, status model.EventStatus) (*model.Event, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.SetStatus")() }
-    ev, err := s.repo.GetEventByID(ctx, id)
-    if err != nil {
-        return nil, err
-    }
-    ev.Status = status
-    if err := s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.UpdateEvent(ctx, ev)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return s.repo.GetEventByID(ctx, id)
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.SetStatus")()
+	}
+	ev, err := s.repo.GetEventByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ev.Status = status
+	if err := s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.UpdateEvent(ctx, ev)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return s.repo.GetEventByID(ctx, id)
 }
 
 /* -------- Speakers -------- */
 
 func (s *eventService) AddSpeaker(ctx context.Context, in CreateSpeaker) (*model.EventSpeaker, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.AddSpeaker")() }
-    sp := &model.EventSpeaker{
-        EventID:   in.EventID,
-        Name:      in.Name,
-        Title:     in.Title,
-        AvatarURL: in.AvatarURL,
-    }
-    if in.SortOrder != nil {
-        sp.SortOrder = *in.SortOrder
-    }
-    if err := s.locker.WithLock(ctx, "lock:event_speakers:"+in.EventID, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.CreateSpeaker(ctx, sp)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return sp, nil
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.AddSpeaker")()
+	}
+	sp := &model.EventSpeaker{
+		EventID:   in.EventID,
+		Name:      in.Name,
+		Title:     in.Title,
+		AvatarURL: in.AvatarURL,
+	}
+	if in.SortOrder != nil {
+		sp.SortOrder = *in.SortOrder
+	}
+	if err := s.locker.WithLock(ctx, "lock:event_speakers:"+in.EventID, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.CreateSpeaker(ctx, sp)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return sp, nil
 }
 
 func (s *eventService) UpdateSpeaker(ctx context.Context, id string, in UpdateSpeaker) (*model.EventSpeaker, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.UpdateSpeaker")() }
-    // Ambil dulu speaker existing
-    list, err := s.repo.ListSpeakers(ctx, &repository.ListParams{
-        Filters: map[string]any{
-            "id": id,
-        },
-        Page:     1,
-        PageSize: 1,
-    })
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.UpdateSpeaker")()
+	}
+	// Ambil dulu speaker existing
+	list, err := s.repo.ListSpeakers(ctx, &repository.ListParams{
+		Filters: map[string]any{
+			"id": id,
+		},
+		Page:     1,
+		PageSize: 1,
+	})
 
 	if err != nil {
 		return nil, err
@@ -291,25 +303,27 @@ func (s *eventService) UpdateSpeaker(ctx context.Context, id string, in UpdateSp
 		sp.SortOrder = *in.SortOrder
 	}
 
-    if err := s.locker.WithLock(ctx, "lock:event_speakers:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.UpdateSpeaker(ctx, &sp)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return &sp, nil
+	if err := s.locker.WithLock(ctx, "lock:event_speakers:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.UpdateSpeaker(ctx, &sp)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &sp, nil
 }
 
 func (s *eventService) DeleteSpeaker(ctx context.Context, id string) error {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.DeleteSpeaker")() }
-    return s.locker.WithLock(ctx, "lock:event_speakers:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.DeleteSpeaker(ctx, id)
-        })
-    })
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.DeleteSpeaker")()
+	}
+	return s.locker.WithLock(ctx, "lock:event_speakers:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.DeleteSpeaker(ctx, id)
+		})
+	})
 }
 
 func (s *eventService) ListSpeakers(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.EventSpeaker], error) {
@@ -319,35 +333,39 @@ func (s *eventService) ListSpeakers(ctx context.Context, p *repository.ListParam
 /* -------- Registrations -------- */
 
 func (s *eventService) RegisterToEvent(ctx context.Context, in CreateEventRegistration) (*model.EventRegistration, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.RegisterToEvent")() }
-    // Opsional: validasi event exist
-    if _, err := s.repo.GetEventByID(ctx, in.EventID); err != nil {
-        return nil, err
-    }
-    reg := &model.EventRegistration{
-        EventID:  in.EventID,
-        FullName: in.FullName,
-        Email:    in.Email,
-    }
-    if err := s.locker.WithLock(ctx, "lock:event_reg:"+in.EventID+":"+in.Email, 10*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.CreateRegistration(ctx, reg)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return reg, nil
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.RegisterToEvent")()
+	}
+	// Opsional: validasi event exist
+	if _, err := s.repo.GetEventByID(ctx, in.EventID); err != nil {
+		return nil, err
+	}
+	reg := &model.EventRegistration{
+		EventID:  in.EventID,
+		FullName: in.FullName,
+		Email:    in.Email,
+	}
+	if err := s.locker.WithLock(ctx, "lock:event_reg:"+in.EventID+":"+in.Email, 10*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.CreateRegistration(ctx, reg)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return reg, nil
 }
 
 func (s *eventService) Unregister(ctx context.Context, id string) error {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "EventService.Unregister")() }
-    return s.locker.WithLock(ctx, "lock:event_reg:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewEventRepository(tx)
-            return txRepo.DeleteRegistration(ctx, id)
-        })
-    })
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventService.Unregister")()
+	}
+	return s.locker.WithLock(ctx, "lock:event_reg:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewEventRepository(tx)
+			return txRepo.DeleteRegistration(ctx, id)
+		})
+	})
 }
 
 func (s *eventService) ListRegistrations(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.EventRegistration], error) {

@@ -8,8 +8,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
 
-	"be-itts-community/internal/repository"
 	"be-itts-community/internal/model"
+	"be-itts-community/internal/repository"
 )
 
 type EventRegistrationService interface {

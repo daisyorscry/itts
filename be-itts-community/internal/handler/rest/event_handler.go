@@ -7,10 +7,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"be-itts-community/core"
 	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
+
+	"github.com/daisyorscry/itts/core"
 )
 
 type EventHandler struct {

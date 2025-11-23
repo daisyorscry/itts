@@ -10,8 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
+
 	"go.uber.org/automaxprocs/maxprocs"
 
 	"be-itts-community/config"
@@ -36,7 +38,7 @@ func main() {
 		Environment: cfg.AppEnv,
 		Pretty:      cfg.AppEnv != "production",
 	})
-	log.Info("starting app", map[string]any{"gomaxprocs": runtime.GOMAXPROCS(0)})
+	log.WithFields(map[string]any{"gomaxprocs": runtime.GOMAXPROCS(0)}).Info("starting app")
 
 	// DB connect
 	gormDB := db.Connect(cfg.DB.Host, cfg.DB.User, cfg.DB.Password, cfg.DB.Name, cfg.DB.Port, cfg.DB.SSLMode, cfg.DB.Timezone)
@@ -47,7 +49,7 @@ func main() {
 	if err := sqlDB.Ping(); err != nil {
 		log.Critical("failed to ping database", err)
 	}
-	log.Info("database connected", map[string]any{"host": cfg.DB.Host})
+	log.WithFields(map[string]any{"host": cfg.DB.Host}).Info("database connected")
 
 	r := chi.NewRouter()
 
@@ -114,7 +116,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("listening", map[string]any{"addr": srv.Addr})
+		log.WithFields(map[string]any{"addr": srv.Addr}).Info("listening")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			errCh <- err
 		}
@@ -122,21 +124,21 @@ func main() {
 
 	select {
 	case <-ctx.Done():
-		log.Info("shutdown signal received", nil)
+		log.Info("shutdown signal received")
 	case err := <-errCh:
-		log.Error("http server error", err)
+		log.WithError(err).Error("http server error")
 	}
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
-		log.Error("failed to shutdown server", err)
+		log.WithError(err).Error("failed to shutdown server")
 	}
 
 	if err := sqlDB.Close(); err != nil {
-		log.Warn("failed to close db", err)
+		log.WithError(err).Warn("failed to close db")
 	}
 
-	log.Info("server stopped cleanly", nil)
+	log.Info("server stopped cleanly")
 	os.Exit(0)
 }

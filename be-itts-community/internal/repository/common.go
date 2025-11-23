@@ -1,13 +1,14 @@
 package repository
 
 import (
-    "context"
-    "errors"
-    "fmt"
-    "strings"
+	"context"
+	"errors"
+	"fmt"
+	"strings"
 
-    "gorm.io/gorm"
-    "be-itts-community/pkg/observability/nr"
+	"be-itts-community/pkg/observability/nr"
+
+	"gorm.io/gorm"
 )
 
 type ListParams struct {
@@ -109,24 +110,24 @@ func ApplyListQuery(db *gorm.DB, p *ListParams, searchableColumns []string, sort
 }
 
 func Paginate[T any](ctx context.Context, q *gorm.DB, p *ListParams, out *[]T) (*PageResult[T], error) {
-    end := func() {}
-    if RepoTracer != nil {
-        end = RepoTracer.StartDatastoreSegment(ctx, "paginate", "count+find")
-    }
-    defer end()
-    SanitizePaging(p)
+	end := func() {}
+	if RepoTracer != nil {
+		end = RepoTracer.StartDatastoreSegment(ctx, "paginate", "count+find")
+	}
+	defer end()
+	SanitizePaging(p)
 
 	var total int64
-    if err := q.WithContext(ctx).Count(&total).Error; err != nil {
-        return nil, err
-    }
+	if err := q.WithContext(ctx).Count(&total).Error; err != nil {
+		return nil, err
+	}
 
-    if err := q.WithContext(ctx).
-        Offset((p.Page - 1) * p.PageSize).
-        Limit(p.PageSize).
-        Find(out).Error; err != nil {
-        return nil, err
-    }
+	if err := q.WithContext(ctx).
+		Offset((p.Page - 1) * p.PageSize).
+		Limit(p.PageSize).
+		Find(out).Error; err != nil {
+		return nil, err
+	}
 
 	totalPages := int(total) / p.PageSize
 	if int(total)%p.PageSize != 0 {

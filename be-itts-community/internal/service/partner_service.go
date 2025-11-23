@@ -1,14 +1,15 @@
 package service
 
 import (
-    "context"
+	"context"
+	"time"
 
-    "gorm.io/gorm"
+	"gorm.io/gorm"
 
-    "be-itts-community/internal/repository"
-    "be-itts-community/internal/model"
-    "be-itts-community/pkg/lock"
-    "be-itts-community/pkg/observability/nr"
+	"be-itts-community/internal/model"
+	"be-itts-community/internal/repository"
+	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/observability/nr"
 )
 
 type PartnerService interface {
@@ -45,19 +46,21 @@ type UpdatePartner struct {
 }
 
 type partnerService struct {
-    db     *gorm.DB
-    repo   repository.PartnerRepository
-    locker lock.Locker
-    tracer nr.Tracer
+	db     *gorm.DB
+	repo   repository.PartnerRepository
+	locker lock.Locker
+	tracer nr.Tracer
 }
 
 func NewPartnerService(db *gorm.DB, repo repository.PartnerRepository, locker lock.Locker, tracer nr.Tracer) PartnerService {
-    return &partnerService{db: db, repo: repo, locker: locker, tracer: tracer}
+	return &partnerService{db: db, repo: repo, locker: locker, tracer: tracer}
 }
 
 func (s *partnerService) Create(ctx context.Context, in CreatePartner) (*model.Partner, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "PartnerService.Create")() }
-    p := &model.Partner{
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "PartnerService.Create")()
+	}
+	p := &model.Partner{
 		Name:        in.Name,
 		Kind:        in.Kind,
 		Subtitle:    in.Subtitle,
@@ -71,15 +74,15 @@ func (s *partnerService) Create(ctx context.Context, in CreatePartner) (*model.P
 	if in.Priority != nil {
 		p.Priority = *in.Priority
 	}
-    if err := s.locker.WithLock(ctx, "lock:partners:create", 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewPartnerRepository(tx)
-            return txRepo.Create(ctx, p)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return p, nil
+	if err := s.locker.WithLock(ctx, "lock:partners:create", 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewPartnerRepository(tx)
+			return txRepo.Create(ctx, p)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (s *partnerService) Get(ctx context.Context, id string) (*model.Partner, error) {
@@ -87,8 +90,10 @@ func (s *partnerService) Get(ctx context.Context, id string) (*model.Partner, er
 }
 
 func (s *partnerService) Update(ctx context.Context, id string, in UpdatePartner) (*model.Partner, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "PartnerService.Update")() }
-    p, err := s.repo.GetByID(ctx, id)
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "PartnerService.Update")()
+	}
+	p, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -116,25 +121,27 @@ func (s *partnerService) Update(ctx context.Context, id string, in UpdatePartner
 	if in.Priority != nil {
 		p.Priority = *in.Priority
 	}
-    if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewPartnerRepository(tx)
-            return txRepo.Update(ctx, p)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return p, nil
+	if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewPartnerRepository(tx)
+			return txRepo.Update(ctx, p)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (s *partnerService) Delete(ctx context.Context, id string) error {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "PartnerService.Delete")() }
-    return s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewPartnerRepository(tx)
-            return txRepo.Delete(ctx, id)
-        })
-    })
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "PartnerService.Delete")()
+	}
+	return s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewPartnerRepository(tx)
+			return txRepo.Delete(ctx, id)
+		})
+	})
 }
 
 func (s *partnerService) List(ctx context.Context, p *repository.ListParams) (*repository.PageResult[model.Partner], error) {
@@ -142,37 +149,41 @@ func (s *partnerService) List(ctx context.Context, p *repository.ListParams) (*r
 }
 
 func (s *partnerService) SetActive(ctx context.Context, id string, active bool) (*model.Partner, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "PartnerService.SetActive")() }
-    p, err := s.repo.GetByID(ctx, id)
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "PartnerService.SetActive")()
+	}
+	p, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	p.IsActive = active
-    if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewPartnerRepository(tx)
-            return txRepo.Update(ctx, p)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return p, nil
+	if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewPartnerRepository(tx)
+			return txRepo.Update(ctx, p)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
 
 func (s *partnerService) SetPriority(ctx context.Context, id string, priority int) (*model.Partner, error) {
-    if s.tracer != nil { defer s.tracer.StartSegment(ctx, "PartnerService.SetPriority")() }
-    p, err := s.repo.GetByID(ctx, id)
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "PartnerService.SetPriority")()
+	}
+	p, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	p.Priority = priority
-    if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
-        return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-            txRepo := repository.NewPartnerRepository(tx)
-            return txRepo.Update(ctx, p)
-        })
-    }); err != nil {
-        return nil, err
-    }
-    return p, nil
+	if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			txRepo := repository.NewPartnerRepository(tx)
+			return txRepo.Update(ctx, p)
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return p, nil
 }
