@@ -7,6 +7,7 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
 )
@@ -22,14 +23,14 @@ func NewRoadmapItemHandler(svc service.RoadmapItemService) *RoadmapItemHandler {
 // POST /api/v1/admin/roadmap-items
 // Atau: POST /api/v1/admin/roadmaps/:roadmap_id/items (lihat handler tambahan di bawah)
 func (h *RoadmapItemHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateRoadmapItemRequest
+	var req model.CreateRoadmapItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	it, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, it)
@@ -40,7 +41,7 @@ func (h *RoadmapItemHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	it, err := h.svc.Get(r.Context(), id)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, it)
@@ -49,14 +50,14 @@ func (h *RoadmapItemHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/roadmap-items/:id
 func (h *RoadmapItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateRoadmapItemRequest
+	var req model.UpdateRoadmapItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	it, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, it)
@@ -66,7 +67,7 @@ func (h *RoadmapItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *RoadmapItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)
@@ -88,7 +89,7 @@ func (h *RoadmapItemHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.svc.List(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -98,7 +99,7 @@ func (h *RoadmapItemHandler) List(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/admin/roadmaps/:roadmap_id/items
 func (h *RoadmapItemHandler) CreateUnderRoadmap(w http.ResponseWriter, r *http.Request) {
 	roadmapID := chi.URLParam(r, "roadmap_id")
-	var req service.CreateRoadmapItemRequest
+	var req model.CreateRoadmapItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -106,7 +107,7 @@ func (h *RoadmapItemHandler) CreateUnderRoadmap(w http.ResponseWriter, r *http.R
 	req.RoadmapID = roadmapID
 	it, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, it)

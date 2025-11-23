@@ -3,52 +3,60 @@ package repository
 import (
 	"context"
 
-	"gorm.io/gorm"
-
+	"be-itts-community/internal/db"
 	"be-itts-community/internal/model"
 )
 
-type EventSpeakerRepository interface {
-	Create(ctx context.Context, m *model.EventSpeaker) error
-	GetByID(ctx context.Context, id string) (*model.EventSpeaker, error)
-	Update(ctx context.Context, m *model.EventSpeaker) error
-	Delete(ctx context.Context, id string) error
+type eventSpeakerRepo struct{ db db.Connection }
 
-	List(ctx context.Context, p ListParams) (*PageResult[model.EventSpeaker], error)
-}
-
-type eventSpeakerRepo struct{ db *gorm.DB }
-
-func NewEventSpeakerRepository(d *gorm.DB) EventSpeakerRepository {
-	return &eventSpeakerRepo{db: d}
+func NewEventSpeakerRepository(conn db.Connection) EventSpeakerRepository {
+	return &eventSpeakerRepo{db: conn}
 }
 
 func (r *eventSpeakerRepo) Create(ctx context.Context, m *model.EventSpeaker) error {
-	return r.db.WithContext(ctx).Create(m).Error
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Create")()
+	}
+	return r.db.Get(ctx).Create(m).Error
 }
+
 func (r *eventSpeakerRepo) GetByID(ctx context.Context, id string) (*model.EventSpeaker, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "GetByID")()
+	}
 	var out model.EventSpeaker
-	if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
+	if err := r.db.Get(ctx).First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
+
 func (r *eventSpeakerRepo) Update(ctx context.Context, m *model.EventSpeaker) error {
-	return r.db.WithContext(ctx).Save(m).Error
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Update")()
+	}
+	return r.db.Get(ctx).Save(m).Error
 }
+
 func (r *eventSpeakerRepo) Delete(ctx context.Context, id string) error {
-	return r.db.WithContext(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Delete")()
+	}
+	return r.db.Get(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
 }
+
 func (r *eventSpeakerRepo) List(ctx context.Context, p ListParams) (*PageResult[model.EventSpeaker], error) {
-	searchable := []string{"name", "title"}
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "List")()
+	}
+	searchable := []string{"name", "title", "event_id"}
 	sorts := map[string]string{
 		"id":         "id",
 		"event_id":   "event_id",
 		"name":       "name",
-		"title":      "title",
 		"sort_order": "sort_order",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.EventSpeaker{}), &p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Get(ctx).Model(&model.EventSpeaker{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}

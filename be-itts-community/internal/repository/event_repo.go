@@ -9,43 +9,15 @@ import (
 	"be-itts-community/internal/model"
 )
 
-// Satu repo untuk Event + Speakers + EventRegistrations
-type EventRepository interface {
-	// Event CRUD
-	CreateEvent(ctx context.Context, m *model.Event) error
-	GetEventByID(ctx context.Context, id string) (*model.Event, error)
-	GetEventBySlug(ctx context.Context, slug string) (*model.Event, error)
-	UpdateEvent(ctx context.Context, m *model.Event) error
-	DeleteEvent(ctx context.Context, id string) error
-	ListEvents(ctx context.Context, p ListParams) (*PageResult[model.Event], error)
-
-	// Speakers CRUD
-	CreateSpeaker(ctx context.Context, m *model.EventSpeaker) error
-	UpdateSpeaker(ctx context.Context, m *model.EventSpeaker) error
-	DeleteSpeaker(ctx context.Context, id string) error
-	ListSpeakers(ctx context.Context, p *ListParams) (*PageResult[model.EventSpeaker], error)
-
-	// Registrations (biasanya create + list + delete saja)
-	CreateRegistration(ctx context.Context, m *model.EventRegistration) error
-	DeleteRegistration(ctx context.Context, id string) error
-	ListRegistrations(ctx context.Context, p *ListParams) (*PageResult[model.EventRegistration], error)
+func (r *eventRepo) RunInTransaction(ctx context.Context, f func(tx context.Context) error) error {
+	return r.db.Run(ctx, f)
 }
-
-type eventRepo struct{ db *gorm.DB }
-
-func NewEventRepository(d *gorm.DB) EventRepository {
-	return &eventRepo{db: d}
-}
-
-// =====================
-// Event
-// =====================
 
 func (r *eventRepo) CreateEvent(ctx context.Context, m *model.Event) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "events", "Create")()
 	}
-	return r.db.WithContext(ctx).Create(m).Error
+	return r.db.Get(ctx).Create(m).Error
 }
 
 func (r *eventRepo) preloadChildren(db *gorm.DB) *gorm.DB {
@@ -60,7 +32,7 @@ func (r *eventRepo) GetEventByID(ctx context.Context, id string) (*model.Event, 
 		defer RepoTracer.StartDatastoreSegment(ctx, "events", "GetByID")()
 	}
 	var out model.Event
-	if err := r.preloadChildren(r.db.WithContext(ctx)).
+	if err := r.preloadChildren(r.db.Get(ctx)).
 		First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
@@ -72,7 +44,7 @@ func (r *eventRepo) GetEventBySlug(ctx context.Context, slug string) (*model.Eve
 		defer RepoTracer.StartDatastoreSegment(ctx, "events", "GetBySlug")()
 	}
 	var out model.Event
-	if err := r.preloadChildren(r.db.WithContext(ctx)).
+	if err := r.preloadChildren(r.db.Get(ctx)).
 		First(&out, "slug = ?", slug).Error; err != nil {
 		return nil, err
 	}
@@ -83,14 +55,14 @@ func (r *eventRepo) UpdateEvent(ctx context.Context, m *model.Event) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "events", "Update")()
 	}
-	return r.db.WithContext(ctx).Save(m).Error
+	return r.db.Get(ctx).Save(m).Error
 }
 
 func (r *eventRepo) DeleteEvent(ctx context.Context, id string) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "events", "Delete")()
 	}
-	return r.db.WithContext(ctx).Delete(&model.Event{}, "id = ?", id).Error
+	return r.db.Get(ctx).Delete(&model.Event{}, "id = ?", id).Error
 }
 
 func (r *eventRepo) ListEvents(ctx context.Context, p ListParams) (*PageResult[model.Event], error) {
@@ -112,7 +84,7 @@ func (r *eventRepo) ListEvents(ctx context.Context, p ListParams) (*PageResult[m
 		"updated_at": "updated_at",
 	}
 
-	base := r.db.Model(&model.Event{})
+	base := r.db.Get(ctx).Model(&model.Event{})
 	q, err := ApplyListQuery(base, &p, searchable, sorts)
 	if err != nil {
 		return nil, err
@@ -133,21 +105,21 @@ func (r *eventRepo) CreateSpeaker(ctx context.Context, m *model.EventSpeaker) er
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Create")()
 	}
-	return r.db.WithContext(ctx).Create(m).Error
+	return r.db.Get(ctx).Create(m).Error
 }
 
 func (r *eventRepo) UpdateSpeaker(ctx context.Context, m *model.EventSpeaker) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Update")()
 	}
-	return r.db.WithContext(ctx).Save(m).Error
+	return r.db.Get(ctx).Save(m).Error
 }
 
 func (r *eventRepo) DeleteSpeaker(ctx context.Context, id string) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_speakers", "Delete")()
 	}
-	return r.db.WithContext(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
+	return r.db.Get(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
 }
 
 func (r *eventRepo) ListSpeakers(ctx context.Context, p *ListParams) (*PageResult[model.EventSpeaker], error) {
@@ -162,7 +134,7 @@ func (r *eventRepo) ListSpeakers(ctx context.Context, p *ListParams) (*PageResul
 		"title":      "title",
 		"sort_order": "sort_order",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.EventSpeaker{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Get(ctx).Model(&model.EventSpeaker{}), p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
@@ -178,14 +150,14 @@ func (r *eventRepo) CreateRegistration(ctx context.Context, m *model.EventRegist
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "Create")()
 	}
-	return r.db.WithContext(ctx).Create(m).Error
+	return r.db.Get(ctx).Create(m).Error
 }
 
 func (r *eventRepo) DeleteRegistration(ctx context.Context, id string) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "Delete")()
 	}
-	return r.db.WithContext(ctx).Delete(&model.EventRegistration{}, "id = ?", id).Error
+	return r.db.Get(ctx).Delete(&model.EventRegistration{}, "id = ?", id).Error
 }
 
 func (r *eventRepo) ListRegistrations(ctx context.Context, p *ListParams) (*PageResult[model.EventRegistration], error) {
@@ -200,7 +172,7 @@ func (r *eventRepo) ListRegistrations(ctx context.Context, p *ListParams) (*Page
 		"email":      "email",
 		"created_at": "created_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.EventRegistration{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Get(ctx).Model(&model.EventRegistration{}), p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}

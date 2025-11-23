@@ -7,6 +7,7 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
 )
@@ -21,14 +22,14 @@ func NewMentorHandler(svc service.MentorService) *MentorHandler {
 
 // POST /api/v1/admin/mentors
 func (h *MentorHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateMentorRequest
+	var req model.CreateMentorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	m, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, m)
@@ -39,7 +40,7 @@ func (h *MentorHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	m, err := h.svc.Get(r.Context(), id)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, m)
@@ -48,14 +49,14 @@ func (h *MentorHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/mentors/:id
 func (h *MentorHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateMentorRequest
+	var req model.UpdateMentorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	m, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, m)
@@ -65,7 +66,7 @@ func (h *MentorHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *MentorHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)
@@ -109,7 +110,7 @@ func (h *MentorHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.svc.List(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -122,13 +123,13 @@ func (h *MentorHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 		Active bool `json:"active"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	req := service.SetMentorActiveRequest{
+	req := model.SetMentorActiveRequest{
 		ID:     id,
 		Active: body.Active,
 	}
 	m, err := h.svc.SetActive(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "SET_ACTIVE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, m)
@@ -141,13 +142,13 @@ func (h *MentorHandler) SetPriority(w http.ResponseWriter, r *http.Request) {
 		Priority int `json:"priority"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	req := service.SetMentorPriorityRequest{
+	req := model.SetMentorPriorityRequest{
 		ID:       id,
 		Priority: body.Priority,
 	}
 	m, err := h.svc.SetPriority(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "SET_PRIORITY_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, m)

@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/daisyorscry/itts/core"
 	"gorm.io/gorm"
 
 	"be-itts-community/internal/model"
@@ -13,152 +15,60 @@ import (
 	"be-itts-community/pkg/validator"
 )
 
-// ========================================
-// Request DTOs
-// ========================================
-
-type CreateRoadmapItemRequest struct {
-	RoadmapID string `json:"roadmap_id" validate:"required,uuid4"`
-	ItemText  string `json:"item_text" validate:"required,min=1"`
-	SortOrder *int   `json:"sort_order"`
-}
-
-type UpdateRoadmapItemRequest struct {
-	RoadmapID *string `json:"roadmap_id,omitempty" validate:"omitempty,uuid4"`
-	ItemText  *string `json:"item_text,omitempty" validate:"omitempty,min=1"`
-	SortOrder *int    `json:"sort_order,omitempty"`
-}
-
-// ========================================
-// Response DTOs
-// ========================================
-
-type RoadmapItemDetailResponse struct {
-	ID        string `json:"id"`
-	RoadmapID string `json:"roadmap_id"`
-	ItemText  string `json:"item_text"`
-	SortOrder int    `json:"sort_order"`
-}
-
-type RoadmapItemListResponse struct {
-	Data       []RoadmapItemDetailResponse `json:"data"`
-	Total      int64                       `json:"total"`
-	Page       int                         `json:"page"`
-	PageSize   int                         `json:"page_size"`
-	TotalPages int                         `json:"total_pages"`
-}
-
-// ========================================
-// Mappers
-// ========================================
-
-func (r CreateRoadmapItemRequest) ToModel() model.RoadmapItem {
-	it := model.RoadmapItem{
-		RoadmapID: r.RoadmapID,
-		ItemText:  r.ItemText,
-		SortOrder: 0,
-	}
-	if r.SortOrder != nil {
-		it.SortOrder = *r.SortOrder
-	}
-	return it
-}
-
-func RoadmapItemDetailToResponse(m model.RoadmapItem) RoadmapItemDetailResponse {
-	return RoadmapItemDetailResponse{
-		ID:        m.ID,
-		RoadmapID: m.RoadmapID,
-		ItemText:  m.ItemText,
-		SortOrder: m.SortOrder,
-	}
-}
-
-func RoadmapItemListToResponse(pr repository.PageResult[model.RoadmapItem]) RoadmapItemListResponse {
-	data := make([]RoadmapItemDetailResponse, 0, len(pr.Data))
-	for _, m := range pr.Data {
-		data = append(data, RoadmapItemDetailToResponse(m))
-	}
-	return RoadmapItemListResponse{
-		Data:       data,
-		Total:      pr.Total,
-		Page:       pr.Page,
-		PageSize:   pr.PageSize,
-		TotalPages: pr.TotalPages,
-	}
-}
-
-// ========================================
-// Service Interface
-// ========================================
-
-type RoadmapItemService interface {
-	Create(ctx context.Context, req CreateRoadmapItemRequest) (RoadmapItemDetailResponse, error)
-	Get(ctx context.Context, id string) (RoadmapItemDetailResponse, error)
-	Update(ctx context.Context, id string, req UpdateRoadmapItemRequest) (RoadmapItemDetailResponse, error)
-	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, p repository.ListParams) (RoadmapItemListResponse, error)
-}
-
-// ========================================
-// Service Implementation
-// ========================================
-
 type roadmapItemService struct {
-	db     *gorm.DB
 	repo   repository.RoadmapItemRepository
 	locker lock.Locker
 	tracer nr.Tracer
 }
 
-func NewRoadmapItemService(db *gorm.DB, repo repository.RoadmapItemRepository, locker lock.Locker, tracer nr.Tracer) RoadmapItemService {
-	return &roadmapItemService{db: db, repo: repo, locker: locker, tracer: tracer}
-}
-
-func (s *roadmapItemService) Create(ctx context.Context, req CreateRoadmapItemRequest) (RoadmapItemDetailResponse, error) {
+func (s *roadmapItemService) Create(ctx context.Context, req model.CreateRoadmapItemRequest) (model.RoadmapItemDetailResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RoadmapItemService.Create")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return RoadmapItemDetailResponse{}, err
+		return model.RoadmapItemDetailResponse{}, core.ValidationError(err)
 	}
 
 	it := req.ToModel()
 
 	if err := s.locker.WithLock(ctx, "lock:roadmap_items:create", 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewRoadmapItemRepository(tx)
-			return txRepo.Create(ctx, &it)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Create(txCtx, &it)
 		})
 	}); err != nil {
-		return RoadmapItemDetailResponse{}, err
+		return model.RoadmapItemDetailResponse{}, core.InternalServerError("failed to create roadmap item").WithError(err)
 	}
 
-	return RoadmapItemDetailToResponse(it), nil
+	return model.RoadmapItemDetailToResponse(it), nil
 }
 
-func (s *roadmapItemService) Get(ctx context.Context, id string) (RoadmapItemDetailResponse, error) {
+func (s *roadmapItemService) Get(ctx context.Context, id string) (model.RoadmapItemDetailResponse, error) {
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return RoadmapItemDetailResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.RoadmapItemDetailResponse{}, core.NotFound("roadmap_item", id)
+		}
+		return model.RoadmapItemDetailResponse{}, core.InternalServerError("failed to fetch roadmap item").WithError(err)
 	}
-	return RoadmapItemDetailToResponse(*m), nil
+	return model.RoadmapItemDetailToResponse(*m), nil
 }
 
-func (s *roadmapItemService) Update(ctx context.Context, id string, req UpdateRoadmapItemRequest) (RoadmapItemDetailResponse, error) {
+func (s *roadmapItemService) Update(ctx context.Context, id string, req model.UpdateRoadmapItemRequest) (model.RoadmapItemDetailResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RoadmapItemService.Update")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return RoadmapItemDetailResponse{}, err
+		return model.RoadmapItemDetailResponse{}, core.ValidationError(err)
 	}
 
 	it, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return RoadmapItemDetailResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.RoadmapItemDetailResponse{}, core.NotFound("roadmap_item", id)
+		}
+		return model.RoadmapItemDetailResponse{}, core.InternalServerError("failed to fetch roadmap item").WithError(err)
 	}
 
 	if req.RoadmapID != nil {
@@ -172,15 +82,14 @@ func (s *roadmapItemService) Update(ctx context.Context, id string, req UpdateRo
 	}
 
 	if err := s.locker.WithLock(ctx, "lock:roadmap_items:"+id, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewRoadmapItemRepository(tx)
-			return txRepo.Update(ctx, it)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, it)
 		})
 	}); err != nil {
-		return RoadmapItemDetailResponse{}, err
+		return model.RoadmapItemDetailResponse{}, core.InternalServerError("failed to update roadmap item").WithError(err)
 	}
 
-	return RoadmapItemDetailToResponse(*it), nil
+	return model.RoadmapItemDetailToResponse(*it), nil
 }
 
 func (s *roadmapItemService) Delete(ctx context.Context, id string) error {
@@ -188,17 +97,30 @@ func (s *roadmapItemService) Delete(ctx context.Context, id string) error {
 		defer s.tracer.StartSegment(ctx, "RoadmapItemService.Delete")()
 	}
 	return s.locker.WithLock(ctx, "lock:roadmap_items:"+id, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewRoadmapItemRepository(tx)
-			return txRepo.Delete(ctx, id)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Delete(txCtx, id)
 		})
 	})
 }
 
-func (s *roadmapItemService) List(ctx context.Context, p repository.ListParams) (RoadmapItemListResponse, error) {
+func (s *roadmapItemService) List(ctx context.Context, p repository.ListParams) (model.RoadmapItemListResponse, error) {
 	result, err := s.repo.List(ctx, p)
 	if err != nil {
-		return RoadmapItemListResponse{}, err
+		return model.RoadmapItemListResponse{}, err
 	}
-	return RoadmapItemListToResponse(*result), nil
+	return roadmapItemListToResponse(*result), nil
+}
+
+func roadmapItemListToResponse(pr repository.PageResult[model.RoadmapItem]) model.RoadmapItemListResponse {
+	data := make([]model.RoadmapItemDetailResponse, 0, len(pr.Data))
+	for _, m := range pr.Data {
+		data = append(data, model.RoadmapItemDetailToResponse(m))
+	}
+	return model.RoadmapItemListResponse{
+		Data:       data,
+		Total:      pr.Total,
+		Page:       pr.Page,
+		PageSize:   pr.PageSize,
+		TotalPages: pr.TotalPages,
+	}
 }

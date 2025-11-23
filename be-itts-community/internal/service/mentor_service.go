@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/daisyorscry/itts/core"
 	"gorm.io/gorm"
 
 	"be-itts-community/internal/model"
@@ -13,205 +15,60 @@ import (
 	"be-itts-community/pkg/validator"
 )
 
-// ========================================
-// Request DTOs
-// ========================================
-
-type CreateMentorRequest struct {
-	FullName  string              `json:"full_name" validate:"required,min=3"`
-	Title     string              `json:"title"`
-	Bio       string              `json:"bio"`
-	AvatarURL string              `json:"avatar_url"`
-	Programs  []model.ProgramEnum `json:"programs"`
-	IsActive  *bool               `json:"is_active"`
-	Priority  *int                `json:"priority"`
-}
-
-type UpdateMentorRequest struct {
-	FullName  *string             `json:"full_name,omitempty" validate:"omitempty,min=3"`
-	Title     *string             `json:"title,omitempty"`
-	Bio       *string             `json:"bio,omitempty"`
-	AvatarURL *string             `json:"avatar_url,omitempty"`
-	Programs  []model.ProgramEnum `json:"programs,omitempty"`
-	IsActive  *bool               `json:"is_active,omitempty"`
-	Priority  *int                `json:"priority,omitempty"`
-}
-
-type SetMentorActiveRequest struct {
-	ID     string `json:"id" validate:"required"`
-	Active bool   `json:"active"`
-}
-
-type SetMentorPriorityRequest struct {
-	ID       string `json:"id" validate:"required"`
-	Priority int    `json:"priority" validate:"gte=0"`
-}
-
-// ========================================
-// Response DTOs
-// ========================================
-
-type MentorResponse struct {
-	ID        string              `json:"id"`
-	FullName  string              `json:"full_name"`
-	Title     string              `json:"title,omitempty"`
-	Bio       string              `json:"bio,omitempty"`
-	AvatarURL string              `json:"avatar_url,omitempty"`
-	Programs  []model.ProgramEnum `json:"programs,omitempty"`
-	IsActive  bool                `json:"is_active"`
-	Priority  int                 `json:"priority"`
-	CreatedAt time.Time           `json:"created_at"`
-	UpdatedAt time.Time           `json:"updated_at"`
-}
-
-type MentorListResponse struct {
-	Data       []MentorResponse `json:"data"`
-	Total      int64            `json:"total"`
-	Page       int              `json:"page"`
-	PageSize   int              `json:"page_size"`
-	TotalPages int              `json:"total_pages"`
-}
-
-// ========================================
-// Mappers
-// ========================================
-
-func (r CreateMentorRequest) ToModel() model.Mentor {
-	m := model.Mentor{
-		FullName:  r.FullName,
-		Programs:  r.Programs,
-		IsActive:  true,
-		Priority:  0,
-	}
-	if r.Title != "" {
-		m.Title = &r.Title
-	}
-	if r.Bio != "" {
-		m.Bio = &r.Bio
-	}
-	if r.AvatarURL != "" {
-		m.AvatarURL = &r.AvatarURL
-	}
-	if r.IsActive != nil {
-		m.IsActive = *r.IsActive
-	}
-	if r.Priority != nil {
-		m.Priority = *r.Priority
-	}
-	return m
-}
-
-func MentorToResponse(m model.Mentor) MentorResponse {
-	resp := MentorResponse{
-		ID:        m.ID,
-		FullName:  m.FullName,
-		Programs:  m.Programs,
-		IsActive:  m.IsActive,
-		Priority:  m.Priority,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
-	}
-	if m.Title != nil {
-		resp.Title = *m.Title
-	}
-	if m.Bio != nil {
-		resp.Bio = *m.Bio
-	}
-	if m.AvatarURL != nil {
-		resp.AvatarURL = *m.AvatarURL
-	}
-	return resp
-}
-
-func MentorListToResponse(pr repository.PageResult[model.Mentor]) MentorListResponse {
-	data := make([]MentorResponse, 0, len(pr.Data))
-	for _, m := range pr.Data {
-		data = append(data, MentorToResponse(m))
-	}
-	return MentorListResponse{
-		Data:       data,
-		Total:      pr.Total,
-		Page:       pr.Page,
-		PageSize:   pr.PageSize,
-		TotalPages: pr.TotalPages,
-	}
-}
-
-// ========================================
-// Service Interface
-// ========================================
-
-type MentorService interface {
-	Create(ctx context.Context, req CreateMentorRequest) (MentorResponse, error)
-	Get(ctx context.Context, id string) (MentorResponse, error)
-	Update(ctx context.Context, id string, req UpdateMentorRequest) (MentorResponse, error)
-	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, p repository.ListParams) (MentorListResponse, error)
-
-	SetActive(ctx context.Context, req SetMentorActiveRequest) (MentorResponse, error)
-	SetPriority(ctx context.Context, req SetMentorPriorityRequest) (MentorResponse, error)
-}
-
-// ========================================
-// Service Implementation
-// ========================================
-
 type mentorService struct {
-	db     *gorm.DB
 	repo   repository.MentorRepository
 	locker lock.Locker
 	tracer nr.Tracer
 }
 
-func NewMentorService(db *gorm.DB, repo repository.MentorRepository, locker lock.Locker, tracer nr.Tracer) MentorService {
-	return &mentorService{db: db, repo: repo, locker: locker, tracer: tracer}
-}
-
-func (s *mentorService) Create(ctx context.Context, req CreateMentorRequest) (MentorResponse, error) {
+func (s *mentorService) Create(ctx context.Context, req model.CreateMentorRequest) (model.MentorResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "MentorService.Create")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, core.ValidationError(err)
 	}
 
 	m := req.ToModel()
 
 	if err := s.locker.WithLock(ctx, "lock:mentors:create", 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewMentorRepository(tx)
-			return txRepo.Create(ctx, &m)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Create(txCtx, &m)
 		})
 	}); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, core.InternalServerError("failed to create mentor").WithError(err)
 	}
 
-	return MentorToResponse(m), nil
+	return model.MentorToResponse(m), nil
 }
 
-func (s *mentorService) Get(ctx context.Context, id string) (MentorResponse, error) {
+func (s *mentorService) Get(ctx context.Context, id string) (model.MentorResponse, error) {
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return MentorResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.MentorResponse{}, core.NotFound("mentor", id)
+		}
+		return model.MentorResponse{}, core.InternalServerError("failed to fetch mentor").WithError(err)
 	}
-	return MentorToResponse(*m), nil
+	return model.MentorToResponse(*m), nil
 }
 
-func (s *mentorService) Update(ctx context.Context, id string, req UpdateMentorRequest) (MentorResponse, error) {
+func (s *mentorService) Update(ctx context.Context, id string, req model.UpdateMentorRequest) (model.MentorResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "MentorService.Update")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, core.ValidationError(err)
 	}
 
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return MentorResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.MentorResponse{}, core.NotFound("mentor", id)
+		}
+		return model.MentorResponse{}, core.InternalServerError("failed to fetch mentor").WithError(err)
 	}
 
 	if req.FullName != nil {
@@ -237,15 +94,14 @@ func (s *mentorService) Update(ctx context.Context, id string, req UpdateMentorR
 	}
 
 	if err := s.locker.WithLock(ctx, "lock:mentors:"+id, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewMentorRepository(tx)
-			return txRepo.Update(ctx, m)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, m)
 		})
 	}); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, core.InternalServerError("failed to update mentor").WithError(err)
 	}
 
-	return MentorToResponse(*m), nil
+	return model.MentorToResponse(*m), nil
 }
 
 func (s *mentorService) Delete(ctx context.Context, id string) error {
@@ -253,75 +109,90 @@ func (s *mentorService) Delete(ctx context.Context, id string) error {
 		defer s.tracer.StartSegment(ctx, "MentorService.Delete")()
 	}
 	return s.locker.WithLock(ctx, "lock:mentors:"+id, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewMentorRepository(tx)
-			return txRepo.Delete(ctx, id)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Delete(txCtx, id)
 		})
 	})
 }
 
-func (s *mentorService) List(ctx context.Context, p repository.ListParams) (MentorListResponse, error) {
+func (s *mentorService) List(ctx context.Context, p repository.ListParams) (model.MentorListResponse, error) {
 	result, err := s.repo.List(ctx, p)
 	if err != nil {
-		return MentorListResponse{}, err
+		return model.MentorListResponse{}, core.InternalServerError("failed to list mentors").WithError(err)
 	}
-	return MentorListToResponse(*result), nil
+	return mentorListToResponse(*result), nil
 }
 
-func (s *mentorService) SetActive(ctx context.Context, req SetMentorActiveRequest) (MentorResponse, error) {
+func (s *mentorService) SetActive(ctx context.Context, req model.SetMentorActiveRequest) (model.MentorResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "MentorService.SetActive")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, err
 	}
 
 	m, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
-		return MentorResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.MentorResponse{}, core.NotFound("mentor", req.ID)
+		}
+		return model.MentorResponse{}, core.InternalServerError("failed to fetch mentor").WithError(err)
 	}
 
 	m.IsActive = req.Active
 
 	if err := s.locker.WithLock(ctx, "lock:mentors:"+req.ID, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewMentorRepository(tx)
-			return txRepo.Update(ctx, m)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, m)
 		})
 	}); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, core.InternalServerError("failed to update mentor").WithError(err)
 	}
 
-	return MentorToResponse(*m), nil
+	return model.MentorToResponse(*m), nil
 }
 
-func (s *mentorService) SetPriority(ctx context.Context, req SetMentorPriorityRequest) (MentorResponse, error) {
+func (s *mentorService) SetPriority(ctx context.Context, req model.SetMentorPriorityRequest) (model.MentorResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "MentorService.SetPriority")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, err
 	}
 
 	m, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
-		return MentorResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.MentorResponse{}, core.NotFound("mentor", req.ID)
+		}
+		return model.MentorResponse{}, core.InternalServerError("failed to fetch mentor").WithError(err)
 	}
 
 	m.Priority = req.Priority
 
 	if err := s.locker.WithLock(ctx, "lock:mentors:"+req.ID, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewMentorRepository(tx)
-			return txRepo.Update(ctx, m)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, m)
 		})
 	}); err != nil {
-		return MentorResponse{}, err
+		return model.MentorResponse{}, core.InternalServerError("failed to update mentor").WithError(err)
 	}
 
-	return MentorToResponse(*m), nil
+	return model.MentorToResponse(*m), nil
+}
+
+func mentorListToResponse(pr repository.PageResult[model.Mentor]) model.MentorListResponse {
+	data := make([]model.MentorResponse, 0, len(pr.Data))
+	for _, m := range pr.Data {
+		data = append(data, model.MentorToResponse(m))
+	}
+	return model.MentorListResponse{
+		Data:       data,
+		Total:      pr.Total,
+		Page:       pr.Page,
+		PageSize:   pr.PageSize,
+		TotalPages: pr.TotalPages,
+	}
 }

@@ -4,28 +4,18 @@ import (
 	"context"
 	"time"
 
-	"gorm.io/gorm"
-
 	"be-itts-community/internal/model"
 )
 
-type EmailVerificationRepository interface {
-	Create(ctx context.Context, ev *model.EmailVerification) error
-	FindValidByHash(ctx context.Context, tokenHash string) (*model.EmailVerification, error)
-	MarkUsed(ctx context.Context, id string, usedAt time.Time) error
-}
-
-type emailVerificationRepo struct{ db *gorm.DB }
-
-func NewEmailVerificationRepository(gdb *gorm.DB) EmailVerificationRepository {
-	return &emailVerificationRepo{db: gdb}
+func (r *emailVerificationRepo) RunInTransaction(ctx context.Context, f func(tx context.Context) error) error {
+	return r.db.Run(ctx, f)
 }
 
 func (r *emailVerificationRepo) Create(ctx context.Context, ev *model.EmailVerification) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "email_verifications", "Create")()
 	}
-	return r.db.WithContext(ctx).Create(ev).Error
+	return r.db.Get(ctx).Create(ev).Error
 }
 
 func (r *emailVerificationRepo) FindValidByHash(ctx context.Context, tokenHash string) (*model.EmailVerification, error) {
@@ -33,7 +23,7 @@ func (r *emailVerificationRepo) FindValidByHash(ctx context.Context, tokenHash s
 		defer RepoTracer.StartDatastoreSegment(ctx, "email_verifications", "FindValidByHash")()
 	}
 	var out model.EmailVerification
-	if err := r.db.WithContext(ctx).
+	if err := r.db.Get(ctx).
 		Where("token_hash = ? AND used_at IS NULL AND expires_at > now()", tokenHash).
 		First(&out).Error; err != nil {
 		return nil, err
@@ -45,7 +35,7 @@ func (r *emailVerificationRepo) MarkUsed(ctx context.Context, id string, usedAt 
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "email_verifications", "MarkUsed")()
 	}
-	return r.db.WithContext(ctx).
+	return r.db.Get(ctx).
 		Model(&model.EmailVerification{}).
 		Where("id = ?", id).
 		Update("used_at", usedAt).Error

@@ -8,9 +8,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
+	"github.com/daisyorscry/itts/core"
 	"gorm.io/gorm"
 
 	"be-itts-community/internal/model"
@@ -20,133 +20,7 @@ import (
 	"be-itts-community/pkg/validator"
 )
 
-type Mailer interface {
-	Send(to, subject, htmlBody string) error
-}
-
-// ========================================
-// Request DTOs
-// ========================================
-
-type RegisterRequest struct {
-	FullName   string            `json:"full_name" validate:"required,min=3"`
-	Email      string            `json:"email" validate:"required,email"`
-	Program    model.ProgramEnum `json:"program" validate:"required,oneof=networking devsecops programming"`
-	StudentID  int               `json:"student_id" validate:"required"`
-	IntakeYear int               `json:"intake_year" validate:"required,gte=2000,lte=2100"`
-	Motivation string            `json:"motivation" validate:"required,min=10"`
-}
-
-type AdminApproveRequest struct {
-	ID      string `json:"id" validate:"required"`
-	AdminID string `json:"admin_id" validate:"required"`
-}
-
-type AdminRejectRequest struct {
-	ID      string `json:"id" validate:"required"`
-	AdminID string `json:"admin_id" validate:"required"`
-	Reason  string `json:"reason" validate:"required,min=5"`
-}
-
-// ========================================
-// Response DTOs
-// ========================================
-
-type RegistrationResponse struct {
-	ID              string                    `json:"id"`
-	FullName        string                    `json:"full_name"`
-	Email           string                    `json:"email"`
-	Program         model.ProgramEnum         `json:"program"`
-	StudentID       string                    `json:"student_id"`
-	IntakeYear      int                       `json:"intake_year"`
-	Motivation      string                    `json:"motivation"`
-	Status          model.RegistrationStatus  `json:"status"`
-	ApprovedBy      *string                   `json:"approved_by,omitempty"`
-	ApprovedAt      *time.Time                `json:"approved_at,omitempty"`
-	RejectedReason  *string                   `json:"rejected_reason,omitempty"`
-	EmailVerifiedAt *time.Time                `json:"email_verified_at,omitempty"`
-	CreatedAt       time.Time                 `json:"created_at"`
-	UpdatedAt       time.Time                 `json:"updated_at"`
-}
-
-type RegistrationListResponse struct {
-	Data       []RegistrationResponse `json:"data"`
-	Total      int64                  `json:"total"`
-	Page       int                    `json:"page"`
-	PageSize   int                    `json:"page_size"`
-	TotalPages int                    `json:"total_pages"`
-}
-
-// ========================================
-// Mappers
-// ========================================
-
-func (r RegisterRequest) ToModel() model.Registration {
-	return model.Registration{
-		FullName:   r.FullName,
-		Email:      r.Email,
-		Program:    r.Program,
-		StudentID:  strconv.Itoa(r.StudentID),
-		IntakeYear: r.IntakeYear,
-		Motivation: r.Motivation,
-		Status:     model.RegPending,
-	}
-}
-
-func RegistrationToResponse(m model.Registration) RegistrationResponse {
-	return RegistrationResponse{
-		ID:              m.ID,
-		FullName:        m.FullName,
-		Email:           m.Email,
-		Program:         m.Program,
-		StudentID:       m.StudentID,
-		IntakeYear:      m.IntakeYear,
-		Motivation:      m.Motivation,
-		Status:          m.Status,
-		ApprovedBy:      m.ApprovedBy,
-		ApprovedAt:      m.ApprovedAt,
-		RejectedReason:  m.RejectedReason,
-		EmailVerifiedAt: m.EmailVerifiedAt,
-		CreatedAt:       m.CreatedAt,
-		UpdatedAt:       m.UpdatedAt,
-	}
-}
-
-func RegistrationListToResponse(pr repository.PageResult[model.Registration]) RegistrationListResponse {
-	data := make([]RegistrationResponse, 0, len(pr.Data))
-	for _, m := range pr.Data {
-		data = append(data, RegistrationToResponse(m))
-	}
-	return RegistrationListResponse{
-		Data:       data,
-		Total:      pr.Total,
-		Page:       pr.Page,
-		PageSize:   pr.PageSize,
-		TotalPages: pr.TotalPages,
-	}
-}
-
-// ========================================
-// Service Interface
-// ========================================
-
-type RegistrationService interface {
-	Register(ctx context.Context, req RegisterRequest, verifyURL string) (RegistrationResponse, error)
-	VerifyEmail(ctx context.Context, rawToken string) (RegistrationResponse, error)
-
-	AdminList(ctx context.Context, p repository.ListParams) (RegistrationListResponse, error)
-	AdminGet(ctx context.Context, id string) (RegistrationResponse, error)
-	AdminApprove(ctx context.Context, req AdminApproveRequest) (RegistrationResponse, error)
-	AdminReject(ctx context.Context, req AdminRejectRequest) (RegistrationResponse, error)
-	AdminDelete(ctx context.Context, id string) error
-}
-
-// ========================================
-// Service Implementation
-// ========================================
-
 type registrationService struct {
-	db       *gorm.DB
 	regRepo  repository.RegistrationRepository
 	evRepo   repository.EmailVerificationRepository
 	mailer   Mailer
@@ -155,48 +29,38 @@ type registrationService struct {
 	tracer   nr.Tracer
 }
 
-func NewRegistrationService(
-	db *gorm.DB,
-	regRepo repository.RegistrationRepository,
-	evRepo repository.EmailVerificationRepository,
-	mailer Mailer,
-	locker lock.Locker,
-	tracer nr.Tracer,
-) RegistrationService {
-	return &registrationService{
-		db: db, regRepo: regRepo, evRepo: evRepo, mailer: mailer,
-		tokenTTL: 24 * time.Hour,
-		locker:   locker, tracer: tracer,
-	}
+// runTransaction wraps operations that need both registration and email verification repos in one transaction.
+func (s *registrationService) runTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
+	return s.regRepo.RunInTransaction(ctx, fn)
 }
 
-func (s *registrationService) Register(ctx context.Context, req RegisterRequest, verifyURL string) (RegistrationResponse, error) {
+func (s *registrationService) Register(ctx context.Context, req model.RegisterRequest, verifyURL string) (model.RegistrationResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RegistrationService.Register")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, core.ValidationError(err)
 	}
 
 	if _, err := s.regRepo.FindByEmail(ctx, req.Email); err == nil {
-		return RegistrationResponse{}, fmt.Errorf("email already registered")
+		return model.RegistrationResponse{}, core.Conflict("email already registered")
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, core.InternalServerError("failed to check existing registration").WithError(err)
 	}
 
 	reg := req.ToModel()
 	var rawToken string
 
 	if err := s.locker.WithLock(ctx, "lock:registrations:"+req.Email, 10*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := tx.Create(&reg).Error; err != nil {
-				return err
+		return s.runTransaction(ctx, func(txCtx context.Context) error {
+			if err := s.regRepo.Create(txCtx, &reg); err != nil {
+				return core.InternalServerError("failed to create registration").WithError(err)
 			}
+
 			tRaw, tHash, err := generateToken()
 			if err != nil {
-				return err
+				return core.InternalServerError("failed to generate verification token").WithError(err)
 			}
 			rawToken = tRaw
 
@@ -205,13 +69,13 @@ func (s *registrationService) Register(ctx context.Context, req RegisterRequest,
 				TokenHash:      tHash,
 				ExpiresAt:      time.Now().Add(s.tokenTTL),
 			}
-			if err := tx.Create(&ev).Error; err != nil {
-				return err
+			if err := s.evRepo.Create(txCtx, &ev); err != nil {
+				return core.InternalServerError("failed to save verification token").WithError(err)
 			}
 			return nil
 		})
 	}); err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, err
 	}
 
 	if s.mailer != nil && verifyURL != "" {
@@ -222,20 +86,20 @@ func (s *registrationService) Register(ctx context.Context, req RegisterRequest,
 <p><a href="%s">Klik untuk verifikasi</a></p>
 <p>Berlaku 24 jam.</p>`, reg.FullName, reg.Program, link)
 		if err := s.mailer.Send(reg.Email, "Verifikasi Email ITTS Community", body); err != nil {
-			return RegistrationToResponse(reg), fmt.Errorf("failed to send verification email: %w", err)
+			return model.RegistrationToResponse(reg), fmt.Errorf("failed to send verification email: %w", err)
 		}
 	}
 
-	return RegistrationToResponse(reg), nil
+	return model.RegistrationToResponse(reg), nil
 }
 
-func (s *registrationService) VerifyEmail(ctx context.Context, rawToken string) (RegistrationResponse, error) {
+func (s *registrationService) VerifyEmail(ctx context.Context, rawToken string) (model.RegistrationResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RegistrationService.VerifyEmail")()
 	}
 
 	if rawToken == "" {
-		return RegistrationResponse{}, errors.New("missing token")
+		return model.RegistrationResponse{}, core.BadRequest("missing token")
 	}
 
 	sum := sha256.Sum256([]byte(rawToken))
@@ -243,141 +107,156 @@ func (s *registrationService) VerifyEmail(ctx context.Context, rawToken string) 
 
 	ev, err := s.evRepo.FindValidByHash(ctx, hashHex)
 	if err != nil {
-		return RegistrationResponse{}, fmt.Errorf("invalid or expired token")
+		return model.RegistrationResponse{}, core.BadRequest("invalid or expired token")
 	}
 
 	var reg model.Registration
 	now := time.Now()
 
 	if err := s.locker.WithLock(ctx, "lock:registrations:verify:"+hashHex, 10*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			if err := s.evRepo.MarkUsed(ctx, ev.ID, now); err != nil {
-				return err
+		return s.runTransaction(ctx, func(txCtx context.Context) error {
+			if err := s.evRepo.MarkUsed(txCtx, ev.ID, now); err != nil {
+				return core.InternalServerError("failed to mark token used").WithError(err)
 			}
-			if err := tx.First(&reg, "id = ?", ev.RegistrationID).Error; err != nil {
-				return err
+
+			r, err := s.regRepo.GetByID(txCtx, ev.RegistrationID)
+			if err != nil {
+				return core.InternalServerError("failed to load registration").WithError(err)
 			}
-			if reg.EmailVerifiedAt == nil {
-				reg.EmailVerifiedAt = &now
-				if err := tx.Save(&reg).Error; err != nil {
-					return err
+
+			if r.EmailVerifiedAt == nil {
+				r.EmailVerifiedAt = &now
+				if err := s.regRepo.Update(txCtx, r); err != nil {
+					return core.InternalServerError("failed to update registration").WithError(err)
 				}
 			}
+
+			reg = *r
 			return nil
 		})
 	}); err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, err
 	}
 
-	return RegistrationToResponse(reg), nil
+	return model.RegistrationToResponse(reg), nil
 }
 
-func (s *registrationService) AdminList(ctx context.Context, p repository.ListParams) (RegistrationListResponse, error) {
+func (s *registrationService) AdminList(ctx context.Context, p repository.ListParams) (model.RegistrationListResponse, error) {
 	result, err := s.regRepo.List(ctx, p)
 	if err != nil {
-		return RegistrationListResponse{}, err
+		return model.RegistrationListResponse{}, core.InternalServerError("failed to list registrations").WithError(err)
 	}
-	return RegistrationListToResponse(*result), nil
+	return registrationListToResponse(*result), nil
 }
 
-func (s *registrationService) AdminGet(ctx context.Context, id string) (RegistrationResponse, error) {
+func (s *registrationService) AdminGet(ctx context.Context, id string) (model.RegistrationResponse, error) {
 	m, err := s.regRepo.GetByID(ctx, id)
 	if err != nil {
-		return RegistrationResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.RegistrationResponse{}, core.NotFound("registration", id)
+		}
+		return model.RegistrationResponse{}, core.InternalServerError("failed to fetch registration").WithError(err)
 	}
-	return RegistrationToResponse(*m), nil
+	return model.RegistrationToResponse(*m), nil
 }
 
-func (s *registrationService) AdminApprove(ctx context.Context, req AdminApproveRequest) (RegistrationResponse, error) {
+func (s *registrationService) AdminApprove(ctx context.Context, req model.AdminApproveRequest) (model.RegistrationResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RegistrationService.AdminApprove")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, core.ValidationError(err)
 	}
 
 	var out model.Registration
 	now := time.Now()
 
 	err := s.locker.WithLock(ctx, "lock:registrations:"+req.ID, 10*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			r, err := s.regRepo.GetByID(ctx, req.ID)
+		return s.runTransaction(ctx, func(txCtx context.Context) error {
+			r, err := s.regRepo.GetByID(txCtx, req.ID)
 			if err != nil {
-				return err
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return core.NotFound("registration", req.ID)
+				}
+				return core.InternalServerError("failed to fetch registration").WithError(err)
 			}
 			if r.EmailVerifiedAt == nil {
-				return fmt.Errorf("email not verified")
+				return core.BadRequest("email not verified")
 			}
 			if r.Status == model.RegRejected {
-				return fmt.Errorf("already rejected")
+				return core.Conflict("registration already rejected")
 			}
 			r.Status = model.RegApproved
 			r.ApprovedBy = &req.AdminID
 			r.ApprovedAt = &now
 			r.RejectedReason = nil
 
-			if err := s.regRepo.Update(ctx, r); err != nil {
-				return err
+			if err := s.regRepo.Update(txCtx, r); err != nil {
+				return core.InternalServerError("failed to update registration").WithError(err)
 			}
 			out = *r
 			return nil
 		})
 	})
 	if err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, err
 	}
 
-	return RegistrationToResponse(out), nil
+	return model.RegistrationToResponse(out), nil
 }
 
-func (s *registrationService) AdminReject(ctx context.Context, req AdminRejectRequest) (RegistrationResponse, error) {
+func (s *registrationService) AdminReject(ctx context.Context, req model.AdminRejectRequest) (model.RegistrationResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RegistrationService.AdminReject")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, core.ValidationError(err)
 	}
 
 	var out model.Registration
 	now := time.Now()
 
 	err := s.locker.WithLock(ctx, "lock:registrations:"+req.ID, 10*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			r, err := s.regRepo.GetByID(ctx, req.ID)
+		return s.runTransaction(ctx, func(txCtx context.Context) error {
+			r, err := s.regRepo.GetByID(txCtx, req.ID)
 			if err != nil {
-				return err
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return core.NotFound("registration", req.ID)
+				}
+				return core.InternalServerError("failed to fetch registration").WithError(err)
 			}
 			if r.Status == model.RegApproved {
-				return fmt.Errorf("already approved")
+				return core.Conflict("registration already approved")
 			}
 			r.Status = model.RegRejected
 			r.ApprovedBy = &req.AdminID
 			r.ApprovedAt = &now
 			r.RejectedReason = &req.Reason
 
-			if err := s.regRepo.Update(ctx, r); err != nil {
-				return err
+			if err := s.regRepo.Update(txCtx, r); err != nil {
+				return core.InternalServerError("failed to update registration").WithError(err)
 			}
 			out = *r
 			return nil
 		})
 	})
 	if err != nil {
-		return RegistrationResponse{}, err
+		return model.RegistrationResponse{}, err
 	}
 
-	return RegistrationToResponse(out), nil
+	return model.RegistrationToResponse(out), nil
 }
 
 func (s *registrationService) AdminDelete(ctx context.Context, id string) error {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "RegistrationService.AdminDelete")()
 	}
-	return s.regRepo.Delete(ctx, id)
+	if err := s.regRepo.Delete(ctx, id); err != nil {
+		return core.InternalServerError("failed to delete registration").WithError(err)
+	}
+	return nil
 }
 
 func generateToken() (raw string, hash string, err error) {
@@ -389,4 +268,18 @@ func generateToken() (raw string, hash string, err error) {
 	sum := sha256.Sum256([]byte(raw))
 	hash = hex.EncodeToString(sum[:])
 	return raw, hash, nil
+}
+
+func registrationListToResponse(pr repository.PageResult[model.Registration]) model.RegistrationListResponse {
+	data := make([]model.RegistrationResponse, 0, len(pr.Data))
+	for _, m := range pr.Data {
+		data = append(data, model.RegistrationToResponse(m))
+	}
+	return model.RegistrationListResponse{
+		Data:       data,
+		Total:      pr.Total,
+		Page:       pr.Page,
+		PageSize:   pr.PageSize,
+		TotalPages: pr.TotalPages,
+	}
 }

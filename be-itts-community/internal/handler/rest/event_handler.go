@@ -15,24 +15,26 @@ import (
 )
 
 type EventHandler struct {
-	svc service.EventService
+	svc         service.EventService
+	speakerSvc  service.EventSpeakerService
+	registerSvc service.EventRegistrationService
 }
 
-func NewEventHandler(svc service.EventService) *EventHandler {
-	return &EventHandler{svc: svc}
+func NewEventHandler(eventSvc service.EventService, speakerSvc service.EventSpeakerService, regSvc service.EventRegistrationService) *EventHandler {
+	return &EventHandler{svc: eventSvc, speakerSvc: speakerSvc, registerSvc: regSvc}
 
 }
 
 // POST /api/v1/admin/events
 func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateEventRequest
+	var req model.CreateEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	ev, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, ev)
@@ -43,7 +45,7 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	ev, err := h.svc.Get(r.Context(), id)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, ev)
@@ -54,7 +56,7 @@ func (h *EventHandler) GetEventBySlug(w http.ResponseWriter, r *http.Request) {
 	slug := chi.URLParam(r, "slug")
 	ev, err := h.svc.GetBySlug(r.Context(), slug)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, ev)
@@ -63,14 +65,14 @@ func (h *EventHandler) GetEventBySlug(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/events/:id
 func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateEventRequest
+	var req model.UpdateEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	ev, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, ev)
@@ -80,7 +82,7 @@ func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 func (h *EventHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)
@@ -117,7 +119,7 @@ func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.svc.List(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -132,13 +134,13 @@ func (h *EventHandler) SetEventStatus(w http.ResponseWriter, r *http.Request) {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
-	req := service.SetEventStatusRequest{
+	req := model.SetEventStatusRequest{
 		ID:     id,
 		Status: model.EventStatus(body.Status),
 	}
 	ev, err := h.svc.SetStatus(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "SET_STATUS_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, ev)
@@ -146,15 +148,15 @@ func (h *EventHandler) SetEventStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) AddSpeaker(w http.ResponseWriter, r *http.Request) {
 	eventID := chi.URLParam(r, "event_id")
-	var req service.CreateSpeakerRequest
+	var req model.CreateSpeakerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	req.EventID = eventID
-	sp, err := h.svc.AddSpeaker(r.Context(), req)
+	sp, err := h.speakerSvc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "ADD_SPEAKER_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, sp)
@@ -162,14 +164,14 @@ func (h *EventHandler) AddSpeaker(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) UpdateSpeaker(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateSpeakerRequest
+	var req model.UpdateSpeakerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
-	sp, err := h.svc.UpdateSpeaker(r.Context(), id, req)
+	sp, err := h.speakerSvc.Update(r.Context(), id, req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_SPEAKER_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, sp)
@@ -177,8 +179,8 @@ func (h *EventHandler) UpdateSpeaker(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) DeleteSpeaker(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.svc.DeleteSpeaker(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_SPEAKER_FAILED", err.Error(), nil)
+	if err := h.speakerSvc.Delete(r.Context(), id); err != nil {
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)
@@ -199,9 +201,9 @@ func (h *EventHandler) ListSpeakers(w http.ResponseWriter, r *http.Request) {
 	if v := q.Get("event_id"); v != "" {
 		lp.Filters["event_id"] = v
 	}
-	res, err := h.svc.ListSpeakers(r.Context(), lp)
+	res, err := h.speakerSvc.List(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_SPEAKERS_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -214,15 +216,15 @@ func (h *EventHandler) ListSpeakers(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/events/:event_id/register (public)
 func (h *EventHandler) RegisterToEvent(w http.ResponseWriter, r *http.Request) {
 	eventID := chi.URLParam(r, "event_id")
-	var req service.CreateEventRegistrationRequest
+	var req model.CreateEventRegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	req.EventID = eventID
-	reg, err := h.svc.RegisterToEvent(r.Context(), req)
+	reg, err := h.registerSvc.Register(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "RSVP_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, reg)
@@ -243,9 +245,9 @@ func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request)
 	if v := q.Get("email"); v != "" {
 		lp.Filters["email"] = v
 	}
-	res, err := h.svc.ListRegistrations(r.Context(), lp)
+	res, err := h.registerSvc.AdminList(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_EVENT_REG_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -253,8 +255,8 @@ func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request)
 
 func (h *EventHandler) Unregister(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	if err := h.svc.Unregister(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UNREGISTER_FAILED", err.Error(), nil)
+	if err := h.registerSvc.AdminDelete(r.Context(), id); err != nil {
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)

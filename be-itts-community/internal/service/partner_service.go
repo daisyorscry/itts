@@ -2,8 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	"github.com/daisyorscry/itts/core"
 	"gorm.io/gorm"
 
 	"be-itts-community/internal/model"
@@ -13,214 +15,60 @@ import (
 	"be-itts-community/pkg/validator"
 )
 
-// ========================================
-// Request DTOs
-// ========================================
-
-type CreatePartnerRequest struct {
-	Name        string            `json:"name" validate:"required,min=2"`
-	Kind        model.PartnerType `json:"kind" validate:"required,oneof=lab partner_academic partner_industry"`
-	Subtitle    string            `json:"subtitle"`
-	Description string            `json:"description"`
-	LogoURL     string            `json:"logo_url"`
-	WebsiteURL  string            `json:"website_url"`
-	IsActive    *bool             `json:"is_active"`
-	Priority    *int              `json:"priority"`
-}
-
-type UpdatePartnerRequest struct {
-	Name        *string            `json:"name,omitempty" validate:"omitempty,min=2"`
-	Kind        *model.PartnerType `json:"kind,omitempty" validate:"omitempty,oneof=lab partner_academic partner_industry"`
-	Subtitle    *string            `json:"subtitle,omitempty"`
-	Description *string            `json:"description,omitempty"`
-	LogoURL     *string            `json:"logo_url,omitempty"`
-	WebsiteURL  *string            `json:"website_url,omitempty"`
-	IsActive    *bool              `json:"is_active,omitempty"`
-	Priority    *int               `json:"priority,omitempty"`
-}
-
-type SetPartnerActiveRequest struct {
-	ID     string `json:"id" validate:"required"`
-	Active bool   `json:"active"`
-}
-
-type SetPartnerPriorityRequest struct {
-	ID       string `json:"id" validate:"required"`
-	Priority int    `json:"priority" validate:"gte=0"`
-}
-
-// ========================================
-// Response DTOs
-// ========================================
-
-type PartnerResponse struct {
-	ID          string            `json:"id"`
-	Name        string            `json:"name"`
-	Kind        model.PartnerType `json:"kind"`
-	Subtitle    string            `json:"subtitle,omitempty"`
-	Description string            `json:"description,omitempty"`
-	LogoURL     string            `json:"logo_url,omitempty"`
-	WebsiteURL  string            `json:"website_url,omitempty"`
-	IsActive    bool              `json:"is_active"`
-	Priority    int               `json:"priority"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
-}
-
-type PartnerListResponse struct {
-	Data       []PartnerResponse `json:"data"`
-	Total      int64             `json:"total"`
-	Page       int               `json:"page"`
-	PageSize   int               `json:"page_size"`
-	TotalPages int               `json:"total_pages"`
-}
-
-// ========================================
-// Mappers
-// ========================================
-
-func (r CreatePartnerRequest) ToModel() model.Partner {
-	p := model.Partner{
-		Name:     r.Name,
-		Kind:     r.Kind,
-		IsActive: true,
-		Priority: 0,
-	}
-	if r.Subtitle != "" {
-		p.Subtitle = &r.Subtitle
-	}
-	if r.Description != "" {
-		p.Description = &r.Description
-	}
-	if r.LogoURL != "" {
-		p.LogoURL = &r.LogoURL
-	}
-	if r.WebsiteURL != "" {
-		p.WebsiteURL = &r.WebsiteURL
-	}
-	if r.IsActive != nil {
-		p.IsActive = *r.IsActive
-	}
-	if r.Priority != nil {
-		p.Priority = *r.Priority
-	}
-	return p
-}
-
-func PartnerToResponse(m model.Partner) PartnerResponse {
-	resp := PartnerResponse{
-		ID:        m.ID,
-		Name:      m.Name,
-		Kind:      m.Kind,
-		IsActive:  m.IsActive,
-		Priority:  m.Priority,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
-	}
-	if m.Subtitle != nil {
-		resp.Subtitle = *m.Subtitle
-	}
-	if m.Description != nil {
-		resp.Description = *m.Description
-	}
-	if m.LogoURL != nil {
-		resp.LogoURL = *m.LogoURL
-	}
-	if m.WebsiteURL != nil {
-		resp.WebsiteURL = *m.WebsiteURL
-	}
-	return resp
-}
-
-func PartnerListToResponse(pr repository.PageResult[model.Partner]) PartnerListResponse {
-	data := make([]PartnerResponse, 0, len(pr.Data))
-	for _, m := range pr.Data {
-		data = append(data, PartnerToResponse(m))
-	}
-	return PartnerListResponse{
-		Data:       data,
-		Total:      pr.Total,
-		Page:       pr.Page,
-		PageSize:   pr.PageSize,
-		TotalPages: pr.TotalPages,
-	}
-}
-
-// ========================================
-// Service Interface
-// ========================================
-
-type PartnerService interface {
-	Create(ctx context.Context, req CreatePartnerRequest) (PartnerResponse, error)
-	Get(ctx context.Context, id string) (PartnerResponse, error)
-	Update(ctx context.Context, id string, req UpdatePartnerRequest) (PartnerResponse, error)
-	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, p repository.ListParams) (PartnerListResponse, error)
-
-	SetActive(ctx context.Context, req SetPartnerActiveRequest) (PartnerResponse, error)
-	SetPriority(ctx context.Context, req SetPartnerPriorityRequest) (PartnerResponse, error)
-}
-
-// ========================================
-// Service Implementation
-// ========================================
-
 type partnerService struct {
-	db     *gorm.DB
 	repo   repository.PartnerRepository
 	locker lock.Locker
 	tracer nr.Tracer
 }
 
-func NewPartnerService(db *gorm.DB, repo repository.PartnerRepository, locker lock.Locker, tracer nr.Tracer) PartnerService {
-	return &partnerService{db: db, repo: repo, locker: locker, tracer: tracer}
-}
-
-func (s *partnerService) Create(ctx context.Context, req CreatePartnerRequest) (PartnerResponse, error) {
+func (s *partnerService) Create(ctx context.Context, req model.CreatePartnerRequest) (model.PartnerResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "PartnerService.Create")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.ValidationError(err)
 	}
 
 	p := req.ToModel()
 
 	if err := s.locker.WithLock(ctx, "lock:partners:create", 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewPartnerRepository(tx)
-			return txRepo.Create(ctx, &p)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Create(txCtx, &p)
 		})
 	}); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.InternalServerError("failed to create partner").WithError(err)
 	}
 
-	return PartnerToResponse(p), nil
+	return model.PartnerToResponse(p), nil
 }
 
-func (s *partnerService) Get(ctx context.Context, id string) (PartnerResponse, error) {
+func (s *partnerService) Get(ctx context.Context, id string) (model.PartnerResponse, error) {
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return PartnerResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.PartnerResponse{}, core.NotFound("partner", id)
+		}
+		return model.PartnerResponse{}, core.InternalServerError("failed to fetch partner").WithError(err)
 	}
-	return PartnerToResponse(*m), nil
+	return model.PartnerToResponse(*m), nil
 }
 
-func (s *partnerService) Update(ctx context.Context, id string, req UpdatePartnerRequest) (PartnerResponse, error) {
+func (s *partnerService) Update(ctx context.Context, id string, req model.UpdatePartnerRequest) (model.PartnerResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "PartnerService.Update")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.ValidationError(err)
 	}
 
 	p, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return PartnerResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.PartnerResponse{}, core.NotFound("partner", id)
+		}
+		return model.PartnerResponse{}, core.InternalServerError("failed to fetch partner").WithError(err)
 	}
 
 	if req.Name != nil {
@@ -249,15 +97,14 @@ func (s *partnerService) Update(ctx context.Context, id string, req UpdatePartne
 	}
 
 	if err := s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewPartnerRepository(tx)
-			return txRepo.Update(ctx, p)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, p)
 		})
 	}); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.InternalServerError("failed to update partner").WithError(err)
 	}
 
-	return PartnerToResponse(*p), nil
+	return model.PartnerToResponse(*p), nil
 }
 
 func (s *partnerService) Delete(ctx context.Context, id string) error {
@@ -265,75 +112,90 @@ func (s *partnerService) Delete(ctx context.Context, id string) error {
 		defer s.tracer.StartSegment(ctx, "PartnerService.Delete")()
 	}
 	return s.locker.WithLock(ctx, "lock:partners:"+id, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewPartnerRepository(tx)
-			return txRepo.Delete(ctx, id)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Delete(txCtx, id)
 		})
 	})
 }
 
-func (s *partnerService) List(ctx context.Context, p repository.ListParams) (PartnerListResponse, error) {
+func (s *partnerService) List(ctx context.Context, p repository.ListParams) (model.PartnerListResponse, error) {
 	result, err := s.repo.List(ctx, p)
 	if err != nil {
-		return PartnerListResponse{}, err
+		return model.PartnerListResponse{}, core.InternalServerError("failed to list partners").WithError(err)
 	}
-	return PartnerListToResponse(*result), nil
+	return partnerListToResponse(*result), nil
 }
 
-func (s *partnerService) SetActive(ctx context.Context, req SetPartnerActiveRequest) (PartnerResponse, error) {
+func (s *partnerService) SetActive(ctx context.Context, req model.SetPartnerActiveRequest) (model.PartnerResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "PartnerService.SetActive")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.ValidationError(err)
 	}
 
 	p, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
-		return PartnerResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.PartnerResponse{}, core.NotFound("partner", req.ID)
+		}
+		return model.PartnerResponse{}, core.InternalServerError("failed to fetch partner").WithError(err)
 	}
 
 	p.IsActive = req.Active
 
 	if err := s.locker.WithLock(ctx, "lock:partners:"+req.ID, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewPartnerRepository(tx)
-			return txRepo.Update(ctx, p)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, p)
 		})
 	}); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.InternalServerError("failed to update partner").WithError(err)
 	}
 
-	return PartnerToResponse(*p), nil
+	return model.PartnerToResponse(*p), nil
 }
 
-func (s *partnerService) SetPriority(ctx context.Context, req SetPartnerPriorityRequest) (PartnerResponse, error) {
+func (s *partnerService) SetPriority(ctx context.Context, req model.SetPartnerPriorityRequest) (model.PartnerResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "PartnerService.SetPriority")()
 	}
 
-	// Validation at the beginning
 	if err := validator.Validate(req); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.ValidationError(err)
 	}
 
 	p, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
-		return PartnerResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.PartnerResponse{}, core.NotFound("partner", req.ID)
+		}
+		return model.PartnerResponse{}, core.InternalServerError("failed to fetch partner").WithError(err)
 	}
 
 	p.Priority = req.Priority
 
 	if err := s.locker.WithLock(ctx, "lock:partners:"+req.ID, 5*time.Second, func(ctx context.Context) error {
-		return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-			txRepo := repository.NewPartnerRepository(tx)
-			return txRepo.Update(ctx, p)
+		return s.repo.RunInTransaction(ctx, func(txCtx context.Context) error {
+			return s.repo.Update(txCtx, p)
 		})
 	}); err != nil {
-		return PartnerResponse{}, err
+		return model.PartnerResponse{}, core.InternalServerError("failed to update partner").WithError(err)
 	}
 
-	return PartnerToResponse(*p), nil
+	return model.PartnerToResponse(*p), nil
+}
+
+func partnerListToResponse(pr repository.PageResult[model.Partner]) model.PartnerListResponse {
+	data := make([]model.PartnerResponse, 0, len(pr.Data))
+	for _, m := range pr.Data {
+		data = append(data, model.PartnerToResponse(m))
+	}
+	return model.PartnerListResponse{
+		Data:       data,
+		Total:      pr.Total,
+		Page:       pr.Page,
+		PageSize:   pr.PageSize,
+		TotalPages: pr.TotalPages,
+	}
 }

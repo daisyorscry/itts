@@ -2,173 +2,58 @@ package service
 
 import (
 	"context"
-
-	"gorm.io/gorm"
+	"time"
 
 	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
+	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/observability/nr"
 	"be-itts-community/pkg/validator"
+
+	"github.com/daisyorscry/itts/core"
 )
 
-// ========================================
-// Request DTOs
-// ========================================
-
-type CreateEventSpeakerRequest struct {
-	EventID   string `json:"event_id" validate:"required,uuid4"`
-	Name      string `json:"name" validate:"required,min=2"`
-	Title     string `json:"title"`
-	AvatarURL string `json:"avatar_url"`
-	SortOrder *int   `json:"sort_order"`
-}
-
-type UpdateEventSpeakerRequest struct {
-	EventID   *string `json:"event_id,omitempty" validate:"omitempty,uuid4"`
-	Name      *string `json:"name,omitempty" validate:"omitempty,min=2"`
-	Title     *string `json:"title,omitempty"`
-	AvatarURL *string `json:"avatar_url,omitempty"`
-	SortOrder *int    `json:"sort_order,omitempty"`
-}
-
-type SetEventSpeakerOrderRequest struct {
-	ID    string `json:"id" validate:"required"`
-	Order int    `json:"order" validate:"gte=0"`
-}
-
-// ========================================
-// Response DTOs
-// ========================================
-
-type EventSpeakerResponse struct {
-	ID        string `json:"id"`
-	EventID   string `json:"event_id"`
-	Name      string `json:"name"`
-	Title     string `json:"title,omitempty"`
-	AvatarURL string `json:"avatar_url,omitempty"`
-	SortOrder int    `json:"sort_order"`
-}
-
-type EventSpeakerListResponse struct {
-	Data       []EventSpeakerResponse `json:"data"`
-	Total      int64                  `json:"total"`
-	Page       int                    `json:"page"`
-	PageSize   int                    `json:"page_size"`
-	TotalPages int                    `json:"total_pages"`
-}
-
-// ========================================
-// Mappers
-// ========================================
-
-func (r CreateEventSpeakerRequest) ToModel() model.EventSpeaker {
-	sp := model.EventSpeaker{
-		EventID:   r.EventID,
-		Name:      r.Name,
-		SortOrder: 0,
-	}
-	if r.Title != "" {
-		sp.Title = &r.Title
-	}
-	if r.AvatarURL != "" {
-		sp.AvatarURL = &r.AvatarURL
-	}
-	if r.SortOrder != nil {
-		sp.SortOrder = *r.SortOrder
-	}
-	return sp
-}
-
-func EventSpeakerToResponse(m model.EventSpeaker) EventSpeakerResponse {
-	resp := EventSpeakerResponse{
-		ID:        m.ID,
-		EventID:   m.EventID,
-		Name:      m.Name,
-		SortOrder: m.SortOrder,
-	}
-	if m.Title != nil {
-		resp.Title = *m.Title
-	}
-	if m.AvatarURL != nil {
-		resp.AvatarURL = *m.AvatarURL
-	}
-	return resp
-}
-
-func EventSpeakerListToResponse(pr repository.PageResult[model.EventSpeaker]) EventSpeakerListResponse {
-	data := make([]EventSpeakerResponse, 0, len(pr.Data))
-	for _, m := range pr.Data {
-		data = append(data, EventSpeakerToResponse(m))
-	}
-	return EventSpeakerListResponse{
-		Data:       data,
-		Total:      pr.Total,
-		Page:       pr.Page,
-		PageSize:   pr.PageSize,
-		TotalPages: pr.TotalPages,
-	}
-}
-
-// ========================================
-// Service Interface
-// ========================================
-
-type EventSpeakerService interface {
-	Create(ctx context.Context, req CreateEventSpeakerRequest) (EventSpeakerResponse, error)
-	Get(ctx context.Context, id string) (EventSpeakerResponse, error)
-	Update(ctx context.Context, id string, req UpdateEventSpeakerRequest) (EventSpeakerResponse, error)
-	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, p repository.ListParams) (EventSpeakerListResponse, error)
-
-	SetOrder(ctx context.Context, req SetEventSpeakerOrderRequest) (EventSpeakerResponse, error)
-}
-
-// ========================================
-// Service Implementation
-// ========================================
-
 type eventSpeakerService struct {
-	db   *gorm.DB
-	repo repository.EventSpeakerRepository
+	repo   repository.EventSpeakerRepository
+	locker lock.Locker
+	tracer nr.Tracer
 }
 
-func NewEventSpeakerService(db *gorm.DB, repo repository.EventSpeakerRepository) EventSpeakerService {
-	return &eventSpeakerService{db: db, repo: repo}
-}
-
-func (s *eventSpeakerService) Create(ctx context.Context, req CreateEventSpeakerRequest) (EventSpeakerResponse, error) {
-	// Validation at the beginning
+func (s *eventSpeakerService) Create(ctx context.Context, req model.CreateSpeakerRequest) (model.SpeakerResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventSpeakerService.Create")()
+	}
 	if err := validator.Validate(req); err != nil {
-		return EventSpeakerResponse{}, err
+		return model.SpeakerResponse{}, core.ValidationError(err)
 	}
-
 	sp := req.ToModel()
-
-	if err := s.repo.Create(ctx, &sp); err != nil {
-		return EventSpeakerResponse{}, err
+	if err := s.locker.WithLock(ctx, "lock:event_speakers:"+req.EventID, 5*time.Second, func(ctx context.Context) error {
+		return s.repo.Create(ctx, &sp)
+	}); err != nil {
+		return model.SpeakerResponse{}, core.InternalServerError("failed to create speaker").WithError(err)
 	}
-
-	return EventSpeakerToResponse(sp), nil
+	return model.SpeakerToResponse(sp), nil
 }
 
-func (s *eventSpeakerService) Get(ctx context.Context, id string) (EventSpeakerResponse, error) {
+func (s *eventSpeakerService) Get(ctx context.Context, id string) (model.SpeakerResponse, error) {
 	m, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return EventSpeakerResponse{}, err
+		return model.SpeakerResponse{}, core.InternalServerError("failed to fetch speaker").WithError(err)
 	}
-	return EventSpeakerToResponse(*m), nil
+	return model.SpeakerToResponse(*m), nil
 }
 
-func (s *eventSpeakerService) Update(ctx context.Context, id string, req UpdateEventSpeakerRequest) (EventSpeakerResponse, error) {
-	// Validation at the beginning
-	if err := validator.Validate(req); err != nil {
-		return EventSpeakerResponse{}, err
+func (s *eventSpeakerService) Update(ctx context.Context, id string, req model.UpdateSpeakerRequest) (model.SpeakerResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventSpeakerService.Update")()
 	}
-
+	if err := validator.Validate(req); err != nil {
+		return model.SpeakerResponse{}, core.ValidationError(err)
+	}
 	sp, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return EventSpeakerResponse{}, err
+		return model.SpeakerResponse{}, core.InternalServerError("failed to fetch speaker").WithError(err)
 	}
-
 	if req.EventID != nil {
 		sp.EventID = *req.EventID
 	}
@@ -184,42 +69,50 @@ func (s *eventSpeakerService) Update(ctx context.Context, id string, req UpdateE
 	if req.SortOrder != nil {
 		sp.SortOrder = *req.SortOrder
 	}
-
-	if err := s.repo.Update(ctx, sp); err != nil {
-		return EventSpeakerResponse{}, err
+	if err := s.locker.WithLock(ctx, "lock:event_speakers:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.repo.Update(ctx, sp)
+	}); err != nil {
+		return model.SpeakerResponse{}, core.InternalServerError("failed to update speaker").WithError(err)
 	}
-
-	return EventSpeakerToResponse(*sp), nil
+	return model.SpeakerToResponse(*sp), nil
 }
 
 func (s *eventSpeakerService) Delete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventSpeakerService.Delete")()
+	}
+	return s.locker.WithLock(ctx, "lock:event_speakers:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.repo.Delete(ctx, id)
+	})
 }
 
-func (s *eventSpeakerService) List(ctx context.Context, p repository.ListParams) (EventSpeakerListResponse, error) {
+func (s *eventSpeakerService) List(ctx context.Context, p repository.ListParams) (model.SpeakerListResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventSpeakerService.List")()
+	}
 	result, err := s.repo.List(ctx, p)
 	if err != nil {
-		return EventSpeakerListResponse{}, err
+		return model.SpeakerListResponse{}, core.InternalServerError("failed to list speakers").WithError(err)
 	}
-	return EventSpeakerListToResponse(*result), nil
+	return model.SpeakerListToResponse(result.Data, result.Total, result.Page, result.PageSize, result.TotalPages), nil
 }
 
-func (s *eventSpeakerService) SetOrder(ctx context.Context, req SetEventSpeakerOrderRequest) (EventSpeakerResponse, error) {
-	// Validation at the beginning
-	if err := validator.Validate(req); err != nil {
-		return EventSpeakerResponse{}, err
+func (s *eventSpeakerService) SetOrder(ctx context.Context, req model.SetSpeakerOrderRequest) (model.SpeakerResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventSpeakerService.SetOrder")()
 	}
-
+	if err := validator.Validate(req); err != nil {
+		return model.SpeakerResponse{}, core.ValidationError(err)
+	}
 	sp, err := s.repo.GetByID(ctx, req.ID)
 	if err != nil {
-		return EventSpeakerResponse{}, err
+		return model.SpeakerResponse{}, core.InternalServerError("failed to fetch speaker").WithError(err)
 	}
-
 	sp.SortOrder = req.Order
-
-	if err := s.repo.Update(ctx, sp); err != nil {
-		return EventSpeakerResponse{}, err
+	if err := s.locker.WithLock(ctx, "lock:event_speakers:"+req.ID, 5*time.Second, func(ctx context.Context) error {
+		return s.repo.Update(ctx, sp)
+	}); err != nil {
+		return model.SpeakerResponse{}, core.InternalServerError("failed to update speaker order").WithError(err)
 	}
-
-	return EventSpeakerToResponse(*sp), nil
+	return model.SpeakerToResponse(*sp), nil
 }

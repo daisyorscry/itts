@@ -23,14 +23,14 @@ func NewRoadmapHandler(svc service.RoadmapService) *RoadmapHandler {
 
 // POST /api/v1/admin/roadmaps
 func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateRoadmapRequest
+	var req model.CreateRoadmapRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	rm, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, rm)
@@ -41,7 +41,7 @@ func (h *RoadmapHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	rm, err := h.svc.Get(r.Context(), id)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, rm)
@@ -50,14 +50,14 @@ func (h *RoadmapHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/roadmaps/:id
 func (h *RoadmapHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateRoadmapRequest
+	var req model.UpdateRoadmapRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	rm, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, rm)
@@ -67,7 +67,7 @@ func (h *RoadmapHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *RoadmapHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)
@@ -101,7 +101,7 @@ func (h *RoadmapHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.svc.List(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)

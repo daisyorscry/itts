@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -11,172 +10,100 @@ import (
 
 	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
+	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/observability/nr"
 	"be-itts-community/pkg/validator"
+
+	"github.com/daisyorscry/itts/core"
 )
 
-// ========================================
-// Request DTOs
-// ========================================
-
-type RegisterToEventRequest struct {
-	EventID  string `json:"event_id" validate:"required,uuid4"`
-	FullName string `json:"full_name" validate:"required,min=3"`
-	Email    string `json:"email" validate:"required,email"`
-}
-
-type UpdateEventRegistrationRequest struct {
-	FullName *string `json:"full_name,omitempty" validate:"omitempty,min=3"`
-	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
-}
-
-// ========================================
-// Response DTOs
-// ========================================
-
-type EventRegResponse struct {
-	ID        string    `json:"id"`
-	EventID   string    `json:"event_id"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-type EventRegListResponse struct {
-	Data       []EventRegResponse `json:"data"`
-	Total      int64              `json:"total"`
-	Page       int                `json:"page"`
-	PageSize   int                `json:"page_size"`
-	TotalPages int                `json:"total_pages"`
-}
-
-// ========================================
-// Mappers
-// ========================================
-
-func (r RegisterToEventRequest) ToModel() model.EventRegistration {
-	return model.EventRegistration{
-		EventID:  r.EventID,
-		FullName: r.FullName,
-		Email:    r.Email,
-	}
-}
-
-func EventRegToResponse(m model.EventRegistration) EventRegResponse {
-	return EventRegResponse{
-		ID:        m.ID,
-		EventID:   m.EventID,
-		FullName:  m.FullName,
-		Email:     m.Email,
-		CreatedAt: m.CreatedAt,
-	}
-}
-
-func EventRegListToResponse(pr repository.PageResult[model.EventRegistration]) EventRegListResponse {
-	data := make([]EventRegResponse, 0, len(pr.Data))
-	for _, m := range pr.Data {
-		data = append(data, EventRegToResponse(m))
-	}
-	return EventRegListResponse{
-		Data:       data,
-		Total:      pr.Total,
-		Page:       pr.Page,
-		PageSize:   pr.PageSize,
-		TotalPages: pr.TotalPages,
-	}
-}
-
-// ========================================
-// Service Interface
-// ========================================
-
-type EventRegistrationService interface {
-	// Public
-	Register(ctx context.Context, req RegisterToEventRequest) (EventRegResponse, error)
-
-	// Admin
-	AdminList(ctx context.Context, p repository.ListParams) (EventRegListResponse, error)
-	AdminGet(ctx context.Context, id string) (EventRegResponse, error)
-	AdminUpdate(ctx context.Context, id string, req UpdateEventRegistrationRequest) (EventRegResponse, error)
-	AdminDelete(ctx context.Context, id string) error
-}
-
-// ========================================
-// Service Implementation
-// ========================================
-
 type eventRegistrationService struct {
-	db   *gorm.DB
-	repo repository.EventRegistrationRepository
+	eventRepo repository.EventRepository
+	regRepo   repository.EventRegistrationRepository
+	locker    lock.Locker
+	tracer    nr.Tracer
 }
 
-func NewEventRegistrationService(db *gorm.DB, repo repository.EventRegistrationRepository) EventRegistrationService {
-	return &eventRegistrationService{db: db, repo: repo}
-}
-
-func (s *eventRegistrationService) Register(ctx context.Context, req RegisterToEventRequest) (EventRegResponse, error) {
-	// Validation at the beginning
-	if err := validator.Validate(req); err != nil {
-		return EventRegResponse{}, err
+func (s *eventRegistrationService) Register(ctx context.Context, req model.CreateEventRegistrationRequest) (model.EventRegistrationResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventRegistrationService.Register")()
 	}
-
+	if err := validator.Validate(req); err != nil {
+		return model.EventRegistrationResponse{}, core.ValidationError(err)
+	}
+	if _, err := s.eventRepo.GetEventByID(ctx, req.EventID); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.EventRegistrationResponse{}, core.NotFound("event", req.EventID)
+		}
+		return model.EventRegistrationResponse{}, core.InternalServerError("failed to fetch event").WithError(err)
+	}
 	reg := req.ToModel()
-
-	if err := s.repo.Create(ctx, &reg); err != nil {
+	if err := s.locker.WithLock(ctx, "lock:event_reg:"+req.EventID+":"+req.Email, 10*time.Second, func(ctx context.Context) error {
+		return s.regRepo.Create(ctx, &reg)
+	}); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return EventRegResponse{}, fmt.Errorf("email already registered for this event")
+			return model.EventRegistrationResponse{}, core.Conflict("email already registered for this event")
 		}
-		return EventRegResponse{}, err
+		return model.EventRegistrationResponse{}, core.InternalServerError("failed to register for event").WithError(err)
 	}
-
-	return EventRegToResponse(reg), nil
+	return model.EventRegistrationToResponse(reg), nil
 }
 
-func (s *eventRegistrationService) AdminList(ctx context.Context, p repository.ListParams) (EventRegListResponse, error) {
-	result, err := s.repo.List(ctx, p)
+func (s *eventRegistrationService) AdminList(ctx context.Context, p repository.ListParams) (model.EventRegistrationListResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventRegistrationService.AdminList")()
+	}
+	result, err := s.regRepo.List(ctx, p)
 	if err != nil {
-		return EventRegListResponse{}, err
+		return model.EventRegistrationListResponse{}, core.InternalServerError("failed to list registrations").WithError(err)
 	}
-	return EventRegListToResponse(*result), nil
+	return model.EventRegistrationListToResponse(result.Data, result.Total, result.Page, result.PageSize, result.TotalPages), nil
 }
 
-func (s *eventRegistrationService) AdminGet(ctx context.Context, id string) (EventRegResponse, error) {
-	m, err := s.repo.GetByID(ctx, id)
+func (s *eventRegistrationService) AdminGet(ctx context.Context, id string) (model.EventRegistrationResponse, error) {
+	m, err := s.regRepo.GetByID(ctx, id)
 	if err != nil {
-		return EventRegResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.EventRegistrationResponse{}, core.NotFound("event_registration", id)
+		}
+		return model.EventRegistrationResponse{}, core.InternalServerError("failed to load registration").WithError(err)
 	}
-	return EventRegToResponse(*m), nil
+	return model.EventRegistrationToResponse(*m), nil
 }
 
-func (s *eventRegistrationService) AdminUpdate(ctx context.Context, id string, req UpdateEventRegistrationRequest) (EventRegResponse, error) {
-	// Validation at the beginning
+func (s *eventRegistrationService) AdminUpdate(ctx context.Context, id string, req model.UpdateEventRegistrationRequest) (model.EventRegistrationResponse, error) {
 	if err := validator.Validate(req); err != nil {
-		return EventRegResponse{}, err
+		return model.EventRegistrationResponse{}, core.ValidationError(err)
 	}
-
-	r, err := s.repo.GetByID(ctx, id)
+	r, err := s.regRepo.GetByID(ctx, id)
 	if err != nil {
-		return EventRegResponse{}, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return model.EventRegistrationResponse{}, core.NotFound("event_registration", id)
+		}
+		return model.EventRegistrationResponse{}, core.InternalServerError("failed to load registration").WithError(err)
 	}
-
 	if req.FullName != nil {
 		r.FullName = *req.FullName
 	}
 	if req.Email != nil {
 		r.Email = *req.Email
 	}
-
-	if err := s.repo.Update(ctx, r); err != nil {
+	if err := s.regRepo.Update(ctx, r); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-			return EventRegResponse{}, fmt.Errorf("email already registered for this event")
+			return model.EventRegistrationResponse{}, core.Conflict("email already registered for this event")
 		}
-		return EventRegResponse{}, err
+		return model.EventRegistrationResponse{}, core.InternalServerError("failed to update registration").WithError(err)
 	}
-
-	return EventRegToResponse(*r), nil
+	return model.EventRegistrationToResponse(*r), nil
 }
 
 func (s *eventRegistrationService) AdminDelete(ctx context.Context, id string) error {
-	return s.repo.Delete(ctx, id)
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "EventRegistrationService.AdminDelete")()
+	}
+	return s.locker.WithLock(ctx, "lock:event_reg:"+id, 5*time.Second, func(ctx context.Context) error {
+		return s.regRepo.Delete(ctx, id)
+	})
 }

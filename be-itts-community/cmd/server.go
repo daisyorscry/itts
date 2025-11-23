@@ -13,8 +13,8 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-    redis "github.com/redis/go-redis/v9"
-    newrelic "github.com/newrelic/go-agent/v3/newrelic"
+	newrelic "github.com/newrelic/go-agent/v3/newrelic"
+	redis "github.com/redis/go-redis/v9"
 
 	"go.uber.org/automaxprocs/maxprocs"
 
@@ -43,8 +43,9 @@ func main() {
 	log.WithFields(map[string]any{"gomaxprocs": runtime.GOMAXPROCS(0)}).Info("starting app")
 
 	// DB connect
-	gormDB := db.Connect(cfg.DB.Host, cfg.DB.User, cfg.DB.Password, cfg.DB.Name, cfg.DB.Port, cfg.DB.SSLMode, cfg.DB.Timezone)
-	sqlDB, err := gormDB.DB()
+	dbConn := db.Connect(cfg.DB.Host, cfg.DB.User, cfg.DB.Password, cfg.DB.Name, cfg.DB.Port, cfg.DB.SSLMode, cfg.DB.Timezone)
+	baseDB := dbConn.Get(context.Background())
+	sqlDB, err := baseDB.DB()
 	if err != nil {
 		log.Critical("failed to get sqlDB from gorm", err)
 	}
@@ -121,7 +122,7 @@ func main() {
 
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
-		DB:             gormDB,
+		DBConn:         dbConn,
 		VerifyEmailURL: cfg.VerifyEmailURL,
 		Mailer:         nil,
 		Locker:         locker,

@@ -3,38 +3,25 @@ package repository
 import (
 	"context"
 
-	"gorm.io/gorm"
-
 	"be-itts-community/internal/model"
 )
 
-type MentorRepository interface {
-	Create(ctx context.Context, m *model.Mentor) error
-	GetByID(ctx context.Context, id string) (*model.Mentor, error)
-	Update(ctx context.Context, m *model.Mentor) error
-	Delete(ctx context.Context, id string) error
-
-	List(ctx context.Context, p ListParams) (*PageResult[model.Mentor], error)
-}
-
-type mentorRepo struct{ db *gorm.DB }
-
-func NewMentorRepository(d *gorm.DB) MentorRepository {
-	return &mentorRepo{db: d}
+func (r *mentorRepo) RunInTransaction(ctx context.Context, f func(tx context.Context) error) error {
+	return r.db.Run(ctx, f)
 }
 
 func (r *mentorRepo) Create(ctx context.Context, m *model.Mentor) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "mentors", "Create")()
 	}
-	return r.db.WithContext(ctx).Create(m).Error
+	return r.db.Get(ctx).Create(m).Error
 }
 func (r *mentorRepo) GetByID(ctx context.Context, id string) (*model.Mentor, error) {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "mentors", "GetByID")()
 	}
 	var out model.Mentor
-	if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
+	if err := r.db.Get(ctx).First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &out, nil
@@ -43,13 +30,13 @@ func (r *mentorRepo) Update(ctx context.Context, m *model.Mentor) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "mentors", "Update")()
 	}
-	return r.db.WithContext(ctx).Save(m).Error
+	return r.db.Get(ctx).Save(m).Error
 }
 func (r *mentorRepo) Delete(ctx context.Context, id string) error {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "mentors", "Delete")()
 	}
-	return r.db.WithContext(ctx).Delete(&model.Mentor{}, "id = ?", id).Error
+	return r.db.Get(ctx).Delete(&model.Mentor{}, "id = ?", id).Error
 }
 func (r *mentorRepo) List(ctx context.Context, p ListParams) (*PageResult[model.Mentor], error) {
 	if RepoTracer != nil {
@@ -64,7 +51,7 @@ func (r *mentorRepo) List(ctx context.Context, p ListParams) (*PageResult[model.
 		"created_at": "created_at",
 		"updated_at": "updated_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.Mentor{}), &p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Get(ctx).Model(&model.Mentor{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}

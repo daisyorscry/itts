@@ -9,6 +9,7 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
 )
@@ -23,14 +24,14 @@ func NewRegistrationHandler(svc service.RegistrationService, verifyEmailURL stri
 }
 
 func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
-	var req service.RegisterRequest
+	var req model.RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	reg, err := h.svc.Register(r.Context(), req, h.verifyEmailURL)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "REGISTER_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, map[string]any{
@@ -45,7 +46,7 @@ func (h *RegistrationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request
 	token := r.URL.Query().Get("token")
 	reg, err := h.svc.VerifyEmail(r.Context(), token)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "VERIFY_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, map[string]any{
@@ -80,7 +81,7 @@ func (h *RegistrationHandler) AdminList(w http.ResponseWriter, r *http.Request) 
 
 	res, err := h.svc.AdminList(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -90,7 +91,7 @@ func (h *RegistrationHandler) AdminGet(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	rec, err := h.svc.AdminGet(r.Context(), id)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, rec)
@@ -106,13 +107,13 @@ func (h *RegistrationHandler) AdminApprove(w http.ResponseWriter, r *http.Reques
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "admin_id required", nil)
 		return
 	}
-	req := service.AdminApproveRequest{
+	req := model.AdminApproveRequest{
 		ID:      id,
 		AdminID: body.AdminID,
 	}
 	rec, err := h.svc.AdminApprove(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "APPROVE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, rec)
@@ -129,14 +130,14 @@ func (h *RegistrationHandler) AdminReject(w http.ResponseWriter, r *http.Request
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "admin_id and reason required", nil)
 		return
 	}
-	req := service.AdminRejectRequest{
+	req := model.AdminRejectRequest{
 		ID:      id,
 		AdminID: body.AdminID,
 		Reason:  body.Reason,
 	}
 	rec, err := h.svc.AdminReject(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "REJECT_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, rec)
@@ -145,7 +146,7 @@ func (h *RegistrationHandler) AdminReject(w http.ResponseWriter, r *http.Request
 func (h *RegistrationHandler) AdminDelete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.AdminDelete(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)

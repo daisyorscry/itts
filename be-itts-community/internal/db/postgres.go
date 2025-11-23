@@ -1,9 +1,11 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
+	"net/url"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -11,7 +13,18 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-func Connect(host, user, password, name, port, sslmode, tz string) *gorm.DB {
+type Connection interface {
+	Run(ctx context.Context, fn func(ctx context.Context) error) error
+	Get(ctx context.Context) *gorm.DB
+}
+
+type connection struct {
+	db *gorm.DB
+}
+
+func Connect(host, user, password, name, port, sslmode, tz string) Connection {
+	// urlencode timezone to avoid parsing issues
+	tz = url.QueryEscape(tz)
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
 		host, user, password, name, port, sslmode, tz,
@@ -21,8 +34,8 @@ func Connect(host, user, password, name, port, sslmode, tz string) *gorm.DB {
 		log.New(log.Writer(), "\r\n", log.LstdFlags),
 		logger.Config{
 			SlowThreshold: time.Second,
-			LogLevel:      logger.Info,
-			Colorful:      true,
+			LogLevel:      logger.Warn,
+			Colorful:      false,
 		},
 	)
 
@@ -41,18 +54,34 @@ func Connect(host, user, password, name, port, sslmode, tz string) *gorm.DB {
 	sqlDB.SetMaxOpenConns(50)
 	sqlDB.SetConnMaxLifetime(60 * time.Minute)
 
-	return gdb
+	return &connection{db: gdb}
 }
 
-func Ping(gdb *gorm.DB) error {
-	sqlDB, err := gdb.DB()
+func (c *connection) Run(ctx context.Context, fn func(ctx context.Context) error) error {
+	return c.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		ctxWithTx := context.WithValue(ctx, txContextKey{}, tx)
+		return fn(ctxWithTx)
+	})
+}
+
+func (c *connection) Get(ctx context.Context) *gorm.DB {
+	if tx, ok := ctx.Value(txContextKey{}).(*gorm.DB); ok && tx != nil {
+		return tx.WithContext(ctx)
+	}
+	return c.db.WithContext(ctx)
+}
+
+func Ping(conn Connection) error {
+	sqlDB, err := conn.Get(context.Background()).DB()
 	if err != nil {
 		return err
 	}
 	return sqlDB.Ping()
 }
 
-func SQL(gdb *gorm.DB) *sql.DB {
-	sqlDB, _ := gdb.DB()
+func SQL(conn Connection) *sql.DB {
+	sqlDB, _ := conn.Get(context.Background()).DB()
 	return sqlDB
 }
+
+type txContextKey struct{}

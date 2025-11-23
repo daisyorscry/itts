@@ -7,6 +7,7 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
 )
@@ -21,14 +22,14 @@ func NewPartnerHandler(svc service.PartnerService) *PartnerHandler {
 
 // POST /api/v1/admin/partners
 func (h *PartnerHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreatePartnerRequest
+	var req model.CreatePartnerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	p, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "CREATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.Created(w, r, p)
@@ -39,7 +40,7 @@ func (h *PartnerHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	p, err := h.svc.Get(r.Context(), id)
 	if err != nil {
-		core.WriteError(w, r, http.StatusNotFound, "NOT_FOUND", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, p)
@@ -48,14 +49,14 @@ func (h *PartnerHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/partners/:id
 func (h *PartnerHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdatePartnerRequest
+	var req model.UpdatePartnerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
 	p, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "UPDATE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, p)
@@ -65,7 +66,7 @@ func (h *PartnerHandler) Update(w http.ResponseWriter, r *http.Request) {
 func (h *PartnerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "DELETE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.NoContent(w, r)
@@ -95,7 +96,7 @@ func (h *PartnerHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := h.svc.List(r.Context(), lp)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "LIST_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, res)
@@ -107,13 +108,13 @@ func (h *PartnerHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 		Active bool `json:"active"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	req := service.SetPartnerActiveRequest{
+	req := model.SetPartnerActiveRequest{
 		ID:     id,
 		Active: body.Active,
 	}
 	p, err := h.svc.SetActive(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "SET_ACTIVE_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, p)
@@ -127,13 +128,13 @@ func (h *PartnerHandler) SetPriority(w http.ResponseWriter, r *http.Request) {
 		Priority int `json:"priority"`
 	}
 	_ = json.NewDecoder(r.Body).Decode(&body)
-	req := service.SetPartnerPriorityRequest{
+	req := model.SetPartnerPriorityRequest{
 		ID:       id,
 		Priority: body.Priority,
 	}
 	p, err := h.svc.SetPriority(r.Context(), req)
 	if err != nil {
-		core.WriteError(w, r, http.StatusBadRequest, "SET_PRIORITY_FAILED", err.Error(), nil)
+		core.RespondError(w, r, err)
 		return
 	}
 	core.OK(w, r, p)

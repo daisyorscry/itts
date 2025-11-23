@@ -3,45 +3,40 @@ package repository
 import (
 	"context"
 
-	"gorm.io/gorm"
-
 	"be-itts-community/internal/model"
 )
 
-type RoadmapItemRepository interface {
-	Create(ctx context.Context, m *model.RoadmapItem) error
-	GetByID(ctx context.Context, id string) (*model.RoadmapItem, error)
-	Update(ctx context.Context, m *model.RoadmapItem) error
-	Delete(ctx context.Context, id string) error
-
-	List(ctx context.Context, p ListParams) (*PageResult[model.RoadmapItem], error)
-}
-
-type roadmapItemRepo struct{ db *gorm.DB }
-
-func NewRoadmapItemRepository(d *gorm.DB) RoadmapItemRepository {
-	return &roadmapItemRepo{db: d}
+func (r *roadmapItemRepo) RunInTransaction(ctx context.Context, f func(tx context.Context) error) error {
+	return r.db.Run(ctx, f)
 }
 
 func (r *roadmapItemRepo) Create(ctx context.Context, m *model.RoadmapItem) error {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Create")() }
-    return r.db.WithContext(ctx).Create(m).Error
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Create")()
+	}
+	return r.db.Get(ctx).Create(m).Error
 }
 func (r *roadmapItemRepo) GetByID(ctx context.Context, id string) (*model.RoadmapItem, error) {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "GetByID")() }
-    var out model.RoadmapItem
-	if err := r.db.WithContext(ctx).First(&out, "id = ?", id).Error; err != nil {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "GetByID")()
+	}
+	var out model.RoadmapItem
+	if err := r.db.Get(ctx).First(&out, "id = ?", id).Error; err != nil {
 		return nil, err
 	}
 	return &out, nil
 }
 func (r *roadmapItemRepo) Update(ctx context.Context, m *model.RoadmapItem) error {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Update")() }
-    return r.db.WithContext(ctx).Save(m).Error
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Update")()
+	}
+	return r.db.Get(ctx).Save(m).Error
 }
 func (r *roadmapItemRepo) Delete(ctx context.Context, id string) error {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Delete")() }
-    return r.db.WithContext(ctx).Delete(&model.RoadmapItem{}, "id = ?", id).Error
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Delete")()
+	}
+	return r.db.Get(ctx).Delete(&model.RoadmapItem{}, "id = ?", id).Error
 }
 func (r *roadmapItemRepo) List(ctx context.Context, p ListParams) (*PageResult[model.RoadmapItem], error) {
 	if RepoTracer != nil {
@@ -54,7 +49,7 @@ func (r *roadmapItemRepo) List(ctx context.Context, p ListParams) (*PageResult[m
 		"item_text":  "item_text",
 		"sort_order": "sort_order",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.RoadmapItem{}), &p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Get(ctx).Model(&model.RoadmapItem{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
