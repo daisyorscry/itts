@@ -1,0 +1,139 @@
+@import "tailwindcss";
+
+/* =========================
+   THEME TOKENS
+   ========================= */
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+  --border: #e5e7eb;
+  --surface: #f8fafc;
+  --primary: #0f172a;
+  --on-primary: #ffffff;
+  --primary-base: #2563eb;
+  --primary-50:  #eff6ff;
+  --primary-100: #dbeafe;
+  --primary-200: #bfdbfe;
+  --primary-300: #93c5fd;
+  --primary-400: #60a5fa;
+  --primary-500: #2563eb;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-border: var(--border);
+  --color-surface: var(--surface);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+}
+
+/* Jika TIDAK ada data-theme, ikut sistem */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+    --border: #262626;
+    --surface: #111213;
+    --primary: #e5e7eb;
+    --on-primary: #0a0a0a;
+  }
+}
+
+/* Paksa dark via data-theme */
+:root[data-theme="dark"] {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --border: #262626;
+  --surface: #111213;
+  --primary: #e5e7eb;
+  --on-primary: #0a0a0a;
+}
+
+/* =========================
+   BASE
+   ========================= */
+body {
+  @apply bg-background text-foreground antialiased;
+  font-family: var(--font-sans);
+}
+
+/* =========================
+   SMALL UTILS
+   ========================= */
+.btn { @apply h-10 rounded-md px-4 font-medium; }
+.btn-primary { @apply bg-primary text-on-primary; }
+.btn-outline { @apply border border-border; }
+
+.card {
+  @apply rounded-lg border p-4;
+  border-color: var(--border);
+}
+
+.section { @apply py-14; }
+
+.container {
+  @apply mx-auto px-5;
+  max-width: 1080px;
+}
+
+/* =========================
+   MODAL
+   ========================= */
+.modal-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 50;
+}
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 45%);
+  z-index: 50;
+}
+.modal-card {
+  @apply rounded-xl border shadow-xl;
+  background: var(--surface);
+  border-color: var(--border);
+  width: min(92vw, 42rem);
+  max-height: 85vh;         /* agar tidak meluber */
+  display: flex;
+  flex-direction: column;   /* header / body / footer */
+}
+
+/* =========================
+   FORM CONTROLS
+   ========================= */
+/* Gunakan CSS var untuk padding kiri/kanan agar bisa dioverride dari komponen */
+.input,
+.select {
+  @apply w-full h-10 border rounded-md outline-none;
+  background: var(--background);
+  border-color: var(--border);
+  padding-left: var(--inset-left, 0.75rem);   /* = px-3 */
+  padding-right: var(--inset-right, 0.75rem); /* = px-3 */
+  /* hilangkan dekorasi native select agar tidak bentrok */
+  appearance: none;
+  background-image: none;
+}
+
+.textarea {
+  @apply w-full border rounded-md px-3 py-2 outline-none;
+  background: var(--background);
+  border-color: var(--border);
+  min-height: 3rem;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 30%, transparent 70%);
+}
+
+/* =========================
+   SCROLL LOCK (modal)
+   ========================= */
+body.modal-open { overflow: hidden; }

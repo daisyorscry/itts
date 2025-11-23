@@ -1,0 +1,54 @@
+stages:
+  - build_prod
+  - deploy_prod
+
+variables:
+  APP_NAME: frontend
+  PROJECT_NAME: web-itts
+  DOCKER_HUB_USER: $DOCKER_HUB_USERNAME
+  DOCKER_HUB_PASS: $DOCKER_HUB_PASSWORD
+  CONTAINER_IMAGE: docker.io/$DOCKER_HUB_USER/$APP_NAME
+
+build_prod:
+  stage: build_prod
+  image: docker:stable
+  tags:
+    - itts-runner
+  services:
+    - name: docker:dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+    DOCKER_BUILDKIT: 1
+  only:
+    - main
+  before_script:
+    # login ke Docker Hub
+    - echo "$DOCKER_HUB_PASS" | docker login -u "$DOCKER_HUB_USER" --password-stdin
+  script:
+    - docker pull $CONTAINER_IMAGE:prod || true
+    - docker build --cache-from $CONTAINER_IMAGE:prod -t $CONTAINER_IMAGE:$CI_COMMIT_SHA .
+    - docker tag $CONTAINER_IMAGE:$CI_COMMIT_SHA $CONTAINER_IMAGE:prod
+    - docker push $CONTAINER_IMAGE:$CI_COMMIT_SHA
+    - docker push $CONTAINER_IMAGE:prod
+
+deploy_prod:
+  stage: deploy_prod
+  tags:
+    - itts-runner
+  only:
+    - main
+  before_script:
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY_PRODUCTION" | base64 -d > ~/.ssh/server-cicd
+    - chmod 600 ~/.ssh/server-cicd
+    - eval "$(ssh-agent -s)"
+    - ssh-add ~/.ssh/server-cicd
+  script: |
+    ssh -i ~/.ssh/server-cicd -o StrictHostKeyChecking=no cicd@"$IP_PRODUCTION" << 'EOF'
+    cd "$PATH_KUBECONFIG"
+    kubectl --kubeconfig=kubeconfig.yaml rollout restart deployment frontend -n itts
+    EOF
+  when: manual

@@ -1,0 +1,62 @@
+services:
+  web:
+    image: harbor-test.daisyorscry.sbs/web-itts/frontend:latest
+    container_name: itts-frontend
+    env_file:
+      - .env
+    ports:
+      - "${PORT:-3000}:3000"
+    restart: unless-stopped
+    healthcheck:
+      test: >
+        CMD-SHELL
+        node -e "http=require('http');
+        http.get({host:'127.0.0.1',port:process.env.PORT||3000,path:'/'},r=>process.exit((r.statusCode>=200&&r.statusCode<500)?0:1))
+        .on('error',()=>process.exit(1))"
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      - api
+
+  api:
+    image: harbor-test.daisyorscry.sbs/web-itts/backend:latest
+    container_name: itts-backend
+    env_file:
+      - ./be-itts-community/.env
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+    ports:
+      - "${APP_PORT:-3002}:${APP_PORT:-3002}"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_PORT:-3002}/health >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  db:
+    image: postgres:16-alpine
+    container_name: itts-postgres
+    environment:
+      POSTGRES_DB: ittscommunity
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: root
+      TZ: Asia/Jakarta
+    ports:
+      - "5422:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d ittscommunity -h 127.0.0.1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  db-data:
