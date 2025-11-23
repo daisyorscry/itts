@@ -25,7 +25,7 @@ func NewEventHandler(svc service.EventService) *EventHandler {
 
 // POST /api/v1/admin/events
 func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateEvent
+	var req service.CreateEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -63,7 +63,7 @@ func (h *EventHandler) GetEventBySlug(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/events/:id
 func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateEvent
+	var req service.UpdateEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -90,7 +90,7 @@ func (h *EventHandler) DeleteEvent(w http.ResponseWriter, r *http.Request) {
 // Query: search, program, status, from, to, sort, page, page_size
 func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),
@@ -132,8 +132,11 @@ func (h *EventHandler) SetEventStatus(w http.ResponseWriter, r *http.Request) {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
-	st := model.EventStatus(body.Status)
-	ev, err := h.svc.SetStatus(r.Context(), id, st)
+	req := service.SetEventStatusRequest{
+		ID:     id,
+		Status: model.EventStatus(body.Status),
+	}
+	ev, err := h.svc.SetStatus(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "SET_STATUS_FAILED", err.Error(), nil)
 		return
@@ -143,7 +146,7 @@ func (h *EventHandler) SetEventStatus(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) AddSpeaker(w http.ResponseWriter, r *http.Request) {
 	eventID := chi.URLParam(r, "event_id")
-	var req service.CreateSpeaker
+	var req service.CreateSpeakerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -159,7 +162,7 @@ func (h *EventHandler) AddSpeaker(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) UpdateSpeaker(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateSpeaker
+	var req service.UpdateSpeakerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -183,7 +186,7 @@ func (h *EventHandler) DeleteSpeaker(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) ListSpeakers(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),
@@ -211,7 +214,7 @@ func (h *EventHandler) ListSpeakers(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/events/:event_id/register (public)
 func (h *EventHandler) RegisterToEvent(w http.ResponseWriter, r *http.Request) {
 	eventID := chi.URLParam(r, "event_id")
-	var req service.CreateEventRegistration
+	var req service.CreateEventRegistrationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -227,7 +230,7 @@ func (h *EventHandler) RegisterToEvent(w http.ResponseWriter, r *http.Request) {
 
 func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),

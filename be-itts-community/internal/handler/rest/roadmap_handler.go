@@ -23,7 +23,7 @@ func NewRoadmapHandler(svc service.RoadmapService) *RoadmapHandler {
 
 // POST /api/v1/admin/roadmaps
 func (h *RoadmapHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateRoadmap
+	var req service.CreateRoadmapRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -50,7 +50,7 @@ func (h *RoadmapHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/roadmaps/:id
 func (h *RoadmapHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateRoadmap
+	var req service.UpdateRoadmapRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -77,7 +77,7 @@ func (h *RoadmapHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // Query: search, program, is_active, month_number, sort, page, page_size
 func (h *RoadmapHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),

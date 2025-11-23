@@ -14,7 +14,7 @@ type RoadmapItemRepository interface {
 	Update(ctx context.Context, m *model.RoadmapItem) error
 	Delete(ctx context.Context, id string) error
 
-	List(ctx context.Context, p *ListParams) (*PageResult[model.RoadmapItem], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.RoadmapItem], error)
 }
 
 type roadmapItemRepo struct{ db *gorm.DB }
@@ -43,8 +43,10 @@ func (r *roadmapItemRepo) Delete(ctx context.Context, id string) error {
     if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "Delete")() }
     return r.db.WithContext(ctx).Delete(&model.RoadmapItem{}, "id = ?", id).Error
 }
-func (r *roadmapItemRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.RoadmapItem], error) {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "List")() }
+func (r *roadmapItemRepo) List(ctx context.Context, p ListParams) (*PageResult[model.RoadmapItem], error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "roadmap_items", "List")()
+	}
 	searchable := []string{"item_text"}
 	sorts := map[string]string{
 		"id":         "id",
@@ -52,10 +54,10 @@ func (r *roadmapItemRepo) List(ctx context.Context, p *ListParams) (*PageResult[
 		"item_text":  "item_text",
 		"sort_order": "sort_order",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.RoadmapItem{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.RoadmapItem{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.RoadmapItem
-	return Paginate[model.RoadmapItem](ctx, q, p, &rows)
+	return Paginate[model.RoadmapItem](ctx, q, &p, &rows)
 }

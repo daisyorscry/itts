@@ -13,7 +13,7 @@ type EventRegistrationRepository interface {
 	Update(ctx context.Context, m *model.EventRegistration) error
 	Delete(ctx context.Context, id string) error
 
-	List(ctx context.Context, p *ListParams) (*PageResult[model.EventRegistration], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.EventRegistration], error)
 }
 
 type eventRegRepo struct{ db *gorm.DB }
@@ -50,7 +50,7 @@ func (r *eventRegRepo) Delete(ctx context.Context, id string) error {
 	}
 	return r.db.WithContext(ctx).Delete(&model.EventRegistration{}, "id = ?", id).Error
 }
-func (r *eventRegRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.EventRegistration], error) {
+func (r *eventRegRepo) List(ctx context.Context, p ListParams) (*PageResult[model.EventRegistration], error) {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "List")()
 	}
@@ -62,10 +62,10 @@ func (r *eventRegRepo) List(ctx context.Context, p *ListParams) (*PageResult[mod
 		"email":      "email",
 		"created_at": "created_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.EventRegistration{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.EventRegistration{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.EventRegistration
-	return Paginate[model.EventRegistration](ctx, q, p, &rows)
+	return Paginate[model.EventRegistration](ctx, q, &p, &rows)
 }

@@ -22,7 +22,7 @@ func NewRoadmapItemHandler(svc service.RoadmapItemService) *RoadmapItemHandler {
 // POST /api/v1/admin/roadmap-items
 // Atau: POST /api/v1/admin/roadmaps/:roadmap_id/items (lihat handler tambahan di bawah)
 func (h *RoadmapItemHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateRoadmapItem
+	var req service.CreateRoadmapItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -49,7 +49,7 @@ func (h *RoadmapItemHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/roadmap-items/:id
 func (h *RoadmapItemHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateRoadmapItem
+	var req service.UpdateRoadmapItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -76,7 +76,7 @@ func (h *RoadmapItemHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // Query: search, roadmap_id, sort, page, page_size
 func (h *RoadmapItemHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),
@@ -98,7 +98,7 @@ func (h *RoadmapItemHandler) List(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/admin/roadmaps/:roadmap_id/items
 func (h *RoadmapItemHandler) CreateUnderRoadmap(w http.ResponseWriter, r *http.Request) {
 	roadmapID := chi.URLParam(r, "roadmap_id")
-	var req service.CreateRoadmapItem
+	var req service.CreateRoadmapItemRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return

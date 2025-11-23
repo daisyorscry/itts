@@ -17,7 +17,7 @@ type EventRepository interface {
 	GetEventBySlug(ctx context.Context, slug string) (*model.Event, error)
 	UpdateEvent(ctx context.Context, m *model.Event) error
 	DeleteEvent(ctx context.Context, id string) error
-	ListEvents(ctx context.Context, p *ListParams) (*PageResult[model.Event], error)
+	ListEvents(ctx context.Context, p ListParams) (*PageResult[model.Event], error)
 
 	// Speakers CRUD
 	CreateSpeaker(ctx context.Context, m *model.EventSpeaker) error
@@ -93,7 +93,7 @@ func (r *eventRepo) DeleteEvent(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&model.Event{}, "id = ?", id).Error
 }
 
-func (r *eventRepo) ListEvents(ctx context.Context, p *ListParams) (*PageResult[model.Event], error) {
+func (r *eventRepo) ListEvents(ctx context.Context, p ListParams) (*PageResult[model.Event], error) {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "events", "List")()
 	}
@@ -113,7 +113,7 @@ func (r *eventRepo) ListEvents(ctx context.Context, p *ListParams) (*PageResult[
 	}
 
 	base := r.db.Model(&model.Event{})
-	q, err := ApplyListQuery(base, p, searchable, sorts)
+	q, err := ApplyListQuery(base, &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (r *eventRepo) ListEvents(ctx context.Context, p *ListParams) (*PageResult[
 	q = r.preloadChildren(q)
 
 	var rows []model.Event
-	return Paginate[model.Event](ctx, q, p, &rows)
+	return Paginate[model.Event](ctx, q, &p, &rows)
 }
 
 // =====================

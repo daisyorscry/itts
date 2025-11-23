@@ -14,7 +14,7 @@ type PartnerRepository interface {
 	Update(ctx context.Context, m *model.Partner) error
 	Delete(ctx context.Context, id string) error
 
-	List(ctx context.Context, p *ListParams) (*PageResult[model.Partner], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.Partner], error)
 }
 
 type partnerRepo struct{ db *gorm.DB }
@@ -43,8 +43,10 @@ func (r *partnerRepo) Delete(ctx context.Context, id string) error {
     if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "Delete")() }
     return r.db.WithContext(ctx).Delete(&model.Partner{}, "id = ?", id).Error
 }
-func (r *partnerRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.Partner], error) {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "partners", "List")() }
+func (r *partnerRepo) List(ctx context.Context, p ListParams) (*PageResult[model.Partner], error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "partners", "List")()
+	}
 	searchable := []string{"name", "subtitle", "description", "website_url"}
 	sorts := map[string]string{
 		"id":         "id",
@@ -55,10 +57,10 @@ func (r *partnerRepo) List(ctx context.Context, p *ListParams) (*PageResult[mode
 		"created_at": "created_at",
 		"updated_at": "updated_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.Partner{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.Partner{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.Partner
-	return Paginate[model.Partner](ctx, q, p, &rows)
+	return Paginate[model.Partner](ctx, q, &p, &rows)
 }

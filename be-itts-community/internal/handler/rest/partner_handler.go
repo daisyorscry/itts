@@ -21,7 +21,7 @@ func NewPartnerHandler(svc service.PartnerService) *PartnerHandler {
 
 // POST /api/v1/admin/partners
 func (h *PartnerHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreatePartner
+	var req service.CreatePartnerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -48,7 +48,7 @@ func (h *PartnerHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/partners/:id
 func (h *PartnerHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdatePartner
+	var req service.UpdatePartnerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -75,7 +75,7 @@ func (h *PartnerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // Query: search, kind, is_active, sort, page, page_size
 func (h *PartnerHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),
@@ -103,9 +103,15 @@ func (h *PartnerHandler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *PartnerHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req setActiveReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	p, err := h.svc.SetActive(r.Context(), id, req.Active)
+	var body struct {
+		Active bool `json:"active"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	req := service.SetPartnerActiveRequest{
+		ID:     id,
+		Active: body.Active,
+	}
+	p, err := h.svc.SetActive(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "SET_ACTIVE_FAILED", err.Error(), nil)
 		return
@@ -117,9 +123,15 @@ func (h *PartnerHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 
 func (h *PartnerHandler) SetPriority(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req setPriorityReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	p, err := h.svc.SetPriority(r.Context(), id, req.Priority)
+	var body struct {
+		Priority int `json:"priority"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	req := service.SetPartnerPriorityRequest{
+		ID:       id,
+		Priority: body.Priority,
+	}
+	p, err := h.svc.SetPriority(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "SET_PRIORITY_FAILED", err.Error(), nil)
 		return

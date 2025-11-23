@@ -14,7 +14,7 @@ type EventSpeakerRepository interface {
 	Update(ctx context.Context, m *model.EventSpeaker) error
 	Delete(ctx context.Context, id string) error
 
-	List(ctx context.Context, p *ListParams) (*PageResult[model.EventSpeaker], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.EventSpeaker], error)
 }
 
 type eventSpeakerRepo struct{ db *gorm.DB }
@@ -39,7 +39,7 @@ func (r *eventSpeakerRepo) Update(ctx context.Context, m *model.EventSpeaker) er
 func (r *eventSpeakerRepo) Delete(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&model.EventSpeaker{}, "id = ?", id).Error
 }
-func (r *eventSpeakerRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.EventSpeaker], error) {
+func (r *eventSpeakerRepo) List(ctx context.Context, p ListParams) (*PageResult[model.EventSpeaker], error) {
 	searchable := []string{"name", "title"}
 	sorts := map[string]string{
 		"id":         "id",
@@ -48,10 +48,10 @@ func (r *eventSpeakerRepo) List(ctx context.Context, p *ListParams) (*PageResult
 		"title":      "title",
 		"sort_order": "sort_order",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.EventSpeaker{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.EventSpeaker{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.EventSpeaker
-	return Paginate[model.EventSpeaker](ctx, q, p, &rows)
+	return Paginate[model.EventSpeaker](ctx, q, &p, &rows)
 }

@@ -32,6 +32,9 @@ type PageResult[T any] struct {
 var RepoTracer nr.Tracer = nr.NewNoopTracer()
 
 func SanitizePaging(p *ListParams) {
+	if p == nil {
+		return
+	}
 	if p.Page <= 0 {
 		p.Page = 1
 	}
@@ -41,6 +44,19 @@ func SanitizePaging(p *ListParams) {
 	if p.PageSize > 200 {
 		p.PageSize = 200
 	}
+}
+
+func SanitizeListParams(p ListParams) ListParams {
+	if p.Page <= 0 {
+		p.Page = 1
+	}
+	if p.PageSize <= 0 {
+		p.PageSize = 20
+	}
+	if p.PageSize > 200 {
+		p.PageSize = 200
+	}
+	return p
 }
 
 func ParseSort(s string) (field string, dir string, ok bool) {

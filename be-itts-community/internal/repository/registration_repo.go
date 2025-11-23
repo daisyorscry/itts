@@ -14,7 +14,7 @@ type RegistrationRepository interface {
 	FindByEmail(ctx context.Context, email string) (*model.Registration, error)
 	Update(ctx context.Context, m *model.Registration) error
 	Delete(ctx context.Context, id string) error
-	List(ctx context.Context, p *ListParams) (*PageResult[model.Registration], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.Registration], error)
 }
 
 type registrationRepo struct{ db *gorm.DB }
@@ -56,11 +56,13 @@ func (r *registrationRepo) Delete(ctx context.Context, id string) error {
     return r.db.WithContext(ctx).Delete(&model.Registration{}, "id = ?", id).Error
 }
 
-func (r *registrationRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.Registration], error) {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "List")() }
-    searchable := []string{"full_name", "email", "student_id", "motivation", "status", "program"}
-    sorts := map[string]string{
-        "id":          "id",
+func (r *registrationRepo) List(ctx context.Context, p ListParams) (*PageResult[model.Registration], error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "registrations", "List")()
+	}
+	searchable := []string{"full_name", "email", "student_id", "motivation", "status", "program"}
+	sorts := map[string]string{
+		"id":          "id",
 		"full_name":   "full_name",
 		"email":       "email",
 		"program":     "program",
@@ -71,10 +73,10 @@ func (r *registrationRepo) List(ctx context.Context, p *ListParams) (*PageResult
 		"created_at":  "created_at",
 		"updated_at":  "updated_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.Registration{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.Registration{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.Registration
-	return Paginate[model.Registration](ctx, q, p, &rows)
+	return Paginate[model.Registration](ctx, q, &p, &rows)
 }

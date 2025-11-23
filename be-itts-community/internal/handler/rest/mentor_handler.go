@@ -21,7 +21,7 @@ func NewMentorHandler(svc service.MentorService) *MentorHandler {
 
 // POST /api/v1/admin/mentors
 func (h *MentorHandler) Create(w http.ResponseWriter, r *http.Request) {
-	var req service.CreateMentor
+	var req service.CreateMentorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -48,7 +48,7 @@ func (h *MentorHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PATCH /api/v1/admin/mentors/:id
 func (h *MentorHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req service.UpdateMentor
+	var req service.UpdateMentorRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
@@ -75,7 +75,7 @@ func (h *MentorHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // Query: search, is_active, program(in), sort, page, page_size
 func (h *MentorHandler) List(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   q.Get("search"),
 		Filters:  map[string]any{},
 		Sort:     parseSorts(q.Get("sort")),
@@ -116,15 +116,17 @@ func (h *MentorHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // PATCH /api/v1/admin/mentors/:id/active
-type setActiveReq struct {
-	Active bool `json:"active"`
-}
-
 func (h *MentorHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req setActiveReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	m, err := h.svc.SetActive(r.Context(), id, req.Active)
+	var body struct {
+		Active bool `json:"active"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	req := service.SetMentorActiveRequest{
+		ID:     id,
+		Active: body.Active,
+	}
+	m, err := h.svc.SetActive(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "SET_ACTIVE_FAILED", err.Error(), nil)
 		return
@@ -133,15 +135,17 @@ func (h *MentorHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 }
 
 // PATCH /api/v1/admin/mentors/:id/priority
-type setPriorityReq struct {
-	Priority int `json:"priority"`
-}
-
 func (h *MentorHandler) SetPriority(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req setPriorityReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	m, err := h.svc.SetPriority(r.Context(), id, req.Priority)
+	var body struct {
+		Priority int `json:"priority"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	req := service.SetMentorPriorityRequest{
+		ID:       id,
+		Priority: body.Priority,
+	}
+	m, err := h.svc.SetPriority(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "SET_PRIORITY_FAILED", err.Error(), nil)
 		return

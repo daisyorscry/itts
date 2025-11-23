@@ -14,7 +14,7 @@ type MentorRepository interface {
 	Update(ctx context.Context, m *model.Mentor) error
 	Delete(ctx context.Context, id string) error
 
-	List(ctx context.Context, p *ListParams) (*PageResult[model.Mentor], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.Mentor], error)
 }
 
 type mentorRepo struct{ db *gorm.DB }
@@ -51,7 +51,7 @@ func (r *mentorRepo) Delete(ctx context.Context, id string) error {
 	}
 	return r.db.WithContext(ctx).Delete(&model.Mentor{}, "id = ?", id).Error
 }
-func (r *mentorRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.Mentor], error) {
+func (r *mentorRepo) List(ctx context.Context, p ListParams) (*PageResult[model.Mentor], error) {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "mentors", "List")()
 	}
@@ -64,10 +64,10 @@ func (r *mentorRepo) List(ctx context.Context, p *ListParams) (*PageResult[model
 		"created_at": "created_at",
 		"updated_at": "updated_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.Mentor{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.Mentor{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.Mentor
-	return Paginate[model.Mentor](ctx, q, p, &rows)
+	return Paginate[model.Mentor](ctx, q, &p, &rows)
 }

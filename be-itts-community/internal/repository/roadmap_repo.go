@@ -14,7 +14,7 @@ type RoadmapRepository interface {
 	Update(ctx context.Context, m *model.Roadmap) error
 	Delete(ctx context.Context, id string) error
 
-	List(ctx context.Context, p *ListParams) (*PageResult[model.Roadmap], error)
+	List(ctx context.Context, p ListParams) (*PageResult[model.Roadmap], error)
 }
 
 type roadmapRepo struct{ db *gorm.DB }
@@ -43,8 +43,10 @@ func (r *roadmapRepo) Delete(ctx context.Context, id string) error {
     if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmaps", "Delete")() }
     return r.db.WithContext(ctx).Delete(&model.Roadmap{}, "id = ?", id).Error
 }
-func (r *roadmapRepo) List(ctx context.Context, p *ListParams) (*PageResult[model.Roadmap], error) {
-    if RepoTracer != nil { defer RepoTracer.StartDatastoreSegment(ctx, "roadmaps", "List")() }
+func (r *roadmapRepo) List(ctx context.Context, p ListParams) (*PageResult[model.Roadmap], error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "roadmaps", "List")()
+	}
 	searchable := []string{"title", "description", "program"}
 	sorts := map[string]string{
 		"id":           "id",
@@ -56,10 +58,10 @@ func (r *roadmapRepo) List(ctx context.Context, p *ListParams) (*PageResult[mode
 		"created_at":   "created_at",
 		"updated_at":   "updated_at",
 	}
-	q, err := ApplyListQuery(r.db.Model(&model.Roadmap{}), p, searchable, sorts)
+	q, err := ApplyListQuery(r.db.Model(&model.Roadmap{}), &p, searchable, sorts)
 	if err != nil {
 		return nil, err
 	}
 	var rows []model.Roadmap
-	return Paginate[model.Roadmap](ctx, q, p, &rows)
+	return Paginate[model.Roadmap](ctx, q, &p, &rows)
 }

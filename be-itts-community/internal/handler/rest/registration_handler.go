@@ -56,7 +56,7 @@ func (h *RegistrationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request
 }
 
 func (h *RegistrationHandler) AdminList(w http.ResponseWriter, r *http.Request) {
-	lp := &repository.ListParams{
+	lp := repository.ListParams{
 		Search:   r.URL.Query().Get("search"),
 		Filters:  make(map[string]any),
 		Sort:     parseSorts(r.URL.Query().Get("sort")),
@@ -96,19 +96,21 @@ func (h *RegistrationHandler) AdminGet(w http.ResponseWriter, r *http.Request) {
 	core.OK(w, r, rec)
 }
 
-type approveReq struct {
-	AdminID string `json:"admin_id"`
-}
-
 func (h *RegistrationHandler) AdminApprove(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req approveReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	if req.AdminID == "" {
+	var body struct {
+		AdminID string `json:"admin_id"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.AdminID == "" {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "admin_id required", nil)
 		return
 	}
-	rec, err := h.svc.AdminApprove(r.Context(), id, req.AdminID)
+	req := service.AdminApproveRequest{
+		ID:      id,
+		AdminID: body.AdminID,
+	}
+	rec, err := h.svc.AdminApprove(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "APPROVE_FAILED", err.Error(), nil)
 		return
@@ -116,20 +118,23 @@ func (h *RegistrationHandler) AdminApprove(w http.ResponseWriter, r *http.Reques
 	core.OK(w, r, rec)
 }
 
-type rejectReq struct {
-	AdminID string `json:"admin_id"`
-	Reason  string `json:"reason"`
-}
-
 func (h *RegistrationHandler) AdminReject(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	var req rejectReq
-	_ = json.NewDecoder(r.Body).Decode(&req)
-	if req.AdminID == "" || strings.TrimSpace(req.Reason) == "" {
+	var body struct {
+		AdminID string `json:"admin_id"`
+		Reason  string `json:"reason"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+	if body.AdminID == "" || strings.TrimSpace(body.Reason) == "" {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "admin_id and reason required", nil)
 		return
 	}
-	rec, err := h.svc.AdminReject(r.Context(), id, req.AdminID, req.Reason)
+	req := service.AdminRejectRequest{
+		ID:      id,
+		AdminID: body.AdminID,
+		Reason:  body.Reason,
+	}
+	rec, err := h.svc.AdminReject(r.Context(), req)
 	if err != nil {
 		core.WriteError(w, r, http.StatusBadRequest, "REJECT_FAILED", err.Error(), nil)
 		return
