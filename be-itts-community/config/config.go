@@ -46,6 +46,13 @@ type Config struct {
         AppName  string
         License  string
     }
+
+    JWT struct {
+        Secret            string
+        AccessDuration    string
+        RefreshDuration   string
+        Issuer            string
+    }
 }
 
 func LoadConfig() *Config {
@@ -89,5 +96,11 @@ func LoadConfig() *Config {
     cfg.NewRelic.Enabled = viper.GetBool("NEW_RELIC_ENABLED")
     cfg.NewRelic.AppName = viper.GetString("NEW_RELIC_APP_NAME")
     cfg.NewRelic.License = viper.GetString("NEW_RELIC_LICENSE_KEY")
+
+    cfg.JWT.Secret = viper.GetString("JWT_SECRET")
+    cfg.JWT.AccessDuration = viper.GetString("JWT_ACCESS_DURATION")
+    cfg.JWT.RefreshDuration = viper.GetString("JWT_REFRESH_DURATION")
+    cfg.JWT.Issuer = viper.GetString("JWT_ISSUER")
+
     return cfg
 }

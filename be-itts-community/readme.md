@@ -254,5 +254,5 @@ type Repository interface {
   - Hindari membuat ulang helper serupa di luar `core`.
 
 - Framework HTTP: Chi
-  - Router/HTTP server menggunakan `chi` (bukan Fiber).
+  - Router/HTTP server menggunakan `chi`.
   - Middleware global (cors, recovery, request logging) mengacu ke util di `core`.

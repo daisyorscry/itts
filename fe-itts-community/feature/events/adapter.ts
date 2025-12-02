@@ -13,19 +13,19 @@ export type EventSpeaker = {
 };
 
 export type RawEvent = {
-  ID: string;
-  Slug?: string | null;
-  Title: string;
-  Summary?: string | null;
-  Description?: string | null;
-  ImageURL?: string | null;
-  Program?: string | null;
-  Status: string; // biarkan string, kita konversi di mapper
-  StartsAt?: string | null;
-  EndsAt?: string | null;
-  Venue?: string | null;
-  CreatedAt: string;
-  UpdatedAt: string;
+  id: string;
+  slug?: string | null;
+  title: string;
+  summary?: string | null;
+  description?: string | null;
+  image_url?: string | null;
+  program?: string | null;
+  status: string; // biarkan string, kita konversi di mapper
+  starts_at?: string | null;
+  ends_at?: string | null;
+  venue?: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type PageResultRaw<T> = {
@@ -86,19 +86,19 @@ function mapStatus(s: string): EventStatus {
 
 export function mapEvent(e: RawEvent): Event {
   return {
-    id: e.ID,
-    slug: e.Slug ?? null,
-    title: e.Title,
-    summary: e.Summary ?? null,
-    description: e.Description ?? null,
-    image_url: e.ImageURL ?? null,
-    program: mapProgram(e.Program),
-    status: mapStatus(e.Status),
-    starts_at: e.StartsAt ?? null,
-    ends_at: e.EndsAt ?? null,
-    venue: e.Venue ?? null,
-    created_at: e.CreatedAt,
-    updated_at: e.UpdatedAt,
+    id: e.id,
+    slug: e.slug ?? null,
+    title: e.title,
+    summary: e.summary ?? null,
+    description: e.description ?? null,
+    image_url: e.image_url ?? null,
+    program: mapProgram(e.program),
+    status: mapStatus(e.status),
+    starts_at: e.starts_at ?? null,
+    ends_at: e.ends_at ?? null,
+    venue: e.venue ?? null,
+    created_at: e.created_at,
+    updated_at: e.updated_at,
   };
 }
 

@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"net/url"
 	"time"
 
 	"gorm.io/driver/postgres"
@@ -23,8 +22,7 @@ type connection struct {
 }
 
 func Connect(host, user, password, name, port, sslmode, tz string) Connection {
-	// urlencode timezone to avoid parsing issues
-	tz = url.QueryEscape(tz)
+	// Build DSN without URL encoding timezone - PostgreSQL driver handles it directly
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
 		host, user, password, name, port, sslmode, tz,

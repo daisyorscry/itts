@@ -1,12 +1,16 @@
 package routes
 
 import (
+	"time"
+
 	"github.com/go-chi/chi/v5"
 
 	"be-itts-community/internal/db"
 	"be-itts-community/internal/handler/rest"
+	"be-itts-community/internal/middleware"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
+	"be-itts-community/pkg/auth"
 	"be-itts-community/pkg/lock"
 	"be-itts-community/pkg/observability/nr"
 )
@@ -17,6 +21,10 @@ type RouteDeps struct {
 	Mailer         service.Mailer
 	Locker         lock.Locker
 	Tracer         nr.Tracer
+	JWTSecret      string
+	JWTAccessDur   time.Duration
+	JWTRefreshDur  time.Duration
+	JWTIssuer      string
 }
 
 func RegisterRoutes(r chi.Router, deps RouteDeps) {
@@ -26,6 +34,30 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	if deps.Tracer == nil {
 		deps.Tracer = nr.NewNoopTracer()
 	}
+
+	// ===== JWT MANAGER =====
+	jwtManager := auth.NewJWTManager(
+		deps.JWTSecret,
+		deps.JWTAccessDur,
+		deps.JWTRefreshDur,
+		deps.JWTIssuer,
+	)
+
+	// ===== RBAC REPOSITORIES =====
+	authRepo := repository.NewAuthRepository(deps.DBConn)
+	permissionRepo := repository.NewPermissionRepository(deps.DBConn)
+	auditRepo := repository.NewAuditLogRepository(deps.DBConn)
+
+	// ===== RBAC SERVICES =====
+	authSvc := service.NewAuthService(authRepo, permissionRepo, auditRepo, jwtManager, deps.Tracer)
+	permissionSvc := service.NewPermissionService(permissionRepo, auditRepo, deps.Tracer)
+
+	// ===== RBAC HANDLERS =====
+	authH := rest.NewAuthHandler(authSvc)
+	userH := rest.NewUserHandler(authSvc)
+	roleH := rest.NewRoleHandler(permissionSvc)
+	permissionH := rest.NewPermissionHandler(permissionSvc)
+
 	// ===== AUTH / REGISTRATION =====
 	regRepo := repository.NewRegistrationRepository(deps.DBConn)
 	emailVerRepo := repository.NewEmailVerificationRepository(deps.DBConn)
@@ -63,79 +95,118 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 
 	// ========= ROUTES =========
 	r.Route("/api/v1", func(api chi.Router) {
+		// Apply JWT middleware globally
+		api.Use(middleware.JWTMiddleware(jwtManager))
 
-		// Auth (public)
+		// ===== PUBLIC AUTH ROUTES =====
 		api.Route("/auth", func(auth chi.Router) {
+			// Public endpoints
+			auth.Post("/login", authH.Login)
+			auth.Post("/refresh", authH.RefreshToken)
+			auth.Post("/logout", authH.Logout)
+
+			// Member registration (public)
 			auth.Post("/register", regH.Register)
 			auth.Get("/verify-email", regH.VerifyEmail)
+
+			// Protected endpoints (require authentication)
+			auth.Group(func(protected chi.Router) {
+				protected.Use(middleware.RequireAuth())
+				protected.Get("/me", authH.Me)
+				protected.Post("/change-password", authH.ChangePassword)
+			})
 		})
 
 		// Public events
 		api.Get("/events/slug/{slug}", eventH.GetEventBySlug)
 		api.Post("/events/{event_id}/register", eventH.RegisterToEvent)
 
-		// Admin group (TODO: add auth middleware)
+		// ===== ADMIN ROUTES (Protected) =====
 		api.Route("/admin", func(admin chi.Router) {
+			// Require authentication for all admin routes
+			admin.Use(middleware.RequireAuth())
 
-			// Admin: registrations
-			admin.Route("/registrations", func(regAdmin chi.Router) {
-				regAdmin.Get("/", regH.AdminList)
-				regAdmin.Get("/{id}", regH.AdminGet)
-				regAdmin.Patch("/{id}/approve", regH.AdminApprove)
-				regAdmin.Patch("/{id}/reject", regH.AdminReject)
-				regAdmin.Delete("/{id}", regH.AdminDelete)
-			})
+			// ===== USER MANAGEMENT =====
+			admin.With(middleware.RequirePermission("users:create")).Post("/users", userH.CreateUser)
+			admin.With(middleware.RequirePermission("users:list")).Get("/users", userH.ListUsers)
+			admin.With(middleware.RequirePermission("users:read")).Get("/users/{id}", userH.GetUser)
+			admin.With(middleware.RequirePermission("users:update")).Patch("/users/{id}", userH.UpdateUser)
+			admin.With(middleware.RequirePermission("users:delete")).Delete("/users/{id}", userH.DeleteUser)
+			admin.With(middleware.RequirePermission("users:manage")).Post("/users/{id}/reset-password", userH.ResetPassword)
+			admin.With(middleware.RequirePermission("users:manage")).Post("/users/{id}/roles", userH.AssignRoles)
 
-			// Admin: roadmaps
-			admin.Post("/roadmaps", roadmapH.Create)
-			admin.Get("/roadmaps", roadmapH.List)
-			admin.Get("/roadmaps/{id}", roadmapH.Get)
-			admin.Patch("/roadmaps/{id}", roadmapH.Update)
-			admin.Delete("/roadmaps/{id}", roadmapH.Delete)
+			// ===== ROLE MANAGEMENT =====
+			admin.With(middleware.RequirePermission("roles:create")).Post("/roles", roleH.CreateRole)
+			admin.With(middleware.RequirePermission("roles:list")).Get("/roles", roleH.ListRoles)
+			admin.With(middleware.RequirePermission("roles:read")).Get("/roles/{id}", roleH.GetRole)
+			admin.With(middleware.RequirePermission("roles:update")).Patch("/roles/{id}", roleH.UpdateRole)
+			admin.With(middleware.RequirePermission("roles:delete")).Delete("/roles/{id}", roleH.DeleteRole)
+			admin.With(middleware.RequirePermission("roles:manage")).Post("/roles/{id}/permissions", roleH.AssignPermissions)
+			admin.With(middleware.RequirePermission("roles:read")).Get("/roles/{id}/permissions", roleH.GetRolePermissions)
 
-			// Admin: roadmap items
-			admin.Post("/roadmap-items", itemH.Create)
-			admin.Get("/roadmap-items", itemH.List)
-			admin.Get("/roadmap-items/{id}", itemH.Get)
-			admin.Patch("/roadmap-items/{id}", itemH.Update)
-			admin.Delete("/roadmap-items/{id}", itemH.Delete)
-			admin.Post("/roadmaps/{roadmap_id}/items", itemH.CreateUnderRoadmap)
+			// ===== PERMISSION & RESOURCE QUERIES (Read-only) =====
+			admin.With(middleware.RequirePermission("permissions:list")).Get("/permissions", permissionH.ListPermissions)
+			admin.With(middleware.RequirePermission("permissions:read")).Get("/permissions/{id}", permissionH.GetPermission)
+			admin.With(middleware.RequireAnyPermission("permissions:list", "roles:create", "roles:update")).Get("/resources", permissionH.ListResources)
+			admin.With(middleware.RequireAnyPermission("permissions:list", "roles:create", "roles:update")).Get("/actions", permissionH.ListActions)
 
-			// Admin: mentors
-			admin.Post("/mentors", mentorH.Create)
-			admin.Get("/mentors", mentorH.List)
-			admin.Get("/mentors/{id}", mentorH.Get)
-			admin.Patch("/mentors/{id}", mentorH.Update)
-			admin.Patch("/mentors/{id}/active", mentorH.SetActive)
-			admin.Patch("/mentors/{id}/priority", mentorH.SetPriority)
-			admin.Delete("/mentors/{id}", mentorH.Delete)
+			// ===== MEMBER REGISTRATIONS =====
+			admin.With(middleware.RequirePermission("registrations:list")).Get("/registrations", regH.AdminList)
+			admin.With(middleware.RequirePermission("registrations:read")).Get("/registrations/{id}", regH.AdminGet)
+			admin.With(middleware.RequirePermission("registrations:approve")).Patch("/registrations/{id}/approve", regH.AdminApprove)
+			admin.With(middleware.RequirePermission("registrations:reject")).Patch("/registrations/{id}/reject", regH.AdminReject)
+			admin.With(middleware.RequirePermission("registrations:delete")).Delete("/registrations/{id}", regH.AdminDelete)
 
-			// Admin: partners
-			admin.Post("/partners", partnerH.Create)
-			admin.Get("/partners", partnerH.List)
-			admin.Get("/partners/{id}", partnerH.Get)
-			admin.Patch("/partners/{id}", partnerH.Update)
-			admin.Patch("/partners/{id}/active", partnerH.SetActive)
-			admin.Patch("/partners/{id}/priority", partnerH.SetPriority)
-			admin.Delete("/partners/{id}", partnerH.Delete)
+			// ===== ROADMAPS =====
+			admin.With(middleware.RequirePermission("roadmaps:create")).Post("/roadmaps", roadmapH.Create)
+			admin.With(middleware.RequirePermission("roadmaps:list")).Get("/roadmaps", roadmapH.List)
+			admin.With(middleware.RequirePermission("roadmaps:read")).Get("/roadmaps/{id}", roadmapH.Get)
+			admin.With(middleware.RequirePermission("roadmaps:update")).Patch("/roadmaps/{id}", roadmapH.Update)
+			admin.With(middleware.RequirePermission("roadmaps:delete")).Delete("/roadmaps/{id}", roadmapH.Delete)
 
-			// Admin: events
-			admin.Post("/events", eventH.CreateEvent)
-			admin.Get("/events", eventH.ListEvents)
-			admin.Get("/events/{id}", eventH.GetEvent)
-			admin.Patch("/events/{id}", eventH.UpdateEvent)
-			admin.Delete("/events/{id}", eventH.DeleteEvent)
-			admin.Patch("/events/{id}/status", eventH.SetEventStatus)
+			// ===== ROADMAP ITEMS =====
+			admin.With(middleware.RequirePermission("roadmap_items:create")).Post("/roadmap-items", itemH.Create)
+			admin.With(middleware.RequirePermission("roadmap_items:list")).Get("/roadmap-items", itemH.List)
+			admin.With(middleware.RequirePermission("roadmap_items:read")).Get("/roadmap-items/{id}", itemH.Get)
+			admin.With(middleware.RequirePermission("roadmap_items:update")).Patch("/roadmap-items/{id}", itemH.Update)
+			admin.With(middleware.RequirePermission("roadmap_items:delete")).Delete("/roadmap-items/{id}", itemH.Delete)
+			admin.With(middleware.RequirePermission("roadmap_items:create")).Post("/roadmaps/{roadmap_id}/items", itemH.CreateUnderRoadmap)
 
-			// Admin: speakers
-			admin.Get("/event-speakers", eventH.ListSpeakers)
-			admin.Post("/events/{event_id}/speakers", eventH.AddSpeaker) // nested create
-			admin.Patch("/event-speakers/{id}", eventH.UpdateSpeaker)
-			admin.Delete("/event-speakers/{id}", eventH.DeleteSpeaker)
+			// ===== MENTORS =====
+			admin.With(middleware.RequirePermission("mentors:create")).Post("/mentors", mentorH.Create)
+			admin.With(middleware.RequirePermission("mentors:list")).Get("/mentors", mentorH.List)
+			admin.With(middleware.RequirePermission("mentors:read")).Get("/mentors/{id}", mentorH.Get)
+			admin.With(middleware.RequirePermission("mentors:update")).Patch("/mentors/{id}", mentorH.Update)
+			admin.With(middleware.RequirePermission("mentors:activate")).Patch("/mentors/{id}/active", mentorH.SetActive)
+			admin.With(middleware.RequirePermission("mentors:update")).Patch("/mentors/{id}/priority", mentorH.SetPriority)
+			admin.With(middleware.RequirePermission("mentors:delete")).Delete("/mentors/{id}", mentorH.Delete)
 
-			// Admin: event registrations
-			admin.Get("/event-registrations", eventH.ListRegistrations)
-			admin.Delete("/event-registrations/{id}", eventH.Unregister)
+			// ===== PARTNERS =====
+			admin.With(middleware.RequirePermission("partners:create")).Post("/partners", partnerH.Create)
+			admin.With(middleware.RequirePermission("partners:list")).Get("/partners", partnerH.List)
+			admin.With(middleware.RequirePermission("partners:read")).Get("/partners/{id}", partnerH.Get)
+			admin.With(middleware.RequirePermission("partners:update")).Patch("/partners/{id}", partnerH.Update)
+			admin.With(middleware.RequirePermission("partners:activate")).Patch("/partners/{id}/active", partnerH.SetActive)
+			admin.With(middleware.RequirePermission("partners:update")).Patch("/partners/{id}/priority", partnerH.SetPriority)
+			admin.With(middleware.RequirePermission("partners:delete")).Delete("/partners/{id}", partnerH.Delete)
+
+			// ===== EVENTS =====
+			admin.With(middleware.RequirePermission("events:create")).Post("/events", eventH.CreateEvent)
+			admin.With(middleware.RequirePermission("events:list")).Get("/events", eventH.ListEvents)
+			admin.With(middleware.RequirePermission("events:read")).Get("/events/{id}", eventH.GetEvent)
+			admin.With(middleware.RequirePermission("events:update")).Patch("/events/{id}", eventH.UpdateEvent)
+			admin.With(middleware.RequirePermission("events:delete")).Delete("/events/{id}", eventH.DeleteEvent)
+			admin.With(middleware.RequirePermission("events:update")).Patch("/events/{id}/status", eventH.SetEventStatus)
+
+			// ===== EVENT SPEAKERS =====
+			admin.With(middleware.RequirePermission("event_speakers:list")).Get("/event-speakers", eventH.ListSpeakers)
+			admin.With(middleware.RequirePermission("event_speakers:create")).Post("/events/{event_id}/speakers", eventH.AddSpeaker)
+			admin.With(middleware.RequirePermission("event_speakers:update")).Patch("/event-speakers/{id}", eventH.UpdateSpeaker)
+			admin.With(middleware.RequirePermission("event_speakers:delete")).Delete("/event-speakers/{id}", eventH.DeleteSpeaker)
+
+			// ===== EVENT REGISTRATIONS =====
+			admin.With(middleware.RequirePermission("event_registrations:list")).Get("/event-registrations", eventH.ListRegistrations)
+			admin.With(middleware.RequirePermission("event_registrations:delete")).Delete("/event-registrations/{id}", eventH.Unregister)
 		})
 	})
 }

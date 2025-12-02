@@ -120,6 +120,18 @@ func main() {
 		}
 	}
 
+	// Parse JWT durations
+	jwtAccessDur, err := time.ParseDuration(cfg.JWT.AccessDuration)
+	if err != nil {
+		log.WithError(err).Warn("invalid JWT access duration, using default 15m")
+		jwtAccessDur = 15 * time.Minute
+	}
+	jwtRefreshDur, err := time.ParseDuration(cfg.JWT.RefreshDuration)
+	if err != nil {
+		log.WithError(err).Warn("invalid JWT refresh duration, using default 168h")
+		jwtRefreshDur = 168 * time.Hour
+	}
+
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DBConn:         dbConn,
@@ -127,6 +139,10 @@ func main() {
 		Mailer:         nil,
 		Locker:         locker,
 		Tracer:         tracer,
+		JWTSecret:      cfg.JWT.Secret,
+		JWTAccessDur:   jwtAccessDur,
+		JWTRefreshDur:  jwtRefreshDur,
+		JWTIssuer:      cfg.JWT.Issuer,
 	})
 
 	port := cfg.AppPort

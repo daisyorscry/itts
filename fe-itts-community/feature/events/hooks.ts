@@ -42,8 +42,8 @@ export function useListEvents(params: ListEventsParams = {}) {
     }),
     queryFn: async () => {
       const raw = await fetch(apiUrl(`/api/v1/admin/events?${qs}`));
-      const payload = await parseApi<PageResultRaw<RawEvent>>(raw);
-      return mapPageResult(payload, mapEvent) as {
+      const response = await parseApi<{ data: PageResultRaw<RawEvent> }>(raw);
+      return mapPageResult(response.data, mapEvent) as {
         data: Event[];
         total: number;
         page: number;

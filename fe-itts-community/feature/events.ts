@@ -111,8 +111,8 @@ export function useListEvents(params: ListEventsParams = {}) {
         credentials: "include",
         signal,
       });
-      const payload = await parseApi<PageResultRaw<RawEvent>>(res);
-      return mapPageResult(payload, mapEvent) as PageResult<Event>;
+      const response = await parseApi<{ data: PageResultRaw<RawEvent> }>(res);
+      return mapPageResult(response.data, mapEvent) as PageResult<Event>;
     },
     staleTime: 15_000,
     gcTime: 5 * 60_000,
@@ -130,8 +130,8 @@ export function useGetEvent(id?: string) {
         credentials: "include",
         signal,
       });
-      const raw = await parseApi<RawEvent>(res);
-      return mapEvent(raw);
+      const response = await parseApi<{ data: RawEvent }>(res);
+      return mapEvent(response.data);
     },
   });
 }
@@ -146,8 +146,8 @@ export function useGetEventBySlug(slug?: string) {
         credentials: "include",
         signal,
       });
-      const raw = await parseApi<RawEvent>(res);
-      return mapEvent(raw);
+      const response = await parseApi<{ data: RawEvent }>(res);
+      return mapEvent(response.data);
     },
   });
 }
@@ -254,8 +254,8 @@ export function useCreateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
         credentials: "include",
         body: JSON.stringify(input),
       });
-      const raw = await parseApi<RawEvent>(res);
-      return mapEvent(raw);
+      const response = await parseApi<{ data: RawEvent }>(res);
+      return mapEvent(response.data);
     },
     onSuccess: (ev) => {
       toast.success("Event berhasil dibuat");
@@ -285,8 +285,8 @@ export function useUpdateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
         credentials: "include",
         body: JSON.stringify(data),
       });
-      const raw = await parseApi<RawEvent>(res);
-      return mapEvent(raw);
+      const response = await parseApi<{ data: RawEvent }>(res);
+      return mapEvent(response.data);
     },
     onSuccess: (ev) => {
       toast.success("Event berhasil diperbarui");
@@ -331,8 +331,8 @@ export function useSetEventStatus() {
         credentials: "include",
         body: JSON.stringify({ status }),
       });
-      const raw = await parseApi<RawEvent>(res);
-      return mapEvent(raw);
+      const response = await parseApi<{ data: RawEvent }>(res);
+      return mapEvent(response.data);
     },
     onSuccess: (ev) => {
       toast.success("Status event diperbarui");
