@@ -12,7 +12,7 @@ import (
 type User struct {
 	ID           string     `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	Email        string     `gorm:"type:citext;not null;uniqueIndex"`
-	PasswordHash string     `gorm:"column:password_hash;not null"`
+	PasswordHash *string    `gorm:"column:password_hash"` // nullable for OAuth users
 	FullName     string     `gorm:"column:full_name;not null"`
 	IsActive     bool       `gorm:"column:is_active;default:true;index"`
 	IsSuperAdmin bool       `gorm:"column:is_super_admin;default:false"`
@@ -23,6 +23,7 @@ type User struct {
 	// Relations
 	Roles         []Role         `gorm:"many2many:user_roles"`
 	RefreshTokens []RefreshToken `gorm:"foreignKey:UserID"`
+	OAuthAccounts []OAuthAccount `gorm:"foreignKey:UserID"`
 }
 
 func (User) TableName() string {
@@ -31,13 +32,13 @@ func (User) TableName() string {
 
 // Role represents a user role with associated permissions
 type Role struct {
-	ID           string     `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Name         string     `gorm:"size:100;not null;uniqueIndex"`
-	Description  *string    `gorm:"type:text"`
-	IsSystem     bool       `gorm:"column:is_system;default:false"` // system roles can't be deleted
-	ParentRoleID *string    `gorm:"type:uuid;column:parent_role_id"`
-	CreatedAt    time.Time  `gorm:"not null;default:now()"`
-	UpdatedAt    time.Time  `gorm:"not null;default:now()"`
+	ID           string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	Name         string    `gorm:"size:100;not null;uniqueIndex"`
+	Description  *string   `gorm:"type:text"`
+	IsSystem     bool      `gorm:"column:is_system;default:false"` // system roles can't be deleted
+	ParentRoleID *string   `gorm:"type:uuid;column:parent_role_id"`
+	CreatedAt    time.Time `gorm:"not null;default:now()"`
+	UpdatedAt    time.Time `gorm:"not null;default:now()"`
 
 	// Relations
 	ParentRole  *Role        `gorm:"foreignKey:ParentRoleID"`
@@ -134,10 +135,10 @@ func (UserRole) TableName() string {
 
 // RefreshToken for JWT token refresh
 type RefreshToken struct {
-	ID        string     `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	UserID    string     `gorm:"type:uuid;not null;index"`
-	TokenHash string     `gorm:"size:64;not null;uniqueIndex"`
-	ExpiresAt time.Time  `gorm:"not null;index"`
+	ID        string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	UserID    string    `gorm:"type:uuid;not null;index"`
+	TokenHash string    `gorm:"size:64;not null;uniqueIndex"`
+	ExpiresAt time.Time `gorm:"not null;index"`
 	RevokedAt *time.Time
 	CreatedAt time.Time `gorm:"not null;default:now()"`
 
@@ -167,4 +168,22 @@ type AuditLog struct {
 
 func (AuditLog) TableName() string {
 	return "audit_logs"
+}
+
+// OAuthAccount represents OAuth provider account linkage
+type OAuthAccount struct {
+	ID           string                 `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	UserID       string                 `gorm:"type:uuid;not null;index"`
+	Provider     string                 `gorm:"size:50;not null;index:idx_oauth_provider_id,priority:1"`        // github, google
+	ProviderID   string                 `gorm:"size:255;not null;uniqueIndex:idx_oauth_provider_id,priority:2"` // OAuth provider's user ID
+	ProviderData map[string]interface{} `gorm:"type:jsonb"`                                                     // Store additional OAuth data
+	CreatedAt    time.Time              `gorm:"not null;default:now()"`
+	UpdatedAt    time.Time              `gorm:"not null;default:now()"`
+
+	// Relations
+	User User `gorm:"foreignKey:UserID"`
+}
+
+func (OAuthAccount) TableName() string {
+	return "oauth_accounts"
 }

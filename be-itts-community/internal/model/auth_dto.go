@@ -45,6 +45,12 @@ type ResetPasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required,min=8"`
 }
 
+// OAuthCallbackRequest represents OAuth callback request
+type OAuthCallbackRequest struct {
+	Code  string `json:"code" validate:"required"`
+	State string `json:"state"`
+}
+
 // =====================================
 // User Management DTOs
 // =====================================

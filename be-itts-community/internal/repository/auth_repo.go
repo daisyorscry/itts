@@ -276,6 +276,53 @@ func (r *authRepository) GetUserRoles(ctx context.Context, userID string) ([]mod
 	return roles, nil
 }
 
+// GetOAuthAccount retrieves OAuth account by provider and provider ID
+func (r *authRepository) GetOAuthAccount(ctx context.Context, provider, providerID string) (*model.OAuthAccount, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "oauth_accounts", "SELECT")()
+	}
+	var account model.OAuthAccount
+	err := r.db.Get(ctx).
+		Where("provider = ? AND provider_id = ?", provider, providerID).
+		First(&account).Error
+	if err != nil {
+		return nil, err
+	}
+	return &account, nil
+}
+
+// CreateOAuthAccount creates a new OAuth account
+func (r *authRepository) CreateOAuthAccount(ctx context.Context, account *model.OAuthAccount) error {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "oauth_accounts", "INSERT")()
+	}
+	return r.db.Get(ctx).Create(account).Error
+}
+
+// UpdateOAuthAccount updates an existing OAuth account
+func (r *authRepository) UpdateOAuthAccount(ctx context.Context, account *model.OAuthAccount) error {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "oauth_accounts", "UPDATE")()
+	}
+	return r.db.Get(ctx).Save(account).Error
+}
+
+// GetUserByOAuth retrieves user by OAuth provider account
+func (r *authRepository) GetUserByOAuth(ctx context.Context, provider, providerID string) (*model.User, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "users", "SELECT")()
+	}
+	var user model.User
+	err := r.db.Get(ctx).
+		Joins("JOIN oauth_accounts ON oauth_accounts.user_id = users.id").
+		Where("oauth_accounts.provider = ? AND oauth_accounts.provider_id = ?", provider, providerID).
+		First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // RunInTransaction executes a function within a transaction
 func (r *authRepository) RunInTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
 	return r.db.Run(ctx, fn)

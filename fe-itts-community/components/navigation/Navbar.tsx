@@ -2,12 +2,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { HiUser, HiArrowRightOnRectangle, HiCog6Tooth } from "react-icons/hi2";
 import ThemeToggle from "../button/ThemeButton";
 import SectionMenuMobile from "./SectionMenuMobile";
 import SectionMenuDesktop from "./SectionMenuDesktop";
+import { useAuth, useLogout, UserAvatar } from "@/feature/auth";
 
 type Item = { label: string; href: string };
 
@@ -38,11 +40,24 @@ const itemVariants: Variants = {
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+
+  const { isAuthenticated, user } = useAuth();
+  const logoutMutation = useLogout();
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  const handleLogout = () => {
+    logoutMutation.mutate(undefined, {
+      onSuccess: () => {
+        router.push("/");
+      },
+    });
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur">
@@ -109,6 +124,83 @@ export default function Navbar() {
         {/* Actions */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
+
+          {/* Auth Menu - Desktop */}
+          {isAuthenticated && user ? (
+            <div className="relative hidden md:block">
+              <button
+                onClick={() => setUserMenuOpen((s) => !s)}
+                className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-surface"
+              >
+                <UserAvatar user={user} size="sm" />
+                <span className="max-w-[120px] truncate">{user.full_name}</span>
+              </button>
+
+              {/* Dropdown Menu */}
+              <AnimatePresence>
+                {userMenuOpen && (
+                  <>
+                    {/* Backdrop */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setUserMenuOpen(false)}
+                    />
+
+                    {/* Menu */}
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 z-50 mt-2 w-56 rounded-md border border-border bg-surface shadow-lg"
+                    >
+                      <div className="p-2">
+                        {/* User Info */}
+                        <div className="border-b border-border pb-2 mb-2">
+                          <p className="text-sm font-medium">{user.full_name}</p>
+                          <p className="text-xs text-foreground/60">{user.email}</p>
+                        </div>
+
+                        {/* Menu Items */}
+                        <Link
+                          href="/admin/event"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="flex items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-background"
+                        >
+                          <HiCog6Tooth className="h-4 w-4" />
+                          <span>Admin Panel</span>
+                        </Link>
+
+                        <button
+                          onClick={() => {
+                            setUserMenuOpen(false);
+                            handleLogout();
+                          }}
+                          disabled={logoutMutation.isPending}
+                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                        >
+                          <HiArrowRightOnRectangle className="h-4 w-4" />
+                          <span>{logoutMutation.isPending ? "Logging out..." : "Logout"}</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              className="hidden rounded-md border border-border px-3 py-2 text-sm hover:bg-surface md:block"
+            >
+              <div className="flex items-center gap-2">
+                <HiUser className="h-4 w-4" />
+                <span>Login</span>
+              </div>
+            </Link>
+          )}
+
+          {/* Mobile Menu Toggle */}
           <motion.button
             whileTap={{ scale: 0.98 }}
             className="rounded-md border border-border px-3 py-2 text-sm md:hidden"
@@ -135,6 +227,62 @@ export default function Navbar() {
           >
             <ul className="mx-auto max-w-[1080px] space-y-1 px-5 py-2">
               <SectionMenuMobile onPicked={() => setOpen(false)} />
+
+              {/* Auth Menu - Mobile */}
+              {isAuthenticated && user ? (
+                <>
+                  <motion.li
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="border-t border-border pt-2"
+                  >
+                    <div className="px-3 py-2">
+                      <UserAvatar user={user} size="sm" showName />
+                    </div>
+                  </motion.li>
+                  <motion.li
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                  >
+                    <Link
+                      href="/admin/event"
+                      className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-surface"
+                    >
+                      <HiCog6Tooth className="h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </Link>
+                  </motion.li>
+                  <motion.li
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="border-b border-border pb-2"
+                  >
+                    <button
+                      onClick={handleLogout}
+                      disabled={logoutMutation.isPending}
+                      className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-500/10 disabled:opacity-50"
+                    >
+                      <HiArrowRightOnRectangle className="h-4 w-4" />
+                      <span>{logoutMutation.isPending ? "Logging out..." : "Logout"}</span>
+                    </button>
+                  </motion.li>
+                </>
+              ) : (
+                <motion.li
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="border-t border-border pt-2"
+                >
+                  <Link
+                    href="/login"
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-surface"
+                  >
+                    <HiUser className="h-4 w-4" />
+                    <span>Login</span>
+                  </Link>
+                </motion.li>
+              )}
+
               {NAV_ITEMS.filter((i) => i.href !== "/").map((item, i) => {
                 const active =
                   pathname === item.href || pathname.startsWith(item.href);

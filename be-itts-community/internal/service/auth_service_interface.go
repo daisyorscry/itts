@@ -14,6 +14,9 @@ type AuthService interface {
 	Logout(ctx context.Context, refreshToken string) error
 	GetCurrentUser(ctx context.Context, userID string) (*model.UserResponse, error)
 
+	// OAuth Authentication
+	HandleOAuthCallback(ctx context.Context, provider, providerID, email, fullName string, providerData map[string]interface{}) (*model.LoginResponse, error)
+
 	// Password Management
 	ChangePassword(ctx context.Context, userID string, req model.ChangePasswordRequest) error
 	ResetPassword(ctx context.Context, userID string, newPassword string) error

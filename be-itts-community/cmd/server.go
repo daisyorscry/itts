@@ -134,15 +134,18 @@ func main() {
 
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
-		DBConn:         dbConn,
-		VerifyEmailURL: cfg.VerifyEmailURL,
-		Mailer:         nil,
-		Locker:         locker,
-		Tracer:         tracer,
-		JWTSecret:      cfg.JWT.Secret,
-		JWTAccessDur:   jwtAccessDur,
-		JWTRefreshDur:  jwtRefreshDur,
-		JWTIssuer:      cfg.JWT.Issuer,
+		DBConn:             dbConn,
+		VerifyEmailURL:     cfg.VerifyEmailURL,
+		Mailer:             nil,
+		Locker:             locker,
+		Tracer:             tracer,
+		JWTSecret:          cfg.JWT.Secret,
+		JWTAccessDur:       jwtAccessDur,
+		JWTRefreshDur:      jwtRefreshDur,
+		JWTIssuer:          cfg.JWT.Issuer,
+		GitHubClientID:     cfg.OAuth.GitHub.ClientID,
+		GitHubClientSecret: cfg.OAuth.GitHub.ClientSecret,
+		GitHubRedirectURI:  cfg.OAuth.GitHub.RedirectURI,
 	})
 
 	port := cfg.AppPort

@@ -69,8 +69,17 @@ func (s *authService) Login(ctx context.Context, req model.LoginRequest) (*model
 		return nil, core.Forbidden("Account is inactive")
 	}
 
+	// Check if user has password (not OAuth-only account)
+	if user.PasswordHash == nil {
+		s.auditLog(ctx, &user.ID, "user.login.failed", nil, nil, map[string]interface{}{
+			"email":  req.Email,
+			"reason": "OAuth-only account",
+		})
+		return nil, core.BadRequest("This account uses OAuth login. Please use the OAuth provider to sign in.")
+	}
+
 	// Verify password
-	if err := auth.CheckPassword(user.PasswordHash, req.Password); err != nil {
+	if err := auth.CheckPassword(*user.PasswordHash, req.Password); err != nil {
 		s.auditLog(ctx, &user.ID, "user.login.failed", nil, nil, map[string]interface{}{
 			"email":  req.Email,
 			"reason": "invalid password",
@@ -290,8 +299,16 @@ func (s *authService) ChangePassword(ctx context.Context, userID string, req mod
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
+	// Check if user has password (not OAuth-only account)
+	if user.PasswordHash == nil {
+		s.auditLog(ctx, &userID, "user.password_change.failed", strPtr("users"), &userID, map[string]interface{}{
+			"reason": "OAuth-only account",
+		})
+		return core.BadRequest("Cannot change password for OAuth-only accounts")
+	}
+
 	// Verify old password
-	if err := auth.CheckPassword(user.PasswordHash, req.OldPassword); err != nil {
+	if err := auth.CheckPassword(*user.PasswordHash, req.OldPassword); err != nil {
 		s.auditLog(ctx, &userID, "user.password_change.failed", strPtr("users"), &userID, map[string]interface{}{
 			"reason": "invalid old password",
 		})
@@ -306,7 +323,7 @@ func (s *authService) ChangePassword(ctx context.Context, userID string, req mod
 
 	// Update password and revoke all refresh tokens
 	err = s.authRepo.RunInTransaction(ctx, func(txCtx context.Context) error {
-		user.PasswordHash = hashedPassword
+		user.PasswordHash = &hashedPassword
 		if err := s.authRepo.UpdateUser(txCtx, user); err != nil {
 			return err
 		}
@@ -345,7 +362,7 @@ func (s *authService) ResetPassword(ctx context.Context, userID string, newPassw
 
 	// Update password and revoke all refresh tokens
 	err = s.authRepo.RunInTransaction(ctx, func(txCtx context.Context) error {
-		user.PasswordHash = hashedPassword
+		user.PasswordHash = &hashedPassword
 		if err := s.authRepo.UpdateUser(txCtx, user); err != nil {
 			return err
 		}
@@ -391,7 +408,7 @@ func (s *authService) CreateUser(ctx context.Context, req model.CreateUserReques
 	// Create user
 	user := &model.User{
 		Email:        req.Email,
-		PasswordHash: hashedPassword,
+		PasswordHash: &hashedPassword,
 		FullName:     req.FullName,
 		IsActive:     req.IsActive,
 		IsSuperAdmin: req.IsSuperAdmin,
@@ -709,4 +726,229 @@ func getIPFromContext(ctx context.Context) *string {
 func getUserAgentFromContext(ctx context.Context) *string {
 	// TODO: implement user agent extraction from context
 	return nil
+}
+
+// HandleOAuthCallback handles OAuth provider callback and creates/updates user
+func (s *authService) HandleOAuthCallback(
+	ctx context.Context,
+	provider, providerID, email, fullName string,
+	providerData map[string]interface{},
+) (*model.LoginResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "AuthService.HandleOAuthCallback")()
+	}
+
+	var user *model.User
+	var isNewUser bool
+
+	// Try to find existing OAuth account
+	existingUser, err := s.authRepo.GetUserByOAuth(ctx, provider, providerID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, fmt.Errorf("failed to check existing OAuth account: %w", err)
+	}
+
+	if existingUser != nil {
+		// User already exists with this OAuth provider
+		user = existingUser
+
+		// Update last login
+		if err := s.authRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+			return nil, fmt.Errorf("failed to update last login: %w", err)
+		}
+	} else {
+		// Check if user exists by email
+		existingUserByEmail, err := s.authRepo.GetUserByEmail(ctx, email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("failed to check existing user by email: %w", err)
+		}
+
+		if existingUserByEmail != nil {
+			// User exists with this email, link OAuth account
+			user = existingUserByEmail
+
+			// Create OAuth account linkage
+			oauthAccount := &model.OAuthAccount{
+				UserID:       user.ID,
+				Provider:     provider,
+				ProviderID:   providerID,
+				ProviderData: providerData,
+			}
+
+			if err := s.authRepo.CreateOAuthAccount(ctx, oauthAccount); err != nil {
+				return nil, fmt.Errorf("failed to link OAuth account: %w", err)
+			}
+
+			// Update last login
+			if err := s.authRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+				return nil, fmt.Errorf("failed to update last login: %w", err)
+			}
+
+			// Audit log
+			s.auditLog(ctx, &user.ID, "oauth.link", strPtr("oauth_accounts"), nil, map[string]interface{}{
+				"provider":    provider,
+				"provider_id": providerID,
+				"email":       email,
+			})
+		} else {
+			// New user - create account
+			isNewUser = true
+
+			// Create user without password (OAuth only)
+			user = &model.User{
+				Email:        email,
+				FullName:     fullName,
+				PasswordHash: nil, // OAuth-only users have no password
+				IsActive:     true,
+				IsSuperAdmin: false,
+			}
+
+			// Create user in transaction
+			err := s.authRepo.RunInTransaction(ctx, func(txCtx context.Context) error {
+				// Create user
+				if err := s.authRepo.CreateUser(txCtx, user); err != nil {
+					return fmt.Errorf("failed to create user: %w", err)
+				}
+
+				// Create OAuth account linkage
+				oauthAccount := &model.OAuthAccount{
+					UserID:       user.ID,
+					Provider:     provider,
+					ProviderID:   providerID,
+					ProviderData: providerData,
+				}
+
+				if err := s.authRepo.CreateOAuthAccount(txCtx, oauthAccount); err != nil {
+					return fmt.Errorf("failed to create OAuth account: %w", err)
+				}
+
+				// Assign default viewer role to new OAuth users
+				viewerRole, err := s.permissionRepo.GetRoleByName(txCtx, "viewer")
+				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+					return fmt.Errorf("failed to get viewer role: %w", err)
+				}
+
+				if viewerRole != nil {
+					if err := s.authRepo.AssignRolesToUser(txCtx, user.ID, []string{viewerRole.ID}, nil); err != nil {
+						return fmt.Errorf("failed to assign default role: %w", err)
+					}
+				}
+
+				return nil
+			})
+
+			if err != nil {
+				return nil, err
+			}
+
+			// Audit log
+			s.auditLog(ctx, &user.ID, "user.oauth.create", strPtr("users"), &user.ID, map[string]interface{}{
+				"provider":    provider,
+				"provider_id": providerID,
+				"email":       email,
+				"full_name":   fullName,
+			})
+		}
+	}
+
+	// Check if user is active
+	if !user.IsActive {
+		s.auditLog(ctx, &user.ID, "oauth.login.failed", nil, nil, map[string]interface{}{
+			"provider": provider,
+			"email":    email,
+			"reason":   "user not active",
+		})
+		return nil, core.Forbidden("Account is inactive")
+	}
+
+	// Get user permissions
+	_, permissions, err := s.authRepo.GetUserWithPermissions(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	// Get role names
+	roles, err := s.authRepo.GetUserRoles(ctx, user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user roles: %w", err)
+	}
+	roleNames := make([]string, len(roles))
+	for i, role := range roles {
+		roleNames[i] = role.Name
+	}
+
+	// Generate access token
+	accessToken, err := s.jwtManager.GenerateAccessToken(
+		user.ID,
+		user.Email,
+		user.IsSuperAdmin,
+		roleNames,
+		permissions,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Generate refresh token
+	refreshTokenStr, err := s.jwtManager.GenerateRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
+
+	// Store refresh token
+	refreshToken := &model.RefreshToken{
+		UserID:    user.ID,
+		TokenHash: s.jwtManager.HashRefreshToken(refreshTokenStr),
+		ExpiresAt: time.Now().Add(s.jwtManager.GetRefreshTokenDuration()),
+	}
+	if err := s.authRepo.CreateRefreshToken(ctx, refreshToken); err != nil {
+		return nil, fmt.Errorf("failed to store refresh token: %w", err)
+	}
+
+	// Update last login
+	if !isNewUser { // already updated for new users
+		if err := s.authRepo.UpdateLastLogin(ctx, user.ID); err != nil {
+			return nil, fmt.Errorf("failed to update last login: %w", err)
+		}
+	}
+
+	// Audit log
+	s.auditLog(ctx, &user.ID, "oauth.login.success", nil, nil, map[string]interface{}{
+		"provider": provider,
+		"email":    email,
+		"is_new":   isNewUser,
+	})
+
+	// Build response
+	response := &model.LoginResponse{
+		AccessToken:  accessToken,
+		RefreshToken: refreshTokenStr,
+		TokenType:    "Bearer",
+		ExpiresIn:    int64(s.jwtManager.GetAccessTokenDuration().Seconds()),
+		User: model.UserResponse{
+			ID:           user.ID,
+			Email:        user.Email,
+			FullName:     user.FullName,
+			IsActive:     user.IsActive,
+			IsSuperAdmin: user.IsSuperAdmin,
+			LastLoginAt:  user.LastLoginAt,
+			CreatedAt:    user.CreatedAt,
+			UpdatedAt:    user.UpdatedAt,
+			Roles:        make([]model.RoleResponse, len(roles)),
+			Permissions:  permissions,
+		},
+	}
+
+	// Map roles
+	for i, role := range roles {
+		response.User.Roles[i] = model.RoleResponse{
+			ID:          role.ID,
+			Name:        role.Name,
+			Description: role.Description,
+			IsSystem:    role.IsSystem,
+			CreatedAt:   role.CreatedAt,
+			UpdatedAt:   role.UpdatedAt,
+		}
+	}
+
+	return response, nil
 }

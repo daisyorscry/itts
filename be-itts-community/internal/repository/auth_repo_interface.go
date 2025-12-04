@@ -33,6 +33,12 @@ type AuthRepository interface {
 	RemoveRolesFromUser(ctx context.Context, userID string, roleIDs []string) error
 	GetUserRoles(ctx context.Context, userID string) ([]model.Role, error)
 
+	// OAuth Operations
+	GetOAuthAccount(ctx context.Context, provider, providerID string) (*model.OAuthAccount, error)
+	CreateOAuthAccount(ctx context.Context, account *model.OAuthAccount) error
+	UpdateOAuthAccount(ctx context.Context, account *model.OAuthAccount) error
+	GetUserByOAuth(ctx context.Context, provider, providerID string) (*model.User, error)
+
 	// Transaction support
 	RunInTransaction(ctx context.Context, fn func(txCtx context.Context) error) error
 }

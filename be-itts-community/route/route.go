@@ -12,19 +12,23 @@ import (
 	"be-itts-community/internal/service"
 	"be-itts-community/pkg/auth"
 	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/oauth"
 	"be-itts-community/pkg/observability/nr"
 )
 
 type RouteDeps struct {
-	DBConn         db.Connection
-	VerifyEmailURL string
-	Mailer         service.Mailer
-	Locker         lock.Locker
-	Tracer         nr.Tracer
-	JWTSecret      string
-	JWTAccessDur   time.Duration
-	JWTRefreshDur  time.Duration
-	JWTIssuer      string
+	DBConn              db.Connection
+	VerifyEmailURL      string
+	Mailer              service.Mailer
+	Locker              lock.Locker
+	Tracer              nr.Tracer
+	JWTSecret           string
+	JWTAccessDur        time.Duration
+	JWTRefreshDur       time.Duration
+	JWTIssuer           string
+	GitHubClientID      string
+	GitHubClientSecret  string
+	GitHubRedirectURI   string
 }
 
 func RegisterRoutes(r chi.Router, deps RouteDeps) {
@@ -57,6 +61,10 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	userH := rest.NewUserHandler(authSvc)
 	roleH := rest.NewRoleHandler(permissionSvc)
 	permissionH := rest.NewPermissionHandler(permissionSvc)
+
+	// ===== OAUTH =====
+	githubClient := oauth.NewGitHubOAuthClient(deps.GitHubClientID, deps.GitHubClientSecret, deps.GitHubRedirectURI)
+	oauthH := rest.NewOAuthHandler(authSvc, githubClient)
 
 	// ===== AUTH / REGISTRATION =====
 	regRepo := repository.NewRegistrationRepository(deps.DBConn)
@@ -104,6 +112,10 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			auth.Post("/login", authH.Login)
 			auth.Post("/refresh", authH.RefreshToken)
 			auth.Post("/logout", authH.Logout)
+
+			// OAuth endpoints
+			auth.Get("/oauth/github", oauthH.HandleGitHubAuth)
+			auth.Get("/oauth/github/callback", oauthH.HandleGitHubCallback)
 
 			// Member registration (public)
 			auth.Post("/register", regH.Register)

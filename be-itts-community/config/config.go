@@ -53,6 +53,14 @@ type Config struct {
         RefreshDuration   string
         Issuer            string
     }
+
+    OAuth struct {
+        GitHub struct {
+            ClientID      string
+            ClientSecret  string
+            RedirectURI   string
+        }
+    }
 }
 
 func LoadConfig() *Config {
@@ -101,6 +109,10 @@ func LoadConfig() *Config {
     cfg.JWT.AccessDuration = viper.GetString("JWT_ACCESS_DURATION")
     cfg.JWT.RefreshDuration = viper.GetString("JWT_REFRESH_DURATION")
     cfg.JWT.Issuer = viper.GetString("JWT_ISSUER")
+
+    cfg.OAuth.GitHub.ClientID = viper.GetString("GITHUB_CLIENT_ID")
+    cfg.OAuth.GitHub.ClientSecret = viper.GetString("GITHUB_CLIENT_SECRET")
+    cfg.OAuth.GitHub.RedirectURI = viper.GetString("GITHUB_REDIRECT_URI")
 
     return cfg
 }

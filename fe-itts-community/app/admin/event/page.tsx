@@ -5,6 +5,7 @@ import { useState } from "react";
 import EventFormModal from "@/components/ui/EventFormModal";
 import SpeakerFormModal from "@/components/ui/SpeakerFormModal";
 import { useCreateEvent, useUpdateEvent } from "@/feature/events";
+import { ProtectedRoute, PERMISSIONS } from "@/feature/auth";
 import EventsTable from "./_eventTable";
 import { type Event } from "@/feature/events/adapter";
 
@@ -34,11 +35,11 @@ export default function AdminEventsPage() {
   };
 
   return (
-    <section className="section">
-      <div className="container space-y-6">
+    <ProtectedRoute anyPermissions={[PERMISSIONS.EVENTS_LIST, PERMISSIONS.EVENTS_READ]}>
+      <div className="space-y-6">
         <header>
-          <h1 className="text-2xl font-semibold">Admin · Events</h1>
-          <p className="text-sm opacity-80">
+          <h1 className="text-3xl font-bold">Events Management</h1>
+          <p className="mt-1 text-foreground/60">
             Kelola event, speaker, dan registrasi peserta.
           </p>
         </header>
@@ -50,39 +51,39 @@ export default function AdminEventsPage() {
         />
       </div>
 
-      {/* Modal Event */}
-      {/* Modal Event */}
-      {openEvent && (
-        <EventFormModal
-          open
-          onClose={() => setOpenEvent(false)}
-          initial={
-            editEvent
-              ? {
-                  id: editEvent.id,
-                  title: editEvent.title,
-                  slug: editEvent.slug ?? undefined,
-                  summary: editEvent.summary ?? undefined,
-                  description: editEvent.description ?? undefined,
-                  image_url: editEvent.image_url ?? undefined,
-                  program: editEvent.program ?? undefined,
-                  status: editEvent.status,
-                  starts_at: editEvent.starts_at ?? "", // fallback jadi string kosong
-                  ends_at: editEvent.ends_at ?? undefined,
-                  venue: editEvent.venue ?? undefined,
-                }
-              : undefined
-          }
-          onSubmit={async (input) => {
-            if (editEvent) {
-              await updateEv.mutateAsync({ id: editEvent.id, data: input });
-            } else {
-              await createEv.mutateAsync(input);
+        {/* Modal Event */}
+        {/* Modal Event */}
+        {openEvent && (
+          <EventFormModal
+            open
+            onClose={() => setOpenEvent(false)}
+            initial={
+              editEvent
+                ? {
+                    id: editEvent.id,
+                    title: editEvent.title,
+                    slug: editEvent.slug ?? undefined,
+                    summary: editEvent.summary ?? undefined,
+                    description: editEvent.description ?? undefined,
+                    image_url: editEvent.image_url ?? undefined,
+                    program: editEvent.program ?? undefined,
+                    status: editEvent.status,
+                    starts_at: editEvent.starts_at ?? "", // fallback jadi string kosong
+                    ends_at: editEvent.ends_at ?? undefined,
+                    venue: editEvent.venue ?? undefined,
+                  }
+                : undefined
             }
-          }}
-          submitting={createEv.isPending || updateEv.isPending}
-        />
-      )}
+            onSubmit={async (input) => {
+              if (editEvent) {
+                await updateEv.mutateAsync({ id: editEvent.id, data: input });
+              } else {
+                await createEv.mutateAsync(input);
+              }
+            }}
+            submitting={createEv.isPending || updateEv.isPending}
+          />
+        )}
 
       {/* Modal Speaker */}
       {openSpeaker && eventForSpeaker && (
@@ -94,6 +95,6 @@ export default function AdminEventsPage() {
           submitting={false} // kamu bisa pakai useAddSpeaker disini kalau mau handle loading
         />
       )}
-    </section>
+    </ProtectedRoute>
   );
 }
