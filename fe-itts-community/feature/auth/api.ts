@@ -50,11 +50,18 @@ async function parseApi<T>(res: Response): Promise<T> {
     }
   }
 
-  // Handle errors
-  let msg = "Gagal melakukan tindakan.";
+  // Handle errors - standardized backend format
+  let msg = "Failed to perform action.";
   try {
     const json = await res.json();
-    msg = json.error || json.message || msg;
+    // New standardized format: { error: { code, message }, meta }
+    if (json.error && json.error.message) {
+      msg = json.error.message;
+    } else if (json.message) {
+      msg = json.message;
+    } else if (json.error && typeof json.error === 'string') {
+      msg = json.error;
+    }
   } catch {
     const text = await res.text();
     msg = text || msg;
@@ -151,6 +158,23 @@ export async function getMe(accessToken: string): Promise<MeResponse> {
     method: "GET",
     headers: getAuthHeaders(accessToken),
     credentials: "include",
+  });
+  return parseApi<MeResponse>(res);
+}
+
+/**
+ * Update current user's profile
+ * PATCH /api/v1/auth/me
+ */
+export async function updateProfile(
+  data: UpdateProfileRequest,
+  accessToken: string
+): Promise<MeResponse> {
+  const res = await fetch(`${API_BASE}/api/v1/auth/me`, {
+    method: "PATCH",
+    headers: getAuthHeaders(accessToken),
+    credentials: "include",
+    body: JSON.stringify(data),
   });
   return parseApi<MeResponse>(res);
 }

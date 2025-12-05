@@ -151,6 +151,11 @@ export type RefreshTokenRequest = {
   refresh_token: string;
 };
 
+export type UpdateProfileRequest = {
+  email?: string;
+  full_name?: string;
+};
+
 export type ChangePasswordRequest = {
   old_password: string;
   new_password: string;

@@ -163,6 +163,30 @@ export function useMe() {
 }
 
 /**
+ * Update profile mutation
+ */
+export function useUpdateProfile() {
+  const { accessToken, updateUser } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (data: UpdateProfileRequest) => {
+      if (!accessToken) throw new Error("Not authenticated");
+      return api.updateProfile(data, accessToken);
+    },
+    onSuccess: (userData) => {
+      // Update context with new user data
+      updateUser(userData);
+      queryClient.invalidateQueries({ queryKey: QK.me });
+      toast.success("Profile updated successfully");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to update profile");
+    },
+  });
+}
+
+/**
  * Change password mutation
  */
 export function useChangePassword() {

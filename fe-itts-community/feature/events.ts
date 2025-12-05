@@ -3,6 +3,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useAuth } from "@/feature/auth";
 import {
   mapEvent,
   mapPageResult,
@@ -28,6 +29,17 @@ export function apiUrl(path: string) {
   return `${API_BASE}${p}`;
 }
 
+function getAuthHeaders(token?: string | null): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export async function parseApi<T>(res: Response): Promise<T> {
   if (res.ok) {
     try {
@@ -36,16 +48,22 @@ export async function parseApi<T>(res: Response): Promise<T> {
       return {} as T; // 204/empty
     }
   }
-  let msg = "Gagal melakukan tindakan.";
+
+  // Handle errors - standardized backend format
+  let msg = "Failed to perform action.";
   try {
-    const data = await res.json();
-    if (typeof (data as any)?.error === "string" && data.error.trim()) {
-      msg = data.error;
-    } else if (typeof (data as any)?.message === "string") {
-      msg = data.message;
+    const json = await res.json();
+    // New standardized format: { error: { code, message }, meta }
+    if (json.error && json.error.message) {
+      msg = json.error.message;
+    } else if (json.message) {
+      msg = json.message;
+    } else if (json.error && typeof json.error === 'string') {
+      msg = json.error;
     }
   } catch {
-    msg = (await res.text().catch(() => "")) || msg;
+    const text = await res.text().catch(() => "");
+    msg = text || msg;
   }
   throw new Error(msg);
 }
@@ -91,6 +109,7 @@ export type ListEventsParams = {
 };
 
 export function useListEvents(params: ListEventsParams = {}) {
+  const { accessToken } = useAuth();
   // stabilkan nilai sort untuk queryKey
   const stableSort = params.sort ? [...params.sort] : [];
 
@@ -107,13 +126,14 @@ export function useListEvents(params: ListEventsParams = {}) {
     queryKey: QK.events({ ...params, sort: stableSort }),
     queryFn: async ({ signal }) => {
       const res = await fetch(apiUrl(`/api/v1/admin/events?${qs}`), {
-        headers: { Accept: "application/json" },
+        headers: getAuthHeaders(accessToken),
         credentials: "include",
         signal,
       });
       const response = await parseApi<{ data: PageResultRaw<RawEvent> }>(res);
       return mapPageResult(response.data, mapEvent) as PageResult<Event>;
     },
+    enabled: !!accessToken,
     staleTime: 15_000,
     gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
@@ -242,15 +262,14 @@ export type CreateEventInput = {
 export type UpdateEventInput = Partial<CreateEventInput>;
 
 export function useCreateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
+  const { accessToken } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: CreateEventInput) => {
+      if (!accessToken) throw new Error('Not authenticated');
       const res = await fetch(apiUrl(`/api/v1/admin/events`), {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: getAuthHeaders(accessToken),
         credentials: "include",
         body: JSON.stringify(input),
       });
@@ -267,6 +286,7 @@ export function useCreateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
 }
 
 export function useUpdateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
+  const { accessToken } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -276,12 +296,10 @@ export function useUpdateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
       id: string;
       data: UpdateEventInput;
     }) => {
+      if (!accessToken) throw new Error('Not authenticated');
       const res = await fetch(apiUrl(`/api/v1/admin/events/${id}`), {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: getAuthHeaders(accessToken),
         credentials: "include",
         body: JSON.stringify(data),
       });
@@ -300,16 +318,19 @@ export function useUpdateEvent(opts?: { onSuccess?: (ev: Event) => void }) {
 }
 
 export function useDeleteEvent() {
+  const { accessToken } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) =>
-      parseApi<void>(
+    mutationFn: async (id: string) => {
+      if (!accessToken) throw new Error('Not authenticated');
+      return parseApi<void>(
         await fetch(apiUrl(`/api/v1/admin/events/${id}`), {
           method: "DELETE",
-          headers: { Accept: "application/json" },
+          headers: getAuthHeaders(accessToken),
           credentials: "include",
         })
-      ),
+      );
+    },
     onSuccess: () => {
       toast.success("Event dihapus");
       qc.invalidateQueries({ queryKey: ["events"] });
@@ -319,15 +340,14 @@ export function useDeleteEvent() {
 }
 
 export function useSetEventStatus() {
+  const { accessToken } = useAuth();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: EventStatus }) => {
+      if (!accessToken) throw new Error('Not authenticated');
       const res = await fetch(apiUrl(`/api/v1/admin/events/${id}/status`), {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
+        headers: getAuthHeaders(accessToken),
         credentials: "include",
         body: JSON.stringify({ status }),
       });

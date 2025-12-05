@@ -38,10 +38,18 @@ async function parseApi<T>(res: Response): Promise<T> {
     }
   }
 
-  let msg = "Gagal melakukan tindakan.";
+  // Handle errors - standardized backend format
+  let msg = "Failed to perform action.";
   try {
     const json = await res.json();
-    msg = json.error || json.message || msg;
+    // New standardized format: { error: { code, message }, meta }
+    if (json.error && json.error.message) {
+      msg = json.error.message;
+    } else if (json.message) {
+      msg = json.message;
+    } else if (json.error && typeof json.error === 'string') {
+      msg = json.error;
+    }
   } catch {
     const text = await res.text();
     msg = text || msg;

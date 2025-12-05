@@ -1,5 +1,6 @@
 // feature/events/hooks.ts
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/feature/auth";
 import {
   mapEvent,
   mapPageResult,
@@ -24,7 +25,19 @@ function apiUrl(path: string) {
   return `${API_BASE}${path}`;
 }
 
+function getAuthHeaders(token?: string | null): HeadersInit {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export function useListEvents(params: ListEventsParams = {}) {
+  const { accessToken } = useAuth();
+
   const qs = toQueryString({
     search: params.search,
     sort: params.sort?.length ? params.sort.join(",") : undefined,
@@ -41,7 +54,10 @@ export function useListEvents(params: ListEventsParams = {}) {
       sort: params.sort?.slice() ?? [],
     }),
     queryFn: async () => {
-      const raw = await fetch(apiUrl(`/api/v1/admin/events?${qs}`));
+      const raw = await fetch(apiUrl(`/api/v1/admin/events?${qs}`), {
+        headers: getAuthHeaders(accessToken),
+        credentials: 'include',
+      });
       const response = await parseApi<{ data: PageResultRaw<RawEvent> }>(raw);
       return mapPageResult(response.data, mapEvent) as {
         data: Event[];
@@ -51,5 +67,6 @@ export function useListEvents(params: ListEventsParams = {}) {
         total_pages: number;
       };
     },
+    enabled: !!accessToken,
   });
 }
