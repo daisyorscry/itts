@@ -31,7 +31,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listRoadmapItems(
   params: ListRoadmapItemsParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<RoadmapItem>> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', params.page.toString());
@@ -46,7 +46,7 @@ export async function listRoadmapItems(
   return parseApi(response);
 }
 
-export async function getRoadmapItem(id: string, accessToken?: string): Promise<RoadmapItem> {
+export async function getRoadmapItem(id: string, accessToken?: string | null): Promise<RoadmapItem> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmap-items/${id}`, {
     headers: getAuthHeaders(accessToken),
     credentials: 'include',
@@ -54,7 +54,7 @@ export async function getRoadmapItem(id: string, accessToken?: string): Promise<
   return parseApi(response);
 }
 
-export async function createRoadmapItem(data: CreateRoadmapItemRequest, accessToken?: string): Promise<RoadmapItem> {
+export async function createRoadmapItem(data: CreateRoadmapItemRequest, accessToken?: string | null): Promise<RoadmapItem> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmap-items`, {
     method: 'POST',
     headers: getAuthHeaders(accessToken),
@@ -67,7 +67,7 @@ export async function createRoadmapItem(data: CreateRoadmapItemRequest, accessTo
 export async function createRoadmapItemUnderRoadmap(
   roadmapId: string,
   data: Omit<CreateRoadmapItemRequest, 'roadmap_id'>,
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<RoadmapItem> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmaps/${roadmapId}/items`, {
     method: 'POST',
@@ -81,7 +81,7 @@ export async function createRoadmapItemUnderRoadmap(
 export async function updateRoadmapItem(
   id: string,
   data: UpdateRoadmapItemRequest,
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<RoadmapItem> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmap-items/${id}`, {
     method: 'PATCH',
@@ -92,7 +92,7 @@ export async function updateRoadmapItem(
   return parseApi(response);
 }
 
-export async function deleteRoadmapItem(id: string, accessToken?: string): Promise<void> {
+export async function deleteRoadmapItem(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmap-items/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),

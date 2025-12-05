@@ -30,7 +30,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listPartners(
   params: ListPartnersParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<Partner>> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', params.page.toString());
@@ -46,7 +46,7 @@ export async function listPartners(
   return parseApi(response);
 }
 
-export async function getPartner(id: string, accessToken?: string): Promise<Partner> {
+export async function getPartner(id: string, accessToken?: string | null): Promise<Partner> {
   const response = await fetch(`${API_BASE}/api/v1/admin/partners/${id}`, {
     headers: getAuthHeaders(accessToken),
     credentials: 'include',
@@ -54,7 +54,7 @@ export async function getPartner(id: string, accessToken?: string): Promise<Part
   return parseApi(response);
 }
 
-export async function createPartner(data: CreatePartnerRequest, accessToken?: string): Promise<Partner> {
+export async function createPartner(data: CreatePartnerRequest, accessToken?: string | null): Promise<Partner> {
   const response = await fetch(`${API_BASE}/api/v1/admin/partners`, {
     method: 'POST',
     headers: getAuthHeaders(accessToken),
@@ -64,7 +64,7 @@ export async function createPartner(data: CreatePartnerRequest, accessToken?: st
   return parseApi(response);
 }
 
-export async function updatePartner(id: string, data: UpdatePartnerRequest, accessToken?: string): Promise<Partner> {
+export async function updatePartner(id: string, data: UpdatePartnerRequest, accessToken?: string | null): Promise<Partner> {
   const response = await fetch(`${API_BASE}/api/v1/admin/partners/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -74,7 +74,7 @@ export async function updatePartner(id: string, data: UpdatePartnerRequest, acce
   return parseApi(response);
 }
 
-export async function setPartnerActive(id: string, active: boolean, accessToken?: string): Promise<Partner> {
+export async function setPartnerActive(id: string, active: boolean, accessToken?: string | null): Promise<Partner> {
   const response = await fetch(`${API_BASE}/api/v1/admin/partners/${id}/active`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -84,7 +84,7 @@ export async function setPartnerActive(id: string, active: boolean, accessToken?
   return parseApi(response);
 }
 
-export async function setPartnerPriority(id: string, priority: number, accessToken?: string): Promise<Partner> {
+export async function setPartnerPriority(id: string, priority: number, accessToken?: string | null): Promise<Partner> {
   const response = await fetch(`${API_BASE}/api/v1/admin/partners/${id}/priority`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -94,7 +94,7 @@ export async function setPartnerPriority(id: string, priority: number, accessTok
   return parseApi(response);
 }
 
-export async function deletePartner(id: string, accessToken?: string): Promise<void> {
+export async function deletePartner(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/partners/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),

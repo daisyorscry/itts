@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/feature/auth";
+import { type Role, type User } from "@/feature/auth/adapter";
 
 export default function OAuthCallbackPage() {
   const router = useRouter();
@@ -52,17 +53,9 @@ export default function OAuthCallbackPage() {
         if (tokenParts.length === 3) {
           try {
             const payload = JSON.parse(atob(tokenParts[1]));
-            const user = {
-              id: payload.user_id,
-              email: payload.email,
-              full_name: payload.email.split("@")[0], // Fallback
-              is_active: true,
-              is_super_admin: payload.is_super_admin || false,
-              roles: payload.roles || [],
-              permissions: payload.permissions || [],
-            };
+            const user = buildUserFromPayload(payload);
 
-            login(accessToken, refreshToken, parseInt(expiresIn || "900"), user);
+            login(accessToken, refreshToken, parseInt(expiresIn || "900", 10), user);
             setHasProcessed(true);
 
             // Redirect to dashboard (use replace to avoid back button issues)
@@ -140,4 +133,35 @@ export default function OAuthCallbackPage() {
       </div>
     </div>
   );
+}
+
+function buildUserFromPayload(payload: any): User {
+  const nowIso = new Date().toISOString();
+  const rolesPayload = Array.isArray(payload?.roles) ? payload.roles : [];
+  const roles: Role[] = rolesPayload.map((role: any, index: number) => ({
+    id: role?.id ?? String(index),
+    name: role?.name ?? `Role ${index + 1}`,
+    description: role?.description ?? undefined,
+    is_system: Boolean(role?.is_system),
+    parent_role_id: role?.parent_role_id ?? null,
+    created_at: role?.created_at ?? nowIso,
+    updated_at: role?.updated_at ?? nowIso,
+  }));
+
+  return {
+    id: payload?.user_id ?? payload?.sub ?? "unknown",
+    email: payload?.email ?? "unknown@example.com",
+    full_name:
+      payload?.full_name ??
+      (payload?.email ? payload.email.split("@")[0] : "User"),
+    is_active: payload?.is_active ?? true,
+    is_super_admin: Boolean(payload?.is_super_admin),
+    last_login_at: payload?.last_login_at ?? null,
+    created_at: payload?.created_at ?? nowIso,
+    updated_at: payload?.updated_at ?? nowIso,
+    roles,
+    permissions: Array.isArray(payload?.permissions)
+      ? payload.permissions.map((perm: any) => String(perm))
+      : [],
+  };
 }

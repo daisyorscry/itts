@@ -31,7 +31,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listRoadmaps(
   params: ListRoadmapsParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<Roadmap>> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', params.page.toString());
@@ -48,7 +48,7 @@ export async function listRoadmaps(
   return parseApi(response);
 }
 
-export async function getRoadmap(id: string, accessToken?: string): Promise<Roadmap> {
+export async function getRoadmap(id: string, accessToken?: string | null): Promise<Roadmap> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmaps/${id}`, {
     headers: getAuthHeaders(accessToken),
     credentials: 'include',
@@ -56,7 +56,7 @@ export async function getRoadmap(id: string, accessToken?: string): Promise<Road
   return parseApi(response);
 }
 
-export async function createRoadmap(data: CreateRoadmapRequest, accessToken?: string): Promise<Roadmap> {
+export async function createRoadmap(data: CreateRoadmapRequest, accessToken?: string | null): Promise<Roadmap> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmaps`, {
     method: 'POST',
     headers: getAuthHeaders(accessToken),
@@ -66,7 +66,7 @@ export async function createRoadmap(data: CreateRoadmapRequest, accessToken?: st
   return parseApi(response);
 }
 
-export async function updateRoadmap(id: string, data: UpdateRoadmapRequest, accessToken?: string): Promise<Roadmap> {
+export async function updateRoadmap(id: string, data: UpdateRoadmapRequest, accessToken?: string | null): Promise<Roadmap> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmaps/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -76,7 +76,7 @@ export async function updateRoadmap(id: string, data: UpdateRoadmapRequest, acce
   return parseApi(response);
 }
 
-export async function deleteRoadmap(id: string, accessToken?: string): Promise<void> {
+export async function deleteRoadmap(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/roadmaps/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),

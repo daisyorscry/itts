@@ -28,7 +28,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listEventRegistrations(
   params: ListEventRegistrationsParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<EventRegistration>> {
   const query = new URLSearchParams();
   if (params.event_id) query.set('event_id', params.event_id);
@@ -43,7 +43,7 @@ export async function listEventRegistrations(
   return parseApi(response);
 }
 
-export async function deleteEventRegistration(id: string, accessToken?: string): Promise<void> {
+export async function deleteEventRegistration(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/event-registrations/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),

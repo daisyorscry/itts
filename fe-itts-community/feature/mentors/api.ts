@@ -30,7 +30,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listMentors(
   params: ListMentorsParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<Mentor>> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', params.page.toString());
@@ -46,7 +46,7 @@ export async function listMentors(
   return parseApi(response);
 }
 
-export async function getMentor(id: string, accessToken?: string): Promise<Mentor> {
+export async function getMentor(id: string, accessToken?: string | null): Promise<Mentor> {
   const response = await fetch(`${API_BASE}/api/v1/admin/mentors/${id}`, {
     headers: getAuthHeaders(accessToken),
     credentials: 'include',
@@ -54,7 +54,7 @@ export async function getMentor(id: string, accessToken?: string): Promise<Mento
   return parseApi(response);
 }
 
-export async function createMentor(data: CreateMentorRequest, accessToken?: string): Promise<Mentor> {
+export async function createMentor(data: CreateMentorRequest, accessToken?: string | null): Promise<Mentor> {
   const response = await fetch(`${API_BASE}/api/v1/admin/mentors`, {
     method: 'POST',
     headers: getAuthHeaders(accessToken),
@@ -64,7 +64,7 @@ export async function createMentor(data: CreateMentorRequest, accessToken?: stri
   return parseApi(response);
 }
 
-export async function updateMentor(id: string, data: UpdateMentorRequest, accessToken?: string): Promise<Mentor> {
+export async function updateMentor(id: string, data: UpdateMentorRequest, accessToken?: string | null): Promise<Mentor> {
   const response = await fetch(`${API_BASE}/api/v1/admin/mentors/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -74,7 +74,7 @@ export async function updateMentor(id: string, data: UpdateMentorRequest, access
   return parseApi(response);
 }
 
-export async function setMentorActive(id: string, active: boolean, accessToken?: string): Promise<Mentor> {
+export async function setMentorActive(id: string, active: boolean, accessToken?: string | null): Promise<Mentor> {
   const response = await fetch(`${API_BASE}/api/v1/admin/mentors/${id}/active`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -84,7 +84,7 @@ export async function setMentorActive(id: string, active: boolean, accessToken?:
   return parseApi(response);
 }
 
-export async function setMentorPriority(id: string, priority: number, accessToken?: string): Promise<Mentor> {
+export async function setMentorPriority(id: string, priority: number, accessToken?: string | null): Promise<Mentor> {
   const response = await fetch(`${API_BASE}/api/v1/admin/mentors/${id}/priority`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -94,7 +94,7 @@ export async function setMentorPriority(id: string, priority: number, accessToke
   return parseApi(response);
 }
 
-export async function deleteMentor(id: string, accessToken?: string): Promise<void> {
+export async function deleteMentor(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/mentors/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),

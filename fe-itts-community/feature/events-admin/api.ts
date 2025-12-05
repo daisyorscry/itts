@@ -31,7 +31,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listEvents(
   params: ListEventsParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<Event>> {
   const query = new URLSearchParams();
   if (params.page) query.set('page', params.page.toString());
@@ -47,7 +47,7 @@ export async function listEvents(
   return parseApi(response);
 }
 
-export async function getEvent(id: string, accessToken?: string): Promise<Event> {
+export async function getEvent(id: string, accessToken?: string | null): Promise<Event> {
   const response = await fetch(`${API_BASE}/api/v1/admin/events/${id}`, {
     headers: getAuthHeaders(accessToken),
     credentials: 'include',
@@ -55,7 +55,7 @@ export async function getEvent(id: string, accessToken?: string): Promise<Event>
   return parseApi(response);
 }
 
-export async function createEvent(data: CreateEventRequest, accessToken?: string): Promise<Event> {
+export async function createEvent(data: CreateEventRequest, accessToken?: string | null): Promise<Event> {
   const response = await fetch(`${API_BASE}/api/v1/admin/events`, {
     method: 'POST',
     headers: getAuthHeaders(accessToken),
@@ -65,7 +65,7 @@ export async function createEvent(data: CreateEventRequest, accessToken?: string
   return parseApi(response);
 }
 
-export async function updateEvent(id: string, data: UpdateEventRequest, accessToken?: string): Promise<Event> {
+export async function updateEvent(id: string, data: UpdateEventRequest, accessToken?: string | null): Promise<Event> {
   const response = await fetch(`${API_BASE}/api/v1/admin/events/${id}`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -75,7 +75,7 @@ export async function updateEvent(id: string, data: UpdateEventRequest, accessTo
   return parseApi(response);
 }
 
-export async function setEventStatus(id: string, status: EventStatus, accessToken?: string): Promise<Event> {
+export async function setEventStatus(id: string, status: EventStatus, accessToken?: string | null): Promise<Event> {
   const response = await fetch(`${API_BASE}/api/v1/admin/events/${id}/status`, {
     method: 'PATCH',
     headers: getAuthHeaders(accessToken),
@@ -85,7 +85,7 @@ export async function setEventStatus(id: string, status: EventStatus, accessToke
   return parseApi(response);
 }
 
-export async function deleteEvent(id: string, accessToken?: string): Promise<void> {
+export async function deleteEvent(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/events/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),

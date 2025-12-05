@@ -18,6 +18,7 @@ import type {
   CreateRoleRequest,
   UpdateRoleRequest,
   AssignPermissionsRequest,
+  UpdateProfileRequest,
   User,
   Role,
   PermissionEntity,
@@ -138,7 +139,7 @@ export async function refreshToken(
  */
 export async function logout(
   refreshToken: string,
-  accessToken?: string | null
+  accessToken?: string | null | null
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/api/v1/auth/logout`, {
     method: "POST",

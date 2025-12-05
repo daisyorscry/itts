@@ -5,7 +5,7 @@ import { motion, type Variants } from "framer-motion";
 import Image from "next/image";
 import { HiMiniCalendarDays, HiMiniUser } from "react-icons/hi2";
 import { useEffect, useMemo } from "react";
-import { useListEvents } from "@/feature/events";
+import { useListEvents } from "@/feature/events/events";
 import { toast } from "sonner";
 
 import { Event, EventStatus } from "@/feature/events/adapter";
@@ -61,13 +61,12 @@ function CardSkeleton() {
   );
 }
 
-export default function UpcomingEvents({
-  onRegister,
-  limit = 6,
-}: {
+type UpcomingEventsProps = {
   onRegister: (event: Event) => void;
   limit?: number;
-}) {
+};
+
+export default function UpcomingEvents({ onRegister, limit = 6 }: UpcomingEventsProps) {
   // Ambil event (admin endpoint via hook). Kita ambil banyak lalu filter lokal.
   const { data, isLoading, isError, error } = useListEvents({
     // kalau backend publik sediakan filter status, bisa pakai: status: "open"
@@ -84,8 +83,8 @@ export default function UpcomingEvents({
     }
   }, [isError, error]);
 
-  const list = useMemo(() => {
-    const rows = data?.data ?? [];
+  const list = useMemo<Event[]>(() => {
+    const rows: Event[] = data?.data ?? [];
     // filter status yang tampil
     const filtered = rows.filter(
       (ev) => ev.status === "open" || ev.status === "ongoing"
@@ -147,18 +146,18 @@ export default function UpcomingEvents({
         {/* List */}
         {!isLoading && !isError && list.length > 0 && (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {list.map((e) => {
+            {list.map((event) => {
               const status = (
-                e.status === "open" ||
-                e.status === "ongoing" ||
-                e.status === "closed"
-                  ? e.status
+                event.status === "open" ||
+                event.status === "ongoing" ||
+                event.status === "closed"
+                  ? event.status
                   : "closed"
               ) as Status;
 
-              const hasDate = Boolean(e.starts_at);
+              const hasDate = Boolean(event.starts_at);
               const disabled = status !== "open" || !hasDate; // tutup/ongoing atau tanpa tanggal → nonaktif
-              const firstTwoSpeakers = (e.speakers ?? []).slice(0, 2);
+              const firstTwoSpeakers = (event.speakers ?? []).slice(0, 2);
               const speakerText =
                 firstTwoSpeakers.length > 0
                   ? firstTwoSpeakers.map((s) => s.name).join(", ")
@@ -166,7 +165,7 @@ export default function UpcomingEvents({
 
               return (
                 <motion.div
-                  key={e.id}
+                  key={event.id}
                   variants={cardVar}
                   whileHover={{
                     scale: disabled ? 1.0 : 1.02,
@@ -180,8 +179,8 @@ export default function UpcomingEvents({
                   {/* Gambar */}
                   <div className="relative h-40 w-full">
                     <Image
-                      src={e.image_url || "/events/placeholder.jpg"}
-                      alt={e.title}
+                      src={event.image_url || "/events/placeholder.jpg"}
+                      alt={event.title}
                       fill
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 33vw"
@@ -192,13 +191,13 @@ export default function UpcomingEvents({
                   {/* Konten */}
                   <div className="p-5 space-y-2">
                     <div className="flex items-start justify-between gap-3">
-                      <strong className="block text-lg">{e.title}</strong>
+                      <strong className="block text-lg">{event.title}</strong>
                       <StatusBadge status={status} />
                     </div>
 
                     <div className="text-sm opacity-80">
                       {hasDate
-                        ? new Date(e.starts_at as string).toLocaleString(
+                        ? new Date(event.starts_at as string).toLocaleString(
                             "id-ID",
                             {
                               weekday: "long",
@@ -216,14 +215,14 @@ export default function UpcomingEvents({
                       <HiMiniUser className="h-4 w-4" /> {speakerText}
                     </div>
 
-                    {e.summary && (
+                    {event.summary && (
                       <p className="text-sm opacity-80 line-clamp-3">
-                        {e.summary}
+                        {event.summary}
                       </p>
                     )}
 
                     <button
-                      onClick={() => onRegister(e)}
+                      onClick={() => onRegister(event)}
                       className="btn btn-primary mt-3 w-full disabled:opacity-60 disabled:cursor-not-allowed"
                       disabled={disabled}
                     >

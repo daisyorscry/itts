@@ -12,6 +12,7 @@ import { useAuth } from "./context";
 import * as api from "./api";
 import type {
   LoginRequest,
+  UpdateProfileRequest,
   ChangePasswordRequest,
   CreateUserRequest,
   UpdateUserRequest,

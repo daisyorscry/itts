@@ -30,7 +30,7 @@ function parseApi(response: Response): Promise<any> {
 
 export async function listSpeakers(
   params: ListSpeakersParams = {},
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<PageResult<Speaker>> {
   const query = new URLSearchParams();
   if (params.event_id) query.set('event_id', params.event_id);
@@ -47,7 +47,7 @@ export async function listSpeakers(
 export async function createSpeakerUnderEvent(
   eventId: string,
   data: CreateSpeakerRequest,
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<Speaker> {
   const response = await fetch(`${API_BASE}/api/v1/admin/events/${eventId}/speakers`, {
     method: 'POST',
@@ -61,7 +61,7 @@ export async function createSpeakerUnderEvent(
 export async function updateSpeaker(
   id: string,
   data: UpdateSpeakerRequest,
-  accessToken?: string
+  accessToken?: string | null
 ): Promise<Speaker> {
   const response = await fetch(`${API_BASE}/api/v1/admin/event-speakers/${id}`, {
     method: 'PATCH',
@@ -72,7 +72,7 @@ export async function updateSpeaker(
   return parseApi(response);
 }
 
-export async function deleteSpeaker(id: string, accessToken?: string): Promise<void> {
+export async function deleteSpeaker(id: string, accessToken?: string | null): Promise<void> {
   const response = await fetch(`${API_BASE}/api/v1/admin/event-speakers/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders(accessToken),
