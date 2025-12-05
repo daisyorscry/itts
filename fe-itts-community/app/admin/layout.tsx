@@ -23,7 +23,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Main Content */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Header */}
-          <AdminHeader onMenuClick={() => setSidebarOpen(true)} />
 
           {/* Page Content */}
           <main className="flex-1 overflow-y-auto">

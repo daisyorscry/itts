@@ -8,7 +8,7 @@ import {
   type PageResultRaw,
   type Event,
 } from "./adapter";
-import { parseApi, QK, toQueryString } from "../events";
+import { parseApi, QK, toQueryString } from "./events";
 
 export type ListEventsParams = {
   search?: string;

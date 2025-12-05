@@ -15,7 +15,7 @@ import {
   type PageResultRaw,
   type Program,
   type RawEvent,
-} from "./events/adapter";
+} from "./adapter";
 
 /* =========================
    Helpers
