@@ -84,6 +84,25 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	core.OK(w, r, user)
 }
 
+// UpdateProfile handles current user profile update
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+
+	var req model.UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid request body", nil)
+		return
+	}
+
+	user, err := h.authService.UpdateProfile(r.Context(), authCtx.UserID, req)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	core.OK(w, r, user)
+}
+
 // ChangePassword handles password change
 func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	authCtx := middleware.MustGetAuthContext(r.Context())

@@ -125,6 +125,7 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			auth.Group(func(protected chi.Router) {
 				protected.Use(middleware.RequireAuth())
 				protected.Get("/me", authH.Me)
+				protected.Patch("/me", authH.UpdateProfile)
 				protected.Post("/change-password", authH.ChangePassword)
 			})
 		})

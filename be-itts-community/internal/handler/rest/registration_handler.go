@@ -9,6 +9,7 @@ import (
 	"github.com/daisyorscry/itts/core"
 	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/internal/middleware"
 	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
@@ -98,18 +99,12 @@ func (h *RegistrationHandler) AdminGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RegistrationHandler) AdminApprove(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
 	id := chi.URLParam(r, "id")
-	var body struct {
-		AdminID string `json:"admin_id"`
-	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	if body.AdminID == "" {
-		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "admin_id required", nil)
-		return
-	}
+
 	req := model.AdminApproveRequest{
 		ID:      id,
-		AdminID: body.AdminID,
+		AdminID: authCtx.UserID,
 	}
 	rec, err := h.svc.AdminApprove(r.Context(), req)
 	if err != nil {
@@ -120,19 +115,25 @@ func (h *RegistrationHandler) AdminApprove(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *RegistrationHandler) AdminReject(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
 	id := chi.URLParam(r, "id")
+
 	var body struct {
-		AdminID string `json:"admin_id"`
-		Reason  string `json:"reason"`
+		Reason string `json:"reason"`
 	}
-	_ = json.NewDecoder(r.Body).Decode(&body)
-	if body.AdminID == "" || strings.TrimSpace(body.Reason) == "" {
-		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "admin_id and reason required", nil)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid request body", nil)
 		return
 	}
+
+	if strings.TrimSpace(body.Reason) == "" {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "reason required", nil)
+		return
+	}
+
 	req := model.AdminRejectRequest{
 		ID:      id,
-		AdminID: body.AdminID,
+		AdminID: authCtx.UserID,
 		Reason:  body.Reason,
 	}
 	rec, err := h.svc.AdminReject(r.Context(), req)

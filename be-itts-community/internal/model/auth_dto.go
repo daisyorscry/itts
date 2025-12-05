@@ -34,6 +34,12 @@ type RefreshTokenResponse struct {
 	ExpiresIn    int64  `json:"expires_in"`
 }
 
+// UpdateProfileRequest represents user profile update request
+type UpdateProfileRequest struct {
+	Email    *string `json:"email" validate:"omitempty,email"`
+	FullName *string `json:"full_name" validate:"omitempty"`
+}
+
 // ChangePasswordRequest represents password change request
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" validate:"required"`
@@ -84,7 +90,7 @@ type UserResponse struct {
 	LastLoginAt  *time.Time      `json:"last_login_at"`
 	CreatedAt    time.Time       `json:"created_at"`
 	UpdatedAt    time.Time       `json:"updated_at"`
-	Roles        []RoleResponse  `json:"roles,omitempty"`
+	Roles        []RoleResponse  `json:"roles"` // Always include roles array
 	Permissions  []string        `json:"permissions,omitempty"` // computed permission names
 }
 
@@ -256,6 +262,7 @@ func (u *User) ToUserResponse() UserResponse {
 		LastLoginAt:  u.LastLoginAt,
 		CreatedAt:    u.CreatedAt,
 		UpdatedAt:    u.UpdatedAt,
+		Roles:        make([]RoleResponse, 0), // Always initialize roles array
 	}
 
 	// Include roles if loaded

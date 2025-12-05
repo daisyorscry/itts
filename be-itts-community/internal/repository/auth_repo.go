@@ -58,7 +58,7 @@ func (r *authRepository) ListUsers(ctx context.Context, params ListParams) (*Pag
 		defer RepoTracer.StartDatastoreSegment(ctx, "users", "SELECT")()
 	}
 
-	query := r.db.Get(ctx).Model(&model.User{})
+	query := r.db.Get(ctx).Model(&model.User{}).Preload("Roles")
 
 	// Search
 	if params.Search != "" {

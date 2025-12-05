@@ -17,6 +17,9 @@ type AuthService interface {
 	// OAuth Authentication
 	HandleOAuthCallback(ctx context.Context, provider, providerID, email, fullName string, providerData map[string]interface{}) (*model.LoginResponse, error)
 
+	// Profile Management
+	UpdateProfile(ctx context.Context, userID string, req model.UpdateProfileRequest) (*model.UserResponse, error)
+
 	// Password Management
 	ChangePassword(ctx context.Context, userID string, req model.ChangePasswordRequest) error
 	ResetPassword(ctx context.Context, userID string, newPassword string) error

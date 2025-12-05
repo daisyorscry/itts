@@ -16,6 +16,7 @@ import (
 	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/mailer"
 	"be-itts-community/pkg/observability/nr"
 	"be-itts-community/pkg/validator"
 )
@@ -78,14 +79,14 @@ func (s *registrationService) Register(ctx context.Context, req model.RegisterRe
 		return model.RegistrationResponse{}, err
 	}
 
+	// Send verification email with beautiful HTML template
 	if s.mailer != nil && verifyURL != "" {
 		link := fmt.Sprintf("%s?token=%s", verifyURL, rawToken)
-		body := fmt.Sprintf(
-			`<p>Halo %s,</p>
-<p>Silakan verifikasi email untuk pendaftaran program %s.</p>
-<p><a href="%s">Klik untuk verifikasi</a></p>
-<p>Berlaku 24 jam.</p>`, reg.FullName, reg.Program, link)
-		if err := s.mailer.Send(reg.Email, "Verifikasi Email ITTS Community", body); err != nil {
+		body, err := mailer.RenderVerificationEmail(reg.FullName, string(reg.Program), link)
+		if err != nil {
+			return model.RegistrationToResponse(reg), fmt.Errorf("failed to render verification email: %w", err)
+		}
+		if err := s.mailer.Send(reg.Email, "Verify Your Email - ITTS Community", body); err != nil {
 			return model.RegistrationToResponse(reg), fmt.Errorf("failed to send verification email: %w", err)
 		}
 	}
@@ -136,6 +137,16 @@ func (s *registrationService) VerifyEmail(ctx context.Context, rawToken string) 
 		})
 	}); err != nil {
 		return model.RegistrationResponse{}, err
+	}
+
+	// Send thank you email after successful verification
+	if s.mailer != nil {
+		go func() {
+			body, err := mailer.RenderThankYouEmail(reg.FullName, string(reg.Program))
+			if err == nil {
+				_ = s.mailer.Send(reg.Email, "Email Verified - Welcome to ITTS Community!", body)
+			}
+		}()
 	}
 
 	return model.RegistrationToResponse(reg), nil
@@ -201,6 +212,16 @@ func (s *registrationService) AdminApprove(ctx context.Context, req model.AdminA
 	})
 	if err != nil {
 		return model.RegistrationResponse{}, err
+	}
+
+	// Send approval email to notify user
+	if s.mailer != nil {
+		go func() {
+			body, err := mailer.RenderApprovalEmail(out.FullName, string(out.Program), out.Email)
+			if err == nil {
+				_ = s.mailer.Send(out.Email, "Congratulations! Your Registration is Approved - ITTS Community", body)
+			}
+		}()
 	}
 
 	return model.RegistrationToResponse(out), nil

@@ -287,6 +287,59 @@ func (s *authService) GetCurrentUser(ctx context.Context, userID string) (*model
 	return &resp, nil
 }
 
+// UpdateProfile updates current user's profile
+func (s *authService) UpdateProfile(ctx context.Context, userID string, req model.UpdateProfileRequest) (*model.UserResponse, error) {
+	if s.tracer != nil {
+		defer s.tracer.StartSegment(ctx, "AuthService.UpdateProfile")()
+	}
+
+	// Get existing user
+	user, err := s.authRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, core.NotFound("user", userID)
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	// Update fields if provided
+	if req.Email != nil {
+		// Check email uniqueness
+		existing, err := s.authRepo.GetUserByEmail(ctx, *req.Email)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("failed to check email: %w", err)
+		}
+		if existing != nil && existing.ID != userID {
+			return nil, core.Conflict("Email already exists")
+		}
+		user.Email = *req.Email
+	}
+	if req.FullName != nil {
+		user.FullName = *req.FullName
+	}
+
+	// Update user
+	if err := s.authRepo.UpdateUser(ctx, user); err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	// Get updated user with permissions
+	updatedUser, permissions, err := s.authRepo.GetUserWithPermissions(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get updated user: %w", err)
+	}
+
+	resp := updatedUser.ToUserResponse()
+	resp.Permissions = permissions
+
+	// Audit log
+	s.auditLog(ctx, &userID, "user.profile.updated", strPtr("users"), &userID, map[string]interface{}{
+		"fields_updated": getUpdatedFields(req),
+	})
+
+	return &resp, nil
+}
+
 // ChangePassword changes user's password
 func (s *authService) ChangePassword(ctx context.Context, userID string, req model.ChangePasswordRequest) error {
 	if s.tracer != nil {
@@ -951,4 +1004,16 @@ func (s *authService) HandleOAuthCallback(
 	}
 
 	return response, nil
+}
+
+// getUpdatedFields returns list of updated fields from request
+func getUpdatedFields(req model.UpdateProfileRequest) []string {
+	fields := []string{}
+	if req.Email != nil {
+		fields = append(fields, "email")
+	}
+	if req.FullName != nil {
+		fields = append(fields, "full_name")
+	}
+	return fields
 }
