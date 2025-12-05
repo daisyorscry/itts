@@ -7,14 +7,27 @@
  */
 
 import { useState, useEffect } from "react";
-import { HiXMark } from "react-icons/hi2";
+import { Loader2 } from "lucide-react";
 import {
   useCreateUser,
   useUpdateUser,
   useListRoles,
   useAssignRoles,
 } from "@/feature/auth";
-import type { User } from "@/feature/auth/adapter";
+import type { User, Role } from "@/feature/auth/adapter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // CREATE USER MODAL
@@ -67,126 +80,99 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
     );
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-lg bg-background p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Create New User</h2>
-          <button onClick={onClose} className="rounded p-1 hover:bg-surface">
-            <HiXMark className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent className="max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>Invite a new admin and assign their access.</DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Email */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Email <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="user@example.com"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            />
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min. 8 characters"
-              minLength={8}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            />
-          </div>
-
-          {/* Full Name */}
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="John Doe"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            />
-          </div>
-
-          {/* Toggles */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="create_email">
+                Email <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="create_email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="user@example.com"
+                required
               />
-              <span className="text-sm font-medium">Active</span>
-            </label>
+            </div>
 
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isSuperAdmin}
-                onChange={(e) => setIsSuperAdmin(e.target.checked)}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+            <div className="grid gap-2">
+              <Label htmlFor="create_password">
+                Password <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="create_password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                minLength={8}
+                required
               />
-              <span className="text-sm font-medium">Super Admin</span>
-            </label>
-          </div>
+            </div>
 
-          {/* Roles */}
-          <div>
-            <label className="mb-2 block text-sm font-medium">Roles</label>
-            <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border border-border p-3">
-              {rolesData?.data.map((role) => (
-                <label
-                  key={role.id}
-                  className="flex items-center gap-2 rounded p-2 hover:bg-surface/50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedRoles.includes(role.id)}
-                    onChange={() => handleRoleToggle(role.id)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+            <div className="grid gap-2">
+              <Label htmlFor="create_full_name">
+                Full Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="create_full_name"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="John Doe"
+                required
+              />
+            </div>
+
+            <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-3">
+              <Label className="text-sm font-semibold">Status</Label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    checked={isActive}
+                    onCheckedChange={(checked) => setIsActive(Boolean(checked))}
                   />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{role.name}</p>
-                    {role.description && (
-                      <p className="text-xs text-foreground/60">
-                        {role.description}
-                      </p>
-                    )}
-                  </div>
+                  Active
                 </label>
-              ))}
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <Checkbox
+                    checked={isSuperAdmin}
+                    onCheckedChange={(checked) => setIsSuperAdmin(Boolean(checked))}
+                  />
+                  Super Admin
+                </label>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label>Roles</Label>
+              <RolesChecklist
+                roles={rolesData?.data ?? []}
+                selectedRoleIds={selectedRoles}
+                onToggle={handleRoleToggle}
+                emptyText="No roles available"
+              />
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex justify-end gap-2 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={
                 createMutation.isPending ||
@@ -194,14 +180,14 @@ export function CreateUserModal({ isOpen, onClose }: CreateUserModalProps) {
                 !password.trim() ||
                 !fullName.trim()
               }
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {createMutation.isPending ? "Creating..." : "Create User"}
-            </button>
-          </div>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create User
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -275,71 +261,67 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
     );
   };
 
-  if (!isOpen) return null;
-
   return (
     <>
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="w-full max-w-lg rounded-lg bg-background p-6 shadow-xl">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-bold">Edit User</h2>
-            <button onClick={onClose} className="rounded p-1 hover:bg-surface">
-              <HiXMark className="h-5 w-5" />
-            </button>
-          </div>
-
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
+        <DialogContent className="max-w-lg">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Email */}
-            <div>
-              <label className="mb-1 block text-sm font-medium">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                required
-              />
-            </div>
+            <DialogHeader>
+              <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Update account information and status.</DialogDescription>
+            </DialogHeader>
 
-            {/* Full Name */}
-            <div>
-              <label className="mb-1 block text-sm font-medium">
-                Full Name
-              </label>
-              <input
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                required
-              />
-            </div>
-
-            {/* Active Status */}
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={isActive}
-                onChange={(e) => setIsActive(e.target.checked)}
-                disabled={user.is_super_admin}
-                className="h-4 w-4 rounded border-border text-primary focus:ring-primary disabled:cursor-not-allowed disabled:opacity-50"
-              />
-              <span className="text-sm font-medium">Active</span>
-            </label>
-
-            {/* Roles */}
-            <div>
-              <div className="mb-2 flex items-center justify-between">
-                <label className="text-sm font-medium">Roles</label>
-                <button
-                  type="button"
-                  onClick={() => setShowRoleModal(true)}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Manage Roles
-                </button>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="edit_email">Email</Label>
+                <Input
+                  id="edit_email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
               </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit_full_name">Full Name</Label>
+                <Input
+                  id="edit_full_name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-2 rounded-lg border border-dashed border-border p-3">
+                <Checkbox
+                  checked={isActive}
+                  onCheckedChange={(checked) => setIsActive(Boolean(checked))}
+                  disabled={user.is_super_admin}
+                  id="edit_active"
+                />
+                <Label
+                  htmlFor="edit_active"
+                  className={`text-sm font-medium ${
+                    user.is_super_admin ? "opacity-60" : ""
+                  }`}
+                >
+                  Active
+                </Label>
+              </div>
+
               <div className="rounded-lg border border-border p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <Label className="text-sm font-medium">Roles</Label>
+                  <Button type="button" variant="link" size="sm" onClick={() => setShowRoleModal(true)}>
+                    Manage Roles
+                  </Button>
+                </div>
                 {user.roles && user.roles.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {user.roles.map((role) => (
@@ -352,89 +334,106 @@ export function EditUserModal({ user, isOpen, onClose }: EditUserModalProps) {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-foreground/40">No roles assigned</p>
+                  <p className="text-sm text-foreground/60">No roles assigned</p>
                 )}
               </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-              >
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={updateMutation.isPending}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {updateMutation.isPending ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
           </form>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
 
-      {/* Roles Management Modal */}
-      {showRoleModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold">Manage User Roles</h3>
-              <button
-                onClick={() => setShowRoleModal(false)}
-                className="rounded p-1 hover:bg-surface"
-              >
-                <HiXMark className="h-5 w-5" />
-              </button>
-            </div>
+      <Dialog open={showRoleModal} onOpenChange={setShowRoleModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Manage User Roles</DialogTitle>
+            <DialogDescription>Choose which roles should apply to this user.</DialogDescription>
+          </DialogHeader>
 
-            <div className="mb-4 max-h-96 space-y-1 overflow-y-auto rounded-lg border border-border p-3">
-              {rolesData?.data.map((role) => (
-                <label
-                  key={role.id}
-                  className="flex items-center gap-2 rounded p-2 hover:bg-surface/50"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedRoles.includes(role.id)}
-                    onChange={() => handleRoleToggle(role.id)}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{role.name}</p>
-                    {role.description && (
-                      <p className="text-xs text-foreground/60">
-                        {role.description}
-                      </p>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
+          <RolesChecklist
+            roles={rolesData?.data ?? []}
+            selectedRoleIds={selectedRoles}
+            onToggle={handleRoleToggle}
+            emptyText="No roles available"
+            listClassName="max-h-72"
+          />
 
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowRoleModal(false)}
-                className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRolesUpdate}
-                disabled={assignRolesMutation.isPending}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {assignRolesMutation.isPending ? "Saving..." : "Save Roles"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setShowRoleModal(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRolesUpdate} disabled={assignRolesMutation.isPending}>
+              {assignRolesMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Roles
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
+  );
+}
+
+type RolesChecklistProps = {
+  roles: Role[];
+  selectedRoleIds: string[];
+  onToggle: (roleId: string) => void;
+  emptyText?: string;
+  className?: string;
+  listClassName?: string;
+};
+
+function RolesChecklist({
+  roles,
+  selectedRoleIds,
+  onToggle,
+  emptyText = "No roles available",
+  className,
+  listClassName,
+}: RolesChecklistProps) {
+  if (!roles.length) {
+    return (
+      <div
+        className={cn(
+          "rounded-lg border border-dashed border-border p-4 text-sm text-foreground/60",
+          className
+        )}
+      >
+        {emptyText}
+      </div>
+    );
+  }
+
+  return (
+    <div className={cn("rounded-lg border border-border p-3", className)}>
+      <div className={cn("space-y-2 max-h-60 overflow-y-auto pr-1", listClassName)}>
+        {roles.map((role) => (
+          <label
+            key={role.id}
+            className="flex cursor-pointer items-start gap-3 rounded-md px-2 py-2 hover:bg-surface/60"
+          >
+            <Checkbox
+              checked={selectedRoleIds.includes(role.id)}
+              onCheckedChange={() => onToggle(role.id)}
+              id={`role-${role.id}`}
+            />
+            <div className="flex-1">
+              <p className="text-sm font-medium leading-none">{role.name}</p>
+              {role.description && (
+                <p className="mt-1 text-xs text-foreground/60">{role.description}</p>
+              )}
+            </div>
+          </label>
+        ))}
+      </div>
+    </div>
   );
 }

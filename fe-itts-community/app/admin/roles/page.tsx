@@ -6,7 +6,7 @@
  * Admin page for managing roles and permissions
  */
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ProtectedRoute,
   PERMISSIONS,
@@ -19,7 +19,29 @@ import {
   useUpdateRole,
 } from "@/feature/auth";
 import type { Role, PermissionEntity } from "@/feature/auth/adapter";
-import { HiPlus, HiPencil, HiTrash, HiShieldCheck, HiXMark } from "react-icons/hi2";
+import { Loader2, Pencil, Plus, ShieldCheck, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table-shadcn";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 
 export default function AdminRolesPage() {
   const [page, setPage] = useState(1);
@@ -51,179 +73,181 @@ export default function AdminRolesPage() {
 
   return (
     <ProtectedRoute anyPermissions={[PERMISSIONS.ROLES_LIST, PERMISSIONS.ROLES_READ]}>
-      <div className="space-y-6">
+      <div className="space-y-6 p-8">
         {/* Header */}
-        <header className="flex items-center justify-between">
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-3xl font-bold">Roles Management</h1>
-            <p className="mt-1 text-foreground/60">
-              Manage roles and their permissions
-            </p>
+            <p className="mt-1 text-foreground/60">Manage roles and their permissions</p>
           </div>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90"
-          >
-            <HiPlus className="h-4 w-4" />
-            <span>Add Role</span>
-          </button>
+          <Button onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4" />
+            Add Role
+          </Button>
         </header>
 
         {/* Search */}
-        <div className="flex items-center gap-4">
-          <input
-            type="text"
+        <div className="rounded-lg border border-border bg-background p-4">
+          <Input
             placeholder="Search roles..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 rounded-md border border-border bg-background px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
           />
         </div>
 
         {/* Roles Table */}
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full">
-            <thead className="bg-surface">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                  Role Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                  Type
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                  Created At
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-medium text-foreground/80">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
+        <div className="rounded-lg border border-border bg-background">
+          <Table>
+            <TableHeader className="bg-surface/60">
+              <TableRow>
+                <TableHead>Role Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Created At</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-foreground/60">
-                    Loading roles...
-                  </td>
-                </tr>
+                <TableRow>
+                  <TableCell colSpan={5} className="py-10 text-center text-sm text-foreground/60">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading roles...
+                    </div>
+                  </TableCell>
+                </TableRow>
               ) : data?.data.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-foreground/60">
+                <TableRow>
+                  <TableCell colSpan={5} className="py-12 text-center text-foreground/60">
                     No roles found
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 data?.data.map((role) => (
-                  <tr key={role.id} className="hover:bg-surface/50">
-                    <td className="px-4 py-3">
+                  <TableRow key={role.id}>
+                    <TableCell>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{role.name}</span>
+                        <span className="font-medium">{role.name}</span>
                         {role.is_system && (
-                          <HiShieldCheck className="h-4 w-4 text-blue-500" title="System Role" />
+                          <ShieldCheck className="h-4 w-4 text-blue-500" aria-label="System role" />
                         )}
                       </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-sm text-foreground/60">
-                        {role.description || "-"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground/60">
+                      {role.description || "—"}
+                    </TableCell>
+                    <TableCell>
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
                           role.is_system
-                            ? "bg-blue-500/10 text-blue-600 dark:text-blue-400"
-                            : "bg-green-500/10 text-green-600 dark:text-green-400"
-                        }`}
+                            ? "bg-blue-500/10 text-blue-600"
+                            : "bg-green-500/10 text-green-600"
+                        )}
                       >
                         {role.is_system ? "System" : "Custom"}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-foreground/60">
-                      {new Date(role.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground/60">
+                      {formatDate(role.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleManagePermissions(role)}
-                          className="rounded p-1.5 text-blue-600 hover:bg-blue-500/10"
-                          title="Manage permissions"
                         >
-                          <HiShieldCheck className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(role)}
+                          <ShieldCheck className="h-4 w-4" />
+                          <span className="sr-only">Manage permissions</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
                           disabled={role.is_system}
-                          className="rounded p-1.5 hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-                          title={role.is_system ? "Cannot edit system role" : "Edit role"}
+                          onClick={() => handleEdit(role)}
                         >
-                          <HiPencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(role.id, role.name)}
+                          <Pencil className="h-4 w-4" />
+                          <span className="sr-only">Edit role</span>
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
                           disabled={role.is_system || deleteMutation.isPending}
-                          className="rounded p-1.5 text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                          title={role.is_system ? "Cannot delete system role" : "Delete role"}
+                          onClick={() => handleDelete(role.id, role.name)}
                         >
-                          <HiTrash className="h-4 w-4" />
-                        </button>
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete role</span>
+                        </Button>
                       </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Pagination */}
         {data && data.total_pages > 1 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-foreground/60">
-              Showing {(page - 1) * pageSize + 1} to{" "}
-              {Math.min(page * pageSize, data.total)} of {data.total} roles
+          <div className="flex flex-col gap-3 text-sm text-foreground/60 md:flex-row md:items-center md:justify-between">
+            <p>
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, data.total)} of{" "}
+              {data.total} roles
             </p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                 Previous
-              </button>
-              <span className="px-3 py-1.5 text-sm">
+              </Button>
+              <span>
                 Page {page} of {data.total_pages}
               </span>
-              <button
+              <Button
+                variant="outline"
                 onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
                 disabled={page === data.total_pages}
-                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {/* Modals */}
-        {showCreateModal && (
-          <CreateRoleModal onClose={() => setShowCreateModal(false)} />
-        )}
+        {showCreateModal && <CreateRoleModal onClose={() => setShowCreateModal(false)} />}
         {showEditModal && selectedRole && (
           <EditRoleModal role={selectedRole} onClose={() => setShowEditModal(false)} />
         )}
         {showPermissionsModal && selectedRole && (
           <ManagePermissionsModal
             role={selectedRole}
-            onClose={() => setShowPermissionsModal(false)}
+            onClose={() => {
+              setShowPermissionsModal(false);
+            }}
           />
         )}
       </div>
     </ProtectedRoute>
   );
+}
+
+function formatDate(value: string) {
+  try {
+    const date = new Date(value);
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+    }).format(date);
+  } catch {
+    return "—";
+  }
 }
 
 // ============================================================================
@@ -247,60 +271,52 @@ function CreateRoleModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Create New Role</h2>
-          <button onClick={onClose} className="rounded p-1 hover:bg-surface">
-            <HiXMark className="h-5 w-5" />
-          </button>
-        </div>
-
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Role Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Content Manager"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            />
+          <DialogHeader>
+            <DialogTitle>Create New Role</DialogTitle>
+            <DialogDescription>Add a new role for managing access.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="create_role_name">
+                Role Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="create_role_name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Content Manager"
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="create_role_description">Description</Label>
+              <Textarea
+                id="create_role_description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the role..."
+                rows={3}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the role..."
-              rows={3}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={createMutation.isPending || !name.trim()}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {createMutation.isPending ? "Creating..." : "Create Role"}
-            </button>
-          </div>
+            </Button>
+            <Button type="submit" disabled={createMutation.isPending || !name.trim()}>
+              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Create Role
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -328,60 +344,52 @@ function EditRoleModal({ role, onClose }: { role: Role; onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">Edit Role</h2>
-          <button onClick={onClose} className="rounded p-1 hover:bg-surface">
-            <HiXMark className="h-5 w-5" />
-          </button>
-        </div>
-
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-sm font-medium">
-              Role Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Content Manager"
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              required
-            />
+          <DialogHeader>
+            <DialogTitle>Edit Role</DialogTitle>
+            <DialogDescription>Update the role name and description.</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit_role_name">
+                Role Name <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="edit_role_name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Content Manager"
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit_role_description">Description</Label>
+              <Textarea
+                id="edit_role_description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the role..."
+                rows={3}
+              />
+            </div>
           </div>
 
-          <div>
-            <label className="mb-1 block text-sm font-medium">Description</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe the role..."
-              rows={3}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-            >
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updateMutation.isPending || !name.trim()}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {updateMutation.isPending ? "Updating..." : "Update Role"}
-            </button>
-          </div>
+            </Button>
+            <Button type="submit" disabled={updateMutation.isPending || !name.trim()}>
+              {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Update Role
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -398,11 +406,11 @@ function ManagePermissionsModal({ role, onClose }: { role: Role; onClose: () => 
   const assignMutation = useAssignPermissions();
 
   // Initialize selected permissions when role permissions load
-  useState(() => {
+  useEffect(() => {
     if (rolePermissions) {
       setSelectedPermissions(new Set(rolePermissions.map((p) => p.id)));
     }
-  });
+  }, [rolePermissions]);
 
   const handleTogglePermission = (permissionId: string) => {
     setSelectedPermissions((prev) => {
@@ -424,50 +432,50 @@ function ManagePermissionsModal({ role, onClose }: { role: Role; onClose: () => 
     onClose();
   };
 
-  const filteredPermissions = allPermissions?.data.filter((p) =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPermissions = useMemo(
+    () =>
+      allPermissions?.data.filter((p) =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    [allPermissions?.data, searchTerm]
   );
 
   // Group permissions by resource
-  const groupedPermissions: Record<string, PermissionEntity[]> = {};
-  filteredPermissions?.forEach((perm) => {
-    const resource = perm.name.split(":")[0];
-    if (!groupedPermissions[resource]) {
-      groupedPermissions[resource] = [];
-    }
-    groupedPermissions[resource].push(perm);
-  });
+  const groupedPermissions = useMemo(() => {
+    const groups: Record<string, PermissionEntity[]> = {};
+    filteredPermissions?.forEach((perm) => {
+      const resource = perm.name.split(":")[0];
+      if (!groups[resource]) {
+        groups[resource] = [];
+      }
+      groups[resource].push(perm);
+    });
+    return groups;
+  }, [filteredPermissions]);
 
   const isLoading = loadingAll || loadingRole;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="w-full max-w-2xl rounded-lg bg-background p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold">Manage Permissions</h2>
-            <p className="text-sm text-foreground/60">Role: {role.name}</p>
-          </div>
-          <button onClick={onClose} className="rounded p-1 hover:bg-surface">
-            <HiXMark className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Manage Permissions</DialogTitle>
+          <DialogDescription>Set which permissions should be granted to {role.name}.</DialogDescription>
+        </DialogHeader>
 
-        {/* Search */}
-        <div className="mb-4">
-          <input
-            type="text"
-            placeholder="Search permissions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-        </div>
+        <Input
+          placeholder="Search permissions..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
 
-        {/* Permissions List */}
-        <div className="mb-4 max-h-96 space-y-4 overflow-y-auto rounded-lg border border-border p-4">
+        <div className="max-h-96 space-y-4 overflow-y-auto rounded-lg border border-border p-4">
           {isLoading ? (
-            <p className="text-center text-sm text-foreground/60">Loading permissions...</p>
+            <div className="flex items-center justify-center gap-2 text-sm text-foreground/60">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading permissions...
+            </div>
+          ) : Object.keys(groupedPermissions).length === 0 ? (
+            <p className="text-center text-sm text-foreground/60">No permissions found.</p>
           ) : (
             Object.entries(groupedPermissions).map(([resource, perms]) => (
               <div key={resource}>
@@ -476,18 +484,17 @@ function ManagePermissionsModal({ role, onClose }: { role: Role; onClose: () => 
                   {perms.map((perm) => (
                     <label
                       key={perm.id}
-                      className="flex items-center gap-2 rounded p-2 hover:bg-surface/50"
+                      className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-surface/60"
                     >
-                      <input
-                        type="checkbox"
+                      <Checkbox
                         checked={selectedPermissions.has(perm.id)}
-                        onChange={() => handleTogglePermission(perm.id)}
-                        className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                        onCheckedChange={() => handleTogglePermission(perm.id)}
+                        id={`perm-${perm.id}`}
                       />
                       <div className="flex-1">
-                        <p className="text-sm font-medium">{perm.name}</p>
+                        <p className="text-sm font-medium leading-none">{perm.name}</p>
                         {perm.description && (
-                          <p className="text-xs text-foreground/60">{perm.description}</p>
+                          <p className="mt-1 text-xs text-foreground/60">{perm.description}</p>
                         )}
                       </div>
                     </label>
@@ -498,29 +505,21 @@ function ManagePermissionsModal({ role, onClose }: { role: Role; onClose: () => 
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between">
+        <DialogFooter className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground/60">
             {selectedPermissions.size} permission(s) selected
           </p>
           <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-            >
+            <Button type="button" variant="outline" onClick={onClose}>
               Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={assignMutation.isPending}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {assignMutation.isPending ? "Saving..." : "Save Permissions"}
-            </button>
+            </Button>
+            <Button onClick={handleSubmit} disabled={assignMutation.isPending}>
+              {assignMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Permissions
+            </Button>
           </div>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
