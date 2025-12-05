@@ -9,7 +9,7 @@ import { HiUser, HiArrowRightOnRectangle, HiCog6Tooth } from "react-icons/hi2";
 import ThemeToggle from "../button/ThemeButton";
 import SectionMenuMobile from "./SectionMenuMobile";
 import SectionMenuDesktop from "./SectionMenuDesktop";
-import { useAuth, useLogout, UserAvatar } from "@/feature/auth";
+import { useAuth, useLogout, UserAvatar, useMe } from "@/feature/auth";
 
 type Item = { label: string; href: string };
 
@@ -45,6 +45,7 @@ export default function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const { isAuthenticated, user } = useAuth();
+  useMe();
   const logoutMutation = useLogout();
 
   useEffect(() => {

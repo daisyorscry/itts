@@ -6,7 +6,7 @@
  * Admin page for managing member registrations (approve/reject/delete)
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ProtectedRoute, PERMISSIONS } from "@/feature/auth";
 import {
   useListRegistrations,
@@ -19,14 +19,35 @@ import {
   type RegistrationStatus,
   type ProgramEnum,
 } from "@/feature/registration/index";
-import {
-  HiCheck,
-  HiXMark,
-  HiTrash,
-  HiMagnifyingGlass,
-  HiEye,
-} from "react-icons/hi2";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table-shadcn";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Loader2, Eye, Check, X, Trash2, Search } from "lucide-react";
 
 export default function AdminRegistrationsPage() {
   const [page, setPage] = useState(1);
@@ -140,13 +161,19 @@ export default function AdminRegistrationsPage() {
     );
   };
 
+  const registrations = data?.data ?? [];
+  const totalPages = data?.total_pages ?? 1;
+  const total = data?.total ?? 0;
+  const pageStart = useMemo(() => (page - 1) * pageSize + 1, [page, pageSize]);
+  const pageEnd = useMemo(() => Math.min(page * pageSize, total), [page, pageSize, total]);
+
   return (
     <ProtectedRoute
       anyPermissions={[PERMISSIONS.REGISTRATIONS_LIST, PERMISSIONS.REGISTRATIONS_READ]}
     >
-      <div className="space-y-6">
+      <div className="space-y-6 p-8">
         {/* Header */}
-        <header>
+        <header className="space-y-2">
           <h1 className="text-3xl font-bold">Member Registrations</h1>
           <p className="mt-1 text-foreground/60">
             Review and manage member registration applications
@@ -154,298 +181,259 @@ export default function AdminRegistrationsPage() {
         </header>
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-4">
-          {/* Search */}
-          <div className="flex-1 min-w-[200px]">
+        <div className="rounded-lg border border-border bg-background p-4">
+          <div className="grid gap-4 md:grid-cols-3">
             <div className="relative">
-              <HiMagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
-              <input
-                type="text"
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
+              <Input
+                className="pl-9"
                 placeholder="Search by name or email..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-md border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
               />
             </div>
+
+            <Select
+              value={statusFilter}
+              onValueChange={(value) => {
+                setStatusFilter(value as RegistrationStatus | "all");
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All status</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={programFilter}
+              onValueChange={(value) => {
+                setProgramFilter(value as ProgramEnum | "all");
+                setPage(1);
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="All programs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All programs</SelectItem>
+                <SelectItem value="networking">Networking</SelectItem>
+                <SelectItem value="devsecops">DevSecOps</SelectItem>
+                <SelectItem value="programming">Programming</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as RegistrationStatus | "all")
-            }
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
-
-          {/* Program Filter */}
-          <select
-            value={programFilter}
-            onChange={(e) =>
-              setProgramFilter(e.target.value as ProgramEnum | "all")
-            }
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          >
-            <option value="all">All Programs</option>
-            <option value="networking">Networking</option>
-            <option value="devsecops">DevSecOps</option>
-            <option value="programming">Programming</option>
-          </select>
         </div>
 
         {/* Table */}
-        <div className="overflow-hidden rounded-lg border border-border">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-surface">
-                <tr>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                    Applicant
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                    Program
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                    Student ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-sm font-medium text-foreground/80">
-                    Applied Date
-                  </th>
-                  <th className="px-4 py-3 text-right text-sm font-medium text-foreground/80">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {isLoading ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-8 text-center text-sm text-foreground/60"
-                    >
+        <div className="rounded-lg border border-border bg-background">
+          <Table>
+            <TableHeader className="bg-surface/60">
+              <TableRow>
+                <TableHead>Applicant</TableHead>
+                <TableHead>Program</TableHead>
+                <TableHead>Student ID</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Applied Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-sm text-foreground/60">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Loading registrations...
-                    </td>
-                  </tr>
-                ) : data?.data.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-4 py-8 text-center text-sm text-foreground/60"
-                    >
-                      No registrations found
-                    </td>
-                  </tr>
-                ) : (
-                  data?.data.map((registration) => (
-                    <tr key={registration.id} className="hover:bg-surface/50">
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium">
-                            {registration.full_name}
-                          </p>
-                          <p className="text-xs text-foreground/60">
-                            {registration.email}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getProgramBadge(registration.program)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm">
-                          {registration.student_id}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(registration.status)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-foreground/60">
-                        {new Date(registration.created_at).toLocaleDateString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => handleViewDetail(registration)}
-                            className="rounded p-1.5 hover:bg-surface"
-                            title="View details"
-                          >
-                            <HiEye className="h-4 w-4" />
-                          </button>
-
-                          {registration.status === "pending" && (
-                            <>
-                              <button
-                                onClick={() => handleApprove(registration)}
-                                disabled={approveMutation.isPending}
-                                className="rounded p-1.5 text-green-600 hover:bg-green-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Approve"
-                              >
-                                <HiCheck className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleRejectClick(registration)}
-                                disabled={rejectMutation.isPending}
-                                className="rounded p-1.5 text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                                title="Reject"
-                              >
-                                <HiXMark className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
-
-                          <button
-                            onClick={() => handleDeleteClick(registration)}
-                            disabled={deleteMutation.isPending}
-                            className="rounded p-1.5 text-red-600 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
-                            title="Delete"
-                          >
-                            <HiTrash className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : registrations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-12 text-center text-foreground/60">
+                    No registrations found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                registrations.map((registration) => (
+                  <TableRow key={registration.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{registration.full_name}</p>
+                        <p className="text-sm text-foreground/60">{registration.email}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <ProgramBadge program={registration.program} />
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm">{registration.student_id}</span>
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={registration.status} />
+                    </TableCell>
+                    <TableCell className="text-sm text-foreground/60">
+                      {formatDate(registration.created_at)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleViewDetail(registration)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">View details</span>
+                        </Button>
+                        {registration.status === "pending" && (
+                          <>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-green-600 hover:text-green-700"
+                              onClick={() => handleApprove(registration)}
+                              disabled={approveMutation.isPending}
+                            >
+                              <Check className="h-4 w-4" />
+                              <span className="sr-only">Approve</span>
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => handleRejectClick(registration)}
+                              disabled={rejectMutation.isPending}
+                            >
+                              <X className="h-4 w-4" />
+                              <span className="sr-only">Reject</span>
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-red-600 hover:text-red-700"
+                          onClick={() => handleDeleteClick(registration)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
 
         {/* Pagination */}
-        {data && data.total_pages > 1 && (
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-foreground/60">
-              Showing {(page - 1) * pageSize + 1} to{" "}
-              {Math.min(page * pageSize, data.total)} of {data.total}{" "}
-              registrations
+        {totalPages > 1 && (
+          <div className="flex flex-col gap-3 text-sm text-foreground/60 md:flex-row md:items-center md:justify-between">
+            <p>
+              Showing {pageStart} to {pageEnd} of {total} registrations
             </p>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-              >
+              <Button variant="outline" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>
                 Previous
-              </button>
-              <span className="px-3 py-1.5 text-sm">
-                Page {page} of {data.total_pages}
+              </Button>
+              <span>
+                Page {page} of {totalPages}
               </span>
-              <button
-                onClick={() => setPage((p) => Math.min(data.total_pages, p + 1))}
-                disabled={page === data.total_pages}
-                className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+              <Button
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
               >
                 Next
-              </button>
+              </Button>
             </div>
           </div>
         )}
 
         {/* Reject Modal */}
-        {showRejectModal && selectedRegistration && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold">Reject Registration</h3>
-                <button
-                  onClick={() => setShowRejectModal(false)}
-                  className="rounded p-1 hover:bg-surface"
-                >
-                  <HiXMark className="h-5 w-5" />
-                </button>
-              </div>
+        <Dialog open={showRejectModal} onOpenChange={(open) => !open && setShowRejectModal(false)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Reject Registration</DialogTitle>
+              <DialogDescription>
+                {selectedRegistration
+                  ? `Rejecting ${selectedRegistration.full_name}. Provide a reason below.`
+                  : "Provide a rejection reason."}
+              </DialogDescription>
+            </DialogHeader>
 
-              <p className="mb-4 text-sm text-foreground/60">
-                Rejecting registration for <strong>{selectedRegistration.full_name}</strong>. Please provide a reason:
-              </p>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Enter rejection reason (min. 5 characters)..."
+              rows={4}
+            />
 
-              <textarea
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="Enter rejection reason (min. 5 characters)..."
-                rows={4}
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowRejectModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleRejectConfirm}
+                disabled={rejectMutation.isPending || rejectReason.trim().length < 5}
+              >
+                {rejectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Reject
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRejectModal(false)}
-                  className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleRejectConfirm}
-                  disabled={rejectMutation.isPending || rejectReason.trim().length < 5}
-                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {rejectMutation.isPending ? "Rejecting..." : "Reject"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <Dialog open={showDetailModal} onOpenChange={(open) => !open && setShowDetailModal(false)}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Registration Details</DialogTitle>
+              <DialogDescription>
+                {selectedRegistration ? selectedRegistration.full_name : "Registration information"}
+              </DialogDescription>
+            </DialogHeader>
 
-        {/* Detail Modal */}
-        {showDetailModal && selectedRegistration && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-2xl rounded-lg bg-background p-6 shadow-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold">Registration Details</h3>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="rounded p-1 hover:bg-surface"
-                >
-                  <HiXMark className="h-5 w-5" />
-                </button>
-              </div>
-
+            {selectedRegistration && (
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div>
-                    <p className="text-sm font-medium text-foreground/60">Full Name</p>
-                    <p className="mt-1 text-sm">{selectedRegistration.full_name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground/60">Email</p>
-                    <p className="mt-1 text-sm">{selectedRegistration.email}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground/60">Program</p>
-                    <p className="mt-1">{getProgramBadge(selectedRegistration.program)}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground/60">Student ID</p>
-                    <p className="mt-1 text-sm">{selectedRegistration.student_id}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground/60">Intake Year</p>
-                    <p className="mt-1 text-sm">{selectedRegistration.intake_year}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground/60">Status</p>
-                    <p className="mt-1">{getStatusBadge(selectedRegistration.status)}</p>
-                  </div>
+                  <DetailField label="Full Name" value={selectedRegistration.full_name} />
+                  <DetailField label="Email" value={selectedRegistration.email} />
+                  <DetailField
+                    label="Program"
+                    value={<ProgramBadge program={selectedRegistration.program} />}
+                  />
+                  <DetailField label="Student ID" value={selectedRegistration.student_id} />
+                  <DetailField label="Intake Year" value={selectedRegistration.intake_year} />
+                  <DetailField
+                    label="Status"
+                    value={<StatusBadge status={selectedRegistration.status} />}
+                  />
                 </div>
 
-                <div>
-                  <p className="text-sm font-medium text-foreground/60">Motivation</p>
-                  <p className="mt-1 text-sm whitespace-pre-wrap">{selectedRegistration.motivation}</p>
-                </div>
+                <DetailField
+                  label="Motivation"
+                  value={<p className="text-sm whitespace-pre-wrap">{selectedRegistration.motivation}</p>}
+                />
 
                 {selectedRegistration.rejected_reason && (
                   <div className="rounded-lg border border-red-500/20 bg-red-500/10 p-3">
-                    <p className="text-sm font-medium text-red-600 dark:text-red-400">Rejection Reason</p>
-                    <p className="mt-1 text-sm text-red-600/80 dark:text-red-400/80">
+                    <p className="text-sm font-medium text-red-600">Rejection Reason</p>
+                    <p className="mt-1 text-sm text-red-600/80">
                       {selectedRegistration.rejected_reason}
                     </p>
                   </div>
@@ -453,35 +441,28 @@ export default function AdminRegistrationsPage() {
 
                 <div className="border-t border-border pt-4">
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <p className="text-sm font-medium text-foreground/60">Applied Date</p>
-                      <p className="mt-1 text-sm">
-                        {new Date(selectedRegistration.created_at).toLocaleString()}
-                      </p>
-                    </div>
+                    <DetailField
+                      label="Applied Date"
+                      value={formatDateTime(selectedRegistration.created_at)}
+                    />
                     {selectedRegistration.approved_at && (
-                      <div>
-                        <p className="text-sm font-medium text-foreground/60">Approved Date</p>
-                        <p className="mt-1 text-sm">
-                          {new Date(selectedRegistration.approved_at).toLocaleString()}
-                        </p>
-                      </div>
+                      <DetailField
+                        label="Approved Date"
+                        value={formatDateTime(selectedRegistration.approved_at)}
+                      />
                     )}
                   </div>
                 </div>
               </div>
+            )}
 
-              <div className="mt-6 flex justify-end">
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="rounded-md border border-border px-4 py-2 text-sm hover:bg-surface"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowDetailModal(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Delete Confirmation */}
         <ConfirmDialog
@@ -501,4 +482,60 @@ export default function AdminRegistrationsPage() {
       </div>
     </ProtectedRoute>
   );
+}
+
+function StatusBadge({ status }: { status: RegistrationStatus }) {
+  const tones: Record<RegistrationStatus, string> = {
+    pending: "border-yellow-500/20 bg-yellow-500/10 text-yellow-600",
+    approved: "border-green-500/20 bg-green-500/10 text-green-600",
+    rejected: "border-red-500/20 bg-red-500/10 text-red-600",
+  };
+
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${tones[status]}`}>
+      {status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
+  );
+}
+
+function ProgramBadge({ program }: { program: ProgramEnum }) {
+  const labels: Record<ProgramEnum, string> = {
+    networking: "Networking",
+    devsecops: "DevSecOps",
+    programming: "Programming",
+  };
+
+  return (
+    <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+      {labels[program]}
+    </span>
+  );
+}
+
+function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <Label className="text-sm font-medium text-foreground/60">{label}</Label>
+      <div className="mt-1 text-sm">{value}</div>
+    </div>
+  );
+}
+
+function formatDate(value: string) {
+  try {
+    return new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(new Date(value));
+  } catch {
+    return "—";
+  }
+}
+
+function formatDateTime(value: string) {
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    }).format(new Date(value));
+  } catch {
+    return "—";
+  }
 }
