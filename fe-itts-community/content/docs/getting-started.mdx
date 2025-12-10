@@ -1,0 +1,71 @@
+---
+title: "Getting Started"
+description: "Panduan untuk memulai dengan ITTS Community Learning Platform"
+---
+
+# Installation
+
+<Tabs defaultValue="npm">
+  <TabsList>
+    <TabsTrigger value="npm">npm</TabsTrigger>
+    <TabsTrigger value="pnpm">pnpm</TabsTrigger>
+    <TabsTrigger value="yarn">yarn</TabsTrigger>
+  </TabsList>
+  <TabsContent value="npm">
+```sh
+npm install reactjs-tiptap-editor@latest
+```
+  </TabsContent>
+  <TabsContent value="pnpm">
+```sh
+pnpm add reactjs-tiptap-editor@latest
+```
+  </TabsContent>
+  <TabsContent value="yarn">
+```sh
+yarn add reactjs-tiptap-editor@latest
+```
+  </TabsContent>
+</Tabs>
+
+# Usage
+
+```tsx
+import { RichTextProvider } from 'reactjs-tiptap-editor'
+
+// Base Kit
+import { Document } from '@tiptap/extension-document'
+import { Text } from '@tiptap/extension-text'
+import { Paragraph } from '@tiptap/extension-paragraph'
+import { Dropcursor, Gapcursor, Placeholder, TrailingNode } from '@tiptap/exten
+import { HardBreak } from '@tiptap/extension-hard-break'
+import { TextStyle } from '@tiptap/extension-text-style';
+import { ListItem } from '@tiptap/extension-list';
+
+// Import CSS
+import 'reactjs-tiptap-editor/style.css';
+
+const extensions = [
+  // Base Extensions
+  Document,
+  Text,
+  Dropcursor,
+  Gapcursor,
+  HardBreak,
+  // ... more extensions
+]
+```
+
+## Props
+
+Configure your editor with these properties:
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `extensions` | `Extension[]` | `[]` | Array of Tiptap extensions |
+| `content` | `string` | `""` | Initial content |
+| `editable` | `boolean` | `true` | Whether editor is editable |
+
+## Full Source Code Demo
+
+Check out the complete example in our [GitHub repository](https://github.com/example).

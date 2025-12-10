@@ -27,7 +27,7 @@ export default function OAuthCallbackPage() {
     const processCallback = async () => {
       try {
         // Check for error from backend redirect
-        const error = searchParams.get("error");
+        const error = searchParams?.get("error");
         if (error) {
           setError(error);
           setProcessing(false);
@@ -36,9 +36,9 @@ export default function OAuthCallbackPage() {
         }
 
         // Get tokens from URL query params (backend redirected with these)
-        const accessToken = searchParams.get("access_token");
-        const refreshToken = searchParams.get("refresh_token");
-        const expiresIn = searchParams.get("expires_in");
+        const accessToken = searchParams?.get("access_token");
+        const refreshToken = searchParams?.get("refresh_token");
+        const expiresIn = searchParams?.get("expires_in");
 
         // Validate required parameters
         if (!accessToken || !refreshToken) {
@@ -59,7 +59,7 @@ export default function OAuthCallbackPage() {
             setHasProcessed(true);
 
             // Redirect to dashboard (use replace to avoid back button issues)
-            const redirectTo = searchParams.get("redirect") || "/admin/event";
+            const redirectTo = searchParams?.get("redirect") || "/admin/event";
             setTimeout(() => {
               router.replace(redirectTo);
             }, 500);

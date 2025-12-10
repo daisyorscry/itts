@@ -86,7 +86,7 @@ export default function Navbar() {
           {/* Items lain */}
           {NAV_ITEMS.filter((i) => i.href !== "/").map((item, idx) => {
             const active =
-              pathname === item.href || pathname.startsWith(item.href);
+              pathname === item.href || pathname?.startsWith(item.href);
             return (
               <motion.div
                 key={item.href}

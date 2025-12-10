@@ -27,7 +27,7 @@ export default function LoginPage() {
   // Redirect to home if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const redirectTo = searchParams.get("redirect") || "/admin/event";
+      const redirectTo = searchParams?.get("redirect") || "/admin/event";
       router.push(redirectTo);
     }
   }, [isAuthenticated, router, searchParams]);
@@ -43,7 +43,7 @@ export default function LoginPage() {
       { email, password },
       {
         onSuccess: () => {
-          const redirectTo = searchParams.get("redirect") || "/admin/event";
+          const redirectTo = searchParams?.get("redirect") || "/admin/event";
           router.push(redirectTo);
         },
       }
@@ -51,7 +51,7 @@ export default function LoginPage() {
   };
 
   const handleGitHubLogin = () => {
-    const redirectTo = searchParams.get("redirect") || "/admin/event";
+    const redirectTo = searchParams?.get("redirect") || "/admin/event";
     const callbackUrl = `${window.location.origin}/auth/callback?provider=github&redirect=${encodeURIComponent(redirectTo)}`;
     oauthLogin("github", callbackUrl);
   };

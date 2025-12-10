@@ -1,0 +1,55 @@
+---
+title: "Error Handling & Testing"
+description: "Membuat guard clause yang jelas serta table-driven test"
+---
+
+# Error Handling & Testing
+
+Membuat guard clause yang jelas serta table-driven test.
+
+## Error Handling
+
+Biasakan return `(T, error)` dan gunakan sentinel error supaya mudah di-compare.
+
+```go
+var ErrInvalidEmail = errors.New("invalid email")
+
+func ValidateEmail(email string) error {
+    if email == "" {
+        return ErrInvalidEmail
+    }
+    // validation logic
+    return nil
+}
+```
+
+## Table-Driven Test
+
+Table-driven test membantu menambah skenario baru tanpa duplikasi kode.
+
+```go
+func TestValidateEmail(t *testing.T) {
+    tests := []struct {
+        name    string
+        email   string
+        wantErr bool
+    }{
+        {"valid email", "user@example.com", false},
+        {"empty email", "", true},
+        {"invalid format", "notanemail", true},
+    }
+
+    for _, tt := range tests {
+        t.Run(tt.name, func(t *testing.T) {
+            err := ValidateEmail(tt.email)
+            if (err != nil) != tt.wantErr {
+                t.Errorf("ValidateEmail() error = %v, wantErr %v", err, tt.wantErr)
+            }
+        })
+    }
+}
+```
+
+<Callout type="success">
+Gunakan subtest (`t.Run`) di table-driven test sehingga ketika satu kasus gagal mudah dilacak.
+</Callout>

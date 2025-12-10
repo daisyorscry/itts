@@ -1,0 +1,45 @@
+---
+title: "Context & Timeout"
+description: "Menggunakan context untuk cancellation dan timeout"
+---
+
+# Context & Timeout
+
+Menggunakan context untuk cancellation dan timeout di operasi concurrent.
+
+## Context Basics
+
+Context membawa deadline, cancellation signal, dan request-scoped values.
+
+```go
+import "context"
+
+func main() {
+    // Context with timeout
+    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    defer cancel()
+
+    // Use context in operation
+    result, err := doOperation(ctx)
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+## Context Cancellation
+
+```go
+func doOperation(ctx context.Context) error {
+    select {
+    case <-time.After(10 * time.Second):
+        return nil
+    case <-ctx.Done():
+        return ctx.Err() // returns context.Canceled or context.DeadlineExceeded
+    }
+}
+```
+
+<Callout type="info">
+Selalu pass context sebagai parameter pertama dalam function yang mungkin membutuhkan cancellation.
+</Callout>
