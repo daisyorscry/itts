@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	newrelic "github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/pressly/goose/v3"
 	redis "github.com/redis/go-redis/v9"
 
 	"go.uber.org/automaxprocs/maxprocs"
@@ -25,6 +27,18 @@ import (
 	"be-itts-community/pkg/observability/nr"
 	routes "be-itts-community/route"
 )
+
+func runMigrations(sqlDB *sql.DB, log *core.Logger, migrationsDir string) error {
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("failed to set goose dialect: %w", err)
+	}
+
+	if err := goose.Up(sqlDB, migrationsDir); err != nil {
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+
+	return nil
+}
 
 func main() {
 	if undo, err := maxprocs.Set(); err == nil {
@@ -53,6 +67,13 @@ func main() {
 		log.Critical("failed to ping database", err)
 	}
 	log.WithFields(map[string]any{"host": cfg.DB.Host}).Info("database connected")
+
+	// Run migrations automatically
+	log.Info("running database migrations")
+	if err := runMigrations(sqlDB, log, "./migrations"); err != nil {
+		log.Critical("failed to run migrations", err)
+	}
+	log.Info("migrations completed successfully")
 
 	r := chi.NewRouter()
 
