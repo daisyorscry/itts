@@ -20,7 +20,7 @@ services:
       - api
 
   api:
-    image: hharbor.itts.fun/ittscommunity/core-service:latest
+    image: harbor.itts.fun/ittscommunity/core-service:latest
     container_name: itts-backend
     env_file:
       - .env
@@ -34,7 +34,7 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_PORT:-3002}/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_PORT:-3002}/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
