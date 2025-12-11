@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { getDocModules } from "@/lib/mdx";
 
-export default function DocsPage() {
-  const modules = getDocModules();
+export default async function DocsPage() {
+  const modules = await getDocModules();
 
   return (
     <main className="mx-auto max-w-6xl space-y-10 px-4 py-14">

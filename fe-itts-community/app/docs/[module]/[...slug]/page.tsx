@@ -53,7 +53,7 @@ export default async function DocPage({
   params: Promise<{ module: string; slug: string[] }>;
 }) {
   const { module, slug } = await params;
-  const doc = getDocBySlug([module, ...slug]);
+  const doc = await getDocBySlug([module, ...slug]);
 
   if (!doc) {
     notFound();
