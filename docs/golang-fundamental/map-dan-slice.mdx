@@ -1,0 +1,39 @@
+---
+title: "Map & Slice"
+description: "Mengolah koleksi dengan idiom Go yang aman"
+---
+
+# Map & Slice Utility
+
+Mengolah koleksi dengan idiom Go yang aman.
+
+## Map
+
+Selalu inisialisasi map dengan `make(map[string]string)` sebelum dipakai untuk menghindari panic assignment.
+
+```go
+// ✅ Good - initialized
+users := make(map[string]User)
+users["john"] = User{Name: "John"}
+
+// ❌ Bad - nil map
+var users map[string]User
+users["john"] = User{Name: "John"} // panic!
+```
+
+## Slice
+
+Untuk slice, manfaatkan `append` dan copy supaya tidak berbagi underlying array tanpa sengaja.
+
+```go
+// Create slice with capacity
+items := make([]string, 0, 10)
+
+// Append items
+items = append(items, "first")
+items = append(items, "second")
+```
+
+<Callout type="info">
+Gunakan kapasitas awal `make([]T, 0, n)` untuk slice agar tidak sering reallocate ketika tahu kira-kira panjangnya.
+</Callout>
