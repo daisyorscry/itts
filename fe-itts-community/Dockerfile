@@ -1,25 +1,35 @@
 # syntax=docker/dockerfile:1.7
-ARG NODE_VERSION=20
 
-FROM node:${NODE_VERSION}-alpine AS base
+FROM oven/bun:latest AS base
 WORKDIR /app
-RUN apk add --no-cache libc6-compat
 
 FROM base AS deps
-COPY package*.json ./
-RUN --mount=type=cache,target=/root/.npm npm ci
+
+COPY package.json bun.lockb* ./
+
+RUN --mount=type=cache,target=/root/.bun \
+    bun install
 
 FROM base AS builder
 ENV NODE_ENV=production
+WORKDIR /app
+
 COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/bun.lock ./bun.lock
+
 COPY . .
-ENV NODE_OPTIONS=--max-old-space-size=2048
-RUN node node_modules/next/dist/bin/next build
+
+RUN --mount=type=cache,target=/root/.bun \
+    bunx next build
 
 FROM base AS runner
 ENV NODE_ENV=production
+WORKDIR /app
+USER bun
+
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["bun", "server.js"]

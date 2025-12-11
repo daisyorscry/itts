@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1.7
+ARG NODE_VERSION=20
+
+FROM node:${NODE_VERSION}-bookworm
+
+WORKDIR /app
+
+LABEL org.opencontainers.image.authors="daisy <daisyorscry@gmail.com>" \
+      org.opencontainers.image.title="Node Base Image" \
+      org.opencontainers.image.description="Hardened Node base image for production services" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.source="https://github.com/daisyorscry/itts"
+
+ARG TZ=Asia/Jakarta
+ENV TZ=${TZ}
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      tzdata && \
+    rm -rf /var/lib/apt/lists/* && \
+    ln -snf /usr/share/zoneinfo/${TZ} /etc/localtime && \
+    echo ${TZ} > /etc/timezone && \
+    update-ca-certificates
+
+ENV NODE_ENV=production \
+    NPM_CONFIG_FUND=false \
+    NPM_CONFIG_AUDIT=false
+
+RUN groupadd -g 10001 app && \
+    useradd -m -u 10001 -g app appuser && \
+    chown -R appuser:app /app

@@ -1,0 +1,29 @@
+# syntax=docker/dockerfile:1.7
+ARG GO_VERSION=1.25.1
+
+FROM golang:${GO_VERSION}-bookworm
+
+WORKDIR /app
+
+LABEL org.opencontainers.image.authors="daisy daisyorscry@gmail.com" \
+      org.opencontainers.image.title="Go Base Image" \
+      org.opencontainers.image.description="Hardened Go base image for production services" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.source="https://github.com/daisyorscry/itts"
+
+ARG TZ=Asia/Jakarta
+ENV TZ=${TZ}
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates \
+      tzdata && \
+    rm -rf /var/lib/apt/lists/* && \
+    update-ca-certificates
+
+ENV CGO_ENABLED=0 \
+    GO111MODULE=on \
+    GOPATH=/go
+
+RUN useradd -m -u 10001 appuser && \
+    mkdir -p /app && chown -R appuser:appuser /app
