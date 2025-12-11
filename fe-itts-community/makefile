@@ -1,8 +1,12 @@
 PROJECT_NAME := itts-community
 WEB_IMAGE := $(PROJECT_NAME)-web
 API_IMAGE := $(PROJECT_NAME)-api
-REGISTRY ?= ghcr.io/your-org 
+REGISTRY ?= harbor.itts.fun
 TAG ?= latest
+
+# Harbor registry config
+HARBOR_REGISTRY := harbor.itts.fun
+HARBOR_UI_IMAGE := $(HARBOR_REGISTRY)/ittscommunity/ui
 
 DEV_COMPOSE := docker-compose.yml
 PROD_COMPOSE := docker-compose.prod.yml
@@ -19,6 +23,7 @@ help:
 	@echo "  make build-api    - Build image api"
 	@echo "  make push-web     - Push image web ke registry"
 	@echo "  make push-api     - Push image api ke registry"
+	@echo "  make push-harbor  - Push image UI ke Harbor registry"
 	@echo "  make clean        - Hapus container & image build cache"
 	@echo "  make lint         - Jalankan lint (frontend & backend)"
 
@@ -59,6 +64,11 @@ push-web: build-web
 push-api: build-api
 	docker tag $(API_IMAGE):$(TAG) $(REGISTRY)/$(API_IMAGE):$(TAG)
 	docker push $(REGISTRY)/$(API_IMAGE):$(TAG)
+
+.PHONY: push-harbor
+push-harbor:
+	docker build -t $(HARBOR_UI_IMAGE):$(TAG) .
+	docker push $(HARBOR_UI_IMAGE):$(TAG)
 
 .PHONY: clean
 clean:
