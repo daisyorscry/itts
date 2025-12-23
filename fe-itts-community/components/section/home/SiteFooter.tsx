@@ -21,7 +21,7 @@ export default function SiteFooter({ onRegister }: { onRegister: () => void }) {
 
   return (
     <footer className="border-t border-border bg-background text-sm">
-      <div className="container grid gap-8 px-5 py-10 md:grid-cols-3">
+      <div className="container grid gap-8 py-10 md:grid-cols-3">
         <div className="space-y-3">
           <div className="flex items-center gap-2 font-semibold">
             <span className="inline-block rounded-md border border-border px-2 py-1">
@@ -86,7 +86,7 @@ export default function SiteFooter({ onRegister }: { onRegister: () => void }) {
 
       {/* Lower bar */}
       <div className="border-t border-border">
-        <div className="container flex flex-col items-center justify-between gap-3 px-5 py-4 md:flex-row">
+        <div className="container flex flex-col items-center justify-between gap-3 py-4 md:flex-row">
           <span className="opacity-80">© {year} ITTS Community</span>
           <div className="flex items-center gap-3">
             <a href="/privacy" className="opacity-80 hover:opacity-100">

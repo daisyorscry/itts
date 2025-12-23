@@ -6,8 +6,8 @@ import heroAnimation from '@/public/Robot-Bot 3D.json';
 
 export default function Hero({ onRegister }: { onRegister: () => void }) {
   return (
-    <section className="relative overflow-hidden py-20 sm:py-28">
-      <div className="mx-auto grid max-w-[1080px] gap-10 px-5 md:grid-cols-2 md:items-center">
+    <section className="section relative overflow-hidden">
+      <div className="container grid gap-10 md:grid-cols-2 md:items-center">
         {/* Kolom teks */}
         <motion.div
           initial={{ opacity: 0, y: 24 }}

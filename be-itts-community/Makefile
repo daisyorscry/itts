@@ -21,7 +21,7 @@ help:
 
 .PHONY: build
 build:
-	docker build -t $(HARBOR_IMAGE):$(TAG) -f $(DOCKERFILE) .
+	docker build -t $(HARBOR_IMAGE):$(TAG) -f $(DOCKERFILE) . 
 
 .PHONY: push-harbor
 push-harbor: build
