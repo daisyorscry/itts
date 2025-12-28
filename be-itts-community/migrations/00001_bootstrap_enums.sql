@@ -15,6 +15,8 @@ CREATE TYPE event_status_enum AS ENUM ('draft', 'open', 'ongoing', 'closed');
 
 CREATE TYPE partner_type_enum AS ENUM ('lab', 'partner_academic', 'partner_industry');
 
+
+
 -- =========================
 -- Trigger Function
 -- =========================

@@ -101,6 +101,11 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	eventRegSvc := service.NewEventRegistrationService(eventRepo, eventRegRepo, deps.Locker, deps.Tracer)
 	eventH := rest.NewEventHandler(eventSvc, eventSpeakerSvc, eventRegSvc)
 
+	// ===== PMB (Penerimaan Mahasiswa Baru) =====
+	pmbRepo := repository.NewPMBRepository(deps.DBConn)
+	pmbSvc := service.NewPMBService(pmbRepo, deps.Tracer)
+	pmbH := rest.NewPMBHandler(pmbSvc)
+
 	// ========= ROUTES =========
 	r.Route("/api/v1", func(api chi.Router) {
 		// Apply JWT middleware globally
@@ -133,6 +138,42 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 		// Public events
 		api.Get("/events/slug/{slug}", eventH.GetEventBySlug)
 		api.Post("/events/{event_id}/register", eventH.RegisterToEvent)
+
+		// ===== PMB PUBLIC ROUTES =====
+		api.Route("/pmb", func(pmb chi.Router) {
+			// Public endpoints (require authentication)
+			pmb.Use(middleware.RequireAuth())
+
+			// Applicant self-management
+			pmb.Get("/me/applicant", pmbH.GetMyApplicant)
+
+			// Application management
+			pmb.Post("/applications", pmbH.CreateApplication)
+			pmb.Get("/applicants/{applicant_id}/applications", pmbH.ListApplicationsByApplicant)
+
+			// Documents
+			pmb.Post("/documents", pmbH.CreateApplicantDocument)
+			pmb.Delete("/documents/{id}", pmbH.DeleteApplicantDocument)
+			pmb.Get("/applicants/{applicant_id}/documents", pmbH.ListDocumentsByApplicant)
+
+			// Re-registration
+			pmb.Post("/re-registration", pmbH.CreateReRegistration)
+
+			// Public information (no auth required)
+			pmb.Group(func(public chi.Router) {
+				// Active tracks for registration
+				public.Get("/tracks/active", pmbH.ListActiveAdmissionTracks)
+
+				// Programs by faculty
+				public.Get("/faculties/{faculty_id}/programs", pmbH.ListStudyProgramsByFaculty)
+
+				// Check quota
+				public.Get("/programs/{program_id}/quota", pmbH.GetAvailableQuota)
+
+				// Passed applicants (public announcement)
+				public.Get("/results/passed", pmbH.ListPassedApplicants)
+			})
+		})
 
 		// ===== ADMIN ROUTES (Protected) =====
 		api.Route("/admin", func(admin chi.Router) {
@@ -220,6 +261,70 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			// ===== EVENT REGISTRATIONS =====
 			admin.With(middleware.RequirePermission("event_registrations:list")).Get("/event-registrations", eventH.ListRegistrations)
 			admin.With(middleware.RequirePermission("event_registrations:delete")).Delete("/event-registrations/{id}", eventH.Unregister)
+
+			// ===== PMB - APPLICANTS =====
+			admin.With(middleware.RequirePermission("pmb:applicants:create")).Post("/pmb/applicants", pmbH.CreateApplicant)
+			admin.With(middleware.RequirePermission("pmb:applicants:list")).Get("/pmb/applicants", pmbH.ListApplicants)
+			admin.With(middleware.RequirePermission("pmb:applicants:read")).Get("/pmb/applicants/{id}", pmbH.GetApplicant)
+			admin.With(middleware.RequirePermission("pmb:applicants:update")).Patch("/pmb/applicants/{id}", pmbH.UpdateApplicant)
+			admin.With(middleware.RequirePermission("pmb:applicants:delete")).Delete("/pmb/applicants/{id}", pmbH.DeleteApplicant)
+
+			// ===== PMB - APPLICATIONS =====
+			admin.With(middleware.RequirePermission("pmb:applications:list")).Get("/pmb/applications", pmbH.ListApplications)
+			admin.With(middleware.RequirePermission("pmb:applications:read")).Get("/pmb/applications/{id}", pmbH.GetApplication)
+			admin.With(middleware.RequirePermission("pmb:applications:read")).Get("/pmb/applications/{id}/details", pmbH.GetApplicationDetails)
+			admin.With(middleware.RequirePermission("pmb:applications:read")).Get("/pmb/applications/number/{number}", pmbH.GetApplicationByNumber)
+			admin.With(middleware.RequirePermission("pmb:applications:update")).Patch("/pmb/applications/{id}", pmbH.UpdateApplication)
+			admin.With(middleware.RequirePermission("pmb:applications:update")).Patch("/pmb/applications/{id}/status", pmbH.UpdateApplicationStatus)
+			admin.With(middleware.RequirePermission("pmb:applications:delete")).Delete("/pmb/applications/{id}", pmbH.DeleteApplication)
+
+			// ===== PMB - ADMISSION TRACKS =====
+			admin.With(middleware.RequirePermission("pmb:tracks:create")).Post("/pmb/tracks", pmbH.CreateAdmissionTrack)
+			admin.With(middleware.RequirePermission("pmb:tracks:list")).Get("/pmb/tracks", pmbH.ListAdmissionTracks)
+			admin.With(middleware.RequirePermission("pmb:tracks:read")).Get("/pmb/tracks/{id}", pmbH.GetAdmissionTrack)
+			admin.With(middleware.RequirePermission("pmb:tracks:update")).Patch("/pmb/tracks/{id}", pmbH.UpdateAdmissionTrack)
+			admin.With(middleware.RequirePermission("pmb:tracks:delete")).Delete("/pmb/tracks/{id}", pmbH.DeleteAdmissionTrack)
+
+			// ===== PMB - FACULTIES =====
+			admin.With(middleware.RequirePermission("pmb:faculties:create")).Post("/pmb/faculties", pmbH.CreateFaculty)
+			admin.With(middleware.RequirePermission("pmb:faculties:list")).Get("/pmb/faculties", pmbH.ListFaculties)
+			admin.With(middleware.RequirePermission("pmb:faculties:read")).Get("/pmb/faculties/{id}", pmbH.GetFaculty)
+			admin.With(middleware.RequirePermission("pmb:faculties:read")).Get("/pmb/faculties/{id}/programs", pmbH.GetFacultyWithPrograms)
+			admin.With(middleware.RequirePermission("pmb:faculties:update")).Patch("/pmb/faculties/{id}", pmbH.UpdateFaculty)
+			admin.With(middleware.RequirePermission("pmb:faculties:delete")).Delete("/pmb/faculties/{id}", pmbH.DeleteFaculty)
+
+			// ===== PMB - STUDY PROGRAMS =====
+			admin.With(middleware.RequirePermission("pmb:programs:create")).Post("/pmb/programs", pmbH.CreateStudyProgram)
+			admin.With(middleware.RequirePermission("pmb:programs:list")).Get("/pmb/programs", pmbH.ListStudyPrograms)
+			admin.With(middleware.RequirePermission("pmb:programs:read")).Get("/pmb/programs/{id}", pmbH.GetStudyProgram)
+			admin.With(middleware.RequirePermission("pmb:programs:update")).Patch("/pmb/programs/{id}", pmbH.UpdateStudyProgram)
+			admin.With(middleware.RequirePermission("pmb:programs:delete")).Delete("/pmb/programs/{id}", pmbH.DeleteStudyProgram)
+
+			// ===== PMB - DOCUMENTS =====
+			admin.With(middleware.RequirePermission("pmb:documents:list")).Get("/pmb/documents", pmbH.ListApplicantDocuments)
+			admin.With(middleware.RequirePermission("pmb:documents:read")).Get("/pmb/documents/{id}", pmbH.GetApplicantDocument)
+			admin.With(middleware.RequirePermission("pmb:documents:verify")).Patch("/pmb/documents/{id}/verify", pmbH.UpdateDocumentVerification)
+
+			// ===== PMB - EVALUATIONS =====
+			admin.With(middleware.RequirePermission("pmb:evaluations:create")).Post("/pmb/evaluations", pmbH.CreateEvaluation)
+			admin.With(middleware.RequirePermission("pmb:evaluations:read")).Get("/pmb/evaluations/{id}", pmbH.GetEvaluation)
+			admin.With(middleware.RequirePermission("pmb:evaluations:update")).Patch("/pmb/evaluations/{id}", pmbH.UpdateEvaluation)
+			admin.With(middleware.RequirePermission("pmb:evaluations:delete")).Delete("/pmb/evaluations/{id}", pmbH.DeleteEvaluation)
+			admin.With(middleware.RequirePermission("pmb:evaluations:read")).Get("/pmb/applications/{application_id}/evaluations", pmbH.ListEvaluationsByApplication)
+			admin.With(middleware.RequirePermission("pmb:evaluations:read")).Get("/pmb/applications/{application_id}/average-score", pmbH.GetAverageScore)
+
+			// ===== PMB - FINAL RESULTS =====
+			admin.With(middleware.RequirePermission("pmb:results:create")).Post("/pmb/final-results", pmbH.CreateFinalResult)
+			admin.With(middleware.RequirePermission("pmb:results:read")).Get("/pmb/final-results/{id}", pmbH.GetFinalResult)
+			admin.With(middleware.RequirePermission("pmb:results:update")).Patch("/pmb/final-results/{id}", pmbH.UpdateFinalResult)
+
+			// ===== PMB - RE-REGISTRATION =====
+			admin.With(middleware.RequirePermission("pmb:reregistration:manage")).Patch("/pmb/re-registration/{id}/payment", pmbH.UpdatePaymentStatus)
+			admin.With(middleware.RequirePermission("pmb:reregistration:list")).Get("/pmb/re-registration/pending", pmbH.ListPendingPayments)
+
+			// ===== PMB - STATISTICS =====
+			admin.With(middleware.RequirePermission("pmb:stats:read")).Get("/pmb/stats/academic-year/{year}", pmbH.GetApplicationStatsByAcademicYear)
+			admin.With(middleware.RequirePermission("pmb:stats:read")).Get("/pmb/stats/programs/{program_id}", pmbH.GetApplicationStatsByProgram)
 		})
 	})
 }
