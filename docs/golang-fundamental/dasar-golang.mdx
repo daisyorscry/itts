@@ -1,76 +1,105 @@
 ---
-title: "Dasar Golang"
-description: "Kenalan dengan workspace Go, tipe data dasar, error handling, dan modul go test"
+title: Pengenalan Golang
+description: Karakteristik dasar Golang sebagai bahasa compiled, statically typed, dan dirancang untuk sistem skala besar
 ---
 
-# Dasar Golang
+# Pengenalan Golang
 
-Kenalan dengan workspace Go, tipe data dasar, error handling, dan modul go test.
+Golang, atau Go, adalah bahasa pemrograman yang dirancang sebagai **bahasa compiled**. Artinya, kode yang ditulis oleh developer tidak dijalankan baris demi baris oleh sebuah interpreter, melainkan terlebih dahulu diterjemahkan menjadi sebuah **program biner** yang bisa dieksekusi langsung oleh sistem operasi.
 
-## Setup go workspaces + modul
+Proses kompilasi ini menghasilkan file mandiri yang sudah berisi seluruh instruksi yang dibutuhkan untuk berjalan. Karena itu, program Go cenderung memiliki waktu mulai yang sangat cepat dan performa yang konsisten. Dalam konteks deployment, pendekatan ini juga sangat menguntungkan karena aplikasi cukup didistribusikan dalam bentuk satu file biner tanpa ketergantungan runtime eksternal.
 
-Mulai dengan memahami struktur workspace. Untuk project komunitas biasanya kita pisahkan kode ke dalam folder `cmd/` untuk binary utama dan `internal/` untuk domain logic sehingga dependensi tidak bocor keluar modul.
+---
 
-Jalankan:
+## Compiled Language: Dari Source ke Binary
 
-```bash
-go mod init github.com/itts/example-api
+Secara konseptual, alur dari source code sampai bisa dieksekusi dapat digambarkan seperti ini:
+
+```mermaid
+flowchart LR
+  A[Source Code (.go)] --> B[Go Compiler]
+  B --> C[Single Binary File]
+  C --> D[Operating System]
 ```
 
-Lalu tambahkan file `go.work` jika kamu ingin menggabungkan lebih dari satu modul lokal. Ini membantu ketika membuat modul tambahan seperti `github.com/itts/sharedlib` yang ingin diuji bersamaan.
+Developer menulis source code `.go`, lalu compiler Go menerjemahkannya menjadi satu file biner. File ini dapat langsung dijalankan oleh sistem operasi tanpa perlu interpreter atau virtual machine tambahan.
 
-## Tipe data dasar, pointer, dan struct
+Pendekatan ini membuat deployment jadi “ringkas”: cukup satu file biner, konfigurasi minim, dan relatif bebas dari masalah kompatibilitas runtime.
 
-Buat paket `internal/user` dan definisikan struct `Profile`. Gunakan receiver method agar transformasi kecil terasa natural. Gunakan juga paket `uuid` untuk ID unik sehingga lebih siap diintegrasikan dengan database.
+---
 
-```go
-// internal/user/model.go
-package user
+## Sistem Tipe Statis
 
-import (
-  "strings"
-  "github.com/google/uuid"
-)
+Selain bersifat compiled, Go juga merupakan bahasa dengan **sistem tipe statis**. Ini berarti setiap variabel, fungsi, dan nilai memiliki tipe yang sudah ditentukan dan diverifikasi pada saat kompilasi, bukan saat program sedang berjalan.
 
-type Profile struct {
-  ID    uuid.UUID
-  Name  string
-  Email string
-}
+Dengan pendekatan ini, banyak kesalahan logika dasar—seperti penggunaan tipe data yang tidak sesuai—dapat dideteksi lebih awal sebelum aplikasi dijalankan. Konsekuensinya, kode Go cenderung lebih aman, lebih dapat diprediksi, dan lebih mudah dirawat dalam jangka panjang, terutama pada basis kode yang besar dan dikerjakan oleh banyak orang.
 
-func (p Profile) Sanitize() Profile {
-  p.Email = strings.TrimSpace(strings.ToLower(p.Email))
-  return p
-}
+Berikut gambaran kapan error biasanya “ketangkep”:
+
+```mermaid
+sequenceDiagram
+  participant Dev as Developer
+  participant Compiler
+  participant Runtime
+
+  Dev->>Compiler: Compile program
+  Compiler-->>Dev: Error tipe/logika dasar terdeteksi
+  Note over Compiler: Ketangkep sebelum program jalan
+
+  Dev->>Runtime: Jalankan program
+  Note over Runtime: Risiko error tipe dasar jauh berkurang
 ```
 
-## Menulis unit test dan benchmarking sederhana
+---
 
-Tambahkan file `internal/user/model_test.go` yang berisi table-driven test untuk fungsi `Sanitize`. Fokus pada variasi input: huruf kapital, spasi di depan/belakang, dan email kosong.
+## Fokus pada Performa dan Concurrency
 
-Terakhir, jalankan:
+Go dirancang dengan fokus kuat pada **performa**, **concurrency**, dan **kesederhanaan**.
 
-```bash
-go test ./...
+Performa dicapai melalui hasil kompilasi ke kode mesin yang efisien serta runtime yang relatif kecil. Namun, keunggulan utama Go bukan hanya pada kecepatan eksekusi, melainkan pada kemampuannya menangani banyak pekerjaan secara bersamaan dengan cara yang sederhana dan aman.
+
+Konsep concurrency di Go dibangun langsung ke dalam bahasa, sehingga developer tidak perlu berurusan dengan kompleksitas manajemen thread tingkat rendah.
+
+Gambaran sederhananya:
+
+```mermaid
+flowchart TD
+  A[Program Go] --> B[Go Runtime Scheduler]
+  B --> C[Goroutine 1]
+  B --> D[Goroutine 2]
+  B --> E[Goroutine 3]
 ```
 
-Lalu tambahkan `go test ./... -run TestProfileSanitize -v` untuk memastikan setiap skenario ter-cover.
+Runtime Go mengatur penjadwalan goroutine, sehingga developer bisa fokus pada struktur logika aplikasi: membagi pekerjaan, mengatur komunikasi, dan menghindari bottleneck.
 
-<Callout type="info">
-Biasakan membaca output coverage atau jalankan `go test -cover` untuk melihat area yang belum disentuh.
-</Callout>
+---
 
-## Workshop: Setup Workspace
+## Filosofi Kesederhanaan
 
-Bagian ini membawa kamu membuat modul `github.com/itts/example-api`, mengenal struktur folder idiomatik, dan menambah unit test pertamamu.
+Kesederhanaan menjadi prinsip utama dalam desain Go. Bahasa ini sengaja membatasi jumlah fitur dan sintaks yang “terlalu pintar” agar kode tetap mudah dibaca dan dipahami.
 
-### Checklist
+Filosofi ini lahir dari kebutuhan dunia industri, di mana kode lebih sering dibaca dan dipelihara daripada ditulis ulang. Dengan aturan yang jelas dan gaya penulisan yang konsisten, Go mendorong developer untuk menulis kode yang eksplisit, mudah ditelusuri, dan minim kejutan.
 
-- [ ] Inisialisasi `go mod init` + pengaturan `GOWORK` untuk multi-module
-- [ ] Membuat paket `internal/user` dengan struct sederhana + method receiver
-- [ ] Menambahkan unit test tabel untuk fungsi validator dan menjalankan `go test ./...`
+---
 
-### Referensi
+## Area Penggunaan Golang
 
-- [Go workspace guide](https://go.dev/doc/tutorial/workspaces)
-- [Effective Go - struct & method](https://go.dev/doc/effective_go#structs)
+Karena karakteristik tersebut, Go sangat kuat digunakan untuk pengembangan:
+
+- Backend
+- Microservices
+- Command-line tools
+- Sistem jaringan
+- Aplikasi terdistribusi
+
+Di domain-domain ini, kecepatan eksekusi, efisiensi resource, kemudahan deployment, dan keamanan concurrency jadi kebutuhan utama. Go dirancang secara spesifik untuk menjawab kebutuhan tersebut: membangun sistem yang besar, stabil, dan tahan lama.
+
+---
+
+## Langkah Selanjutnya
+
+Di bagian berikutnya kita bisa lanjut (tetap gaya buku):
+
+- Apa itu **concurrency** di Go dan kenapa beda dengan bahasa lain
+- Cara Go mengatur **runtime scheduler** dan **goroutine** secara konseptual
+- Baru setelah itu masuk ke praktik kode secara bertahap
