@@ -19,7 +19,7 @@ export default async function DocsPage() {
       </header>
 
       <section className="grid gap-5 md:grid-cols-2">
-        {modules.map((module) => (
+        {modules.map((module: string) => (
           <Link
             key={module}
             href={`/docs/${module}`}

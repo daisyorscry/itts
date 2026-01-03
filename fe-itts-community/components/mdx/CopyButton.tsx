@@ -5,9 +5,10 @@ import { HiCheck, HiClipboard } from "react-icons/hi2";
 
 interface CopyButtonProps {
   text: string;
+  className?: string;
 }
 
-export function CopyButton({ text }: CopyButtonProps) {
+export function CopyButton({ text, className = "" }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -23,7 +24,7 @@ export function CopyButton({ text }: CopyButtonProps) {
   return (
     <button
       onClick={handleCopy}
-      className="absolute right-2 top-2 rounded-md border border-border bg-background/80 p-2 backdrop-blur transition-all hover:bg-muted"
+      className={`rounded-md border border-border bg-background/80 p-2 backdrop-blur transition-all hover:bg-muted ${className}`}
       aria-label="Copy code"
     >
       {copied ? (

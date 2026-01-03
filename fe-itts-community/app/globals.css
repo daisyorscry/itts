@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -106,6 +107,29 @@ a:not([class]) {
 a:not([class]):hover {
   background-size: 100% 1px;
 }
+
+/* Avoid decorative underlines inside prose content (headings are autolinked) */
+.prose a {
+  background-image: none;
+}
+
+/* Re-enable Shiki token colors for code blocks */
+.prose [data-rehype-pretty-code-figure] pre {
+  background-color: var(--shiki-light-bg);
+}
+
+.prose [data-rehype-pretty-code-figure] pre span[style*="--shiki-"] {
+  color: var(--shiki-light);
+}
+
+:root[data-theme="dark"] .prose [data-rehype-pretty-code-figure] pre {
+  background-color: var(--shiki-dark-bg);
+}
+
+:root[data-theme="dark"] .prose [data-rehype-pretty-code-figure] pre span[style*="--shiki-"] {
+color: var(--shiki-dark);
+}
+
 
 /* Smooth scrolling for better UX */
 @media (prefers-reduced-motion: no-preference) {
@@ -524,4 +548,63 @@ a:not([class]):hover {
 
 .btn-primary:hover {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+
+.mermaid-diagram svg {
+  min-width: 0;
+}
+
+/* Light mode (default) */
+.mermaid-diagram .node rect,
+.mermaid-diagram .node circle,
+.mermaid-diagram .node ellipse,
+.mermaid-diagram .node polygon {
+  fill: var(--surface) !important;
+  stroke: var(--border) !important;
+  stroke-width: 2px !important;
+}
+
+.mermaid-diagram text {
+  fill: var(--foreground) !important;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
+}
+
+/* garis & panah */
+.mermaid-diagram .edgePath path,
+.mermaid-diagram .flowchart-link {
+  stroke: color-mix(in oklab, var(--foreground) 45%, transparent) !important;
+  stroke-width: 2px !important;
+}
+
+.mermaid-diagram marker path {
+  fill: color-mix(in oklab, var(--foreground) 45%, transparent) !important;
+}
+
+/* Dark mode (pakai data-theme kamu) */
+:root[data-theme="dark"] .mermaid-diagram .node rect,
+:root[data-theme="dark"] .mermaid-diagram .node circle,
+:root[data-theme="dark"] .mermaid-diagram .node ellipse,
+:root[data-theme="dark"] .mermaid-diagram .node polygon {
+  fill: var(--surface) !important;      /* surface kamu dark */
+  stroke: var(--border) !important;
+}
+
+:root[data-theme="dark"] .mermaid-diagram text {
+  fill: var(--foreground) !important;   /* foreground kamu terang */
+}
+
+:root[data-theme="dark"] .mermaid-diagram .edgePath path,
+:root[data-theme="dark"] .mermaid-diagram .flowchart-link {
+  stroke: color-mix(in oklab, var(--brand-400) 70%, transparent) !important;
+}
+
+:root[data-theme="dark"] .mermaid-diagram marker path {
+  fill: color-mix(in oklab, var(--brand-400) 70%, transparent) !important;
 }

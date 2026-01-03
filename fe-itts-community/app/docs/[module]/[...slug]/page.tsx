@@ -10,6 +10,9 @@ import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import remarkGfm from "remark-gfm";
 import Link from "next/link";
 
+// Disable caching in development for instant MDX updates
+export const dynamic = process.env.NODE_ENV === 'production' ? 'auto' : 'force-dynamic'
+
 const components = {
   Callout,
   Tabs,
@@ -39,8 +42,8 @@ const mdxOptions = {
     [
       rehypePrettyCode,
       {
-        theme: "github-dark",
-        keepBackground: false,
+        theme: { dark: "github-dark", light: "github-light" },
+        keepBackground: true,
       },
     ] as any,
   ],
@@ -65,7 +68,7 @@ export default async function DocPage({
     <div className="flex w-full">
       <div className="flex-1 px-6 py-10 lg:px-12">
         <div className="mx-auto max-w-3xl">
-          <header className="space-y-3 border-b border-border pb-6">
+          {/* <header className="space-y-3 border-b border-border pb-6">
             <h1 className="text-4xl font-bold tracking-tight">
               {doc.frontmatter.title}
             </h1>
@@ -76,7 +79,7 @@ export default async function DocPage({
             )}
             {doc.frontmatter.tags && (
               <div className="flex flex-wrap gap-2 pt-2">
-                {doc.frontmatter.tags.map((tag) => (
+                {doc.frontmatter.tags.map((tag: string) => (
                   <span
                     key={tag}
                     className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
@@ -86,9 +89,9 @@ export default async function DocPage({
                 ))}
               </div>
             )}
-          </header>
+          </header> */}
 
-          <article className="prose prose-slate dark:prose-invert prose-headings:scroll-mt-20 prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-pre:p-0 prose-pre:bg-transparent prose-code:font-mono max-w-none pt-8">
+          <article className="prose prose-slate dark:prose-invert prose-headings:scroll-mt-20 prose-headings:text-foreground prose-p:text-foreground/80 prose-li:text-foreground/80 prose-strong:text-foreground prose-a:text-primary prose-a:no-underline hover:prose-a:underline prose-table:text-foreground prose-th:text-foreground prose-td:text-foreground/80 prose-hr:border-border prose-pre:p-0 prose-pre:bg-transparent prose-code:font-mono max-w-none pt-8">
             <MDXRemote
               source={doc.content}
               components={components}
