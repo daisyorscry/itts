@@ -18,6 +18,7 @@ import (
 
 type RouteDeps struct {
 	DBConn              db.Connection
+	FrontendBaseURL     string
 	VerifyEmailURL      string
 	Mailer              service.Mailer
 	Locker              lock.Locker
@@ -64,7 +65,7 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 
 	// ===== OAUTH =====
 	githubClient := oauth.NewGitHubOAuthClient(deps.GitHubClientID, deps.GitHubClientSecret, deps.GitHubRedirectURI)
-	oauthH := rest.NewOAuthHandler(authSvc, githubClient)
+	oauthH := rest.NewOAuthHandler(authSvc, githubClient, deps.FrontendBaseURL)
 
 	// ===== AUTH / REGISTRATION =====
 	regRepo := repository.NewRegistrationRepository(deps.DBConn)

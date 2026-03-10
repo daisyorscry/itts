@@ -5,7 +5,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/daisyorscry/itts/core"
@@ -17,13 +19,15 @@ import (
 type OAuthHandler struct {
 	authService  service.AuthService
 	githubClient *oauth.GitHubOAuthClient
+	frontendBaseURL string
 }
 
 // NewOAuthHandler creates a new OAuth handler
-func NewOAuthHandler(authService service.AuthService, githubClient *oauth.GitHubOAuthClient) *OAuthHandler {
+func NewOAuthHandler(authService service.AuthService, githubClient *oauth.GitHubOAuthClient, frontendBaseURL string) *OAuthHandler {
 	return &OAuthHandler{
-		authService:  authService,
-		githubClient: githubClient,
+		authService:     authService,
+		githubClient:    githubClient,
+		frontendBaseURL: strings.TrimRight(frontendBaseURL, "/"),
 	}
 }
 
@@ -102,7 +106,7 @@ func (h *OAuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reque
 	)
 	if err != nil {
 		// Redirect to frontend with error
-		errorURL := fmt.Sprintf("http://localhost:3000/login?error=%s", err.Error())
+		errorURL := fmt.Sprintf("%s/login?error=%s", h.frontendBaseURL, url.QueryEscape(err.Error()))
 		http.Redirect(w, r, errorURL, http.StatusTemporaryRedirect)
 		return
 	}
@@ -110,9 +114,10 @@ func (h *OAuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reque
 	// Redirect to frontend with tokens
 	// Frontend will receive tokens as query params and store them
 	successURL := fmt.Sprintf(
-		"http://localhost:3000/auth/callback?access_token=%s&refresh_token=%s&expires_in=%d",
-		response.AccessToken,
-		response.RefreshToken,
+		"%s/auth/callback?access_token=%s&refresh_token=%s&expires_in=%d",
+		h.frontendBaseURL,
+		url.QueryEscape(response.AccessToken),
+		url.QueryEscape(response.RefreshToken),
 		response.ExpiresIn,
 	)
 	http.Redirect(w, r, successURL, http.StatusTemporaryRedirect)

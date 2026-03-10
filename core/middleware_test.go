@@ -34,8 +34,7 @@ func TestLoggingMiddleware(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.NotEmpty(t, w.Header().Get("X-Request-Id"))
-	assert.Contains(t, buf.String(), "http_request")
-	assert.Contains(t, buf.String(), "/test")
+	assert.Empty(t, buf.String())
 }
 
 func TestLoggingMiddleware_WithRequestID(t *testing.T) {
@@ -62,7 +61,37 @@ func TestLoggingMiddleware_WithRequestID(t *testing.T) {
 	wrapped.ServeHTTP(w, req)
 
 	assert.Equal(t, "req_custom_123", w.Header().Get("X-Request-Id"))
-	assert.Contains(t, buf.String(), "req_custom_123")
+	assert.Empty(t, buf.String())
+}
+
+func TestLoggingMiddleware_LogsServerErrors(t *testing.T) {
+	buf := &bytes.Buffer{}
+	logger := NewLogger(LogConfig{
+		Level:       LevelInfo,
+		ServiceName: "test-service",
+		Environment: "test",
+		Pretty:      false,
+		Output:      buf,
+	})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("boom"))
+	})
+
+	middleware := LoggingMiddleware(logger)
+	wrapped := middleware(handler)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("X-Request-Id", "req_error_123")
+	w := httptest.NewRecorder()
+
+	wrapped.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, buf.String(), "HTTP request failed")
+	assert.Contains(t, buf.String(), "req_error_123")
+	assert.Contains(t, buf.String(), "\"status_code\":500")
 }
 
 func TestRecoveryMiddleware(t *testing.T) {

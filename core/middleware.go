@@ -50,7 +50,7 @@ func (rw *responseWriter) Flush() {
 	}
 }
 
-// LoggingMiddleware logs HTTP requests
+// LoggingMiddleware only logs failed HTTP requests.
 func LoggingMiddleware(logger *Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -78,21 +78,20 @@ func LoggingMiddleware(logger *Logger) func(http.Handler) http.Handler {
 			// Calculate duration
 			duration := time.Since(start)
 
-			// Log request
-			metadata := map[string]interface{}{
-				"remote_addr":  r.RemoteAddr,
-				"user_agent":   r.UserAgent(),
-				"content_type": r.Header.Get("Content-Type"),
-				"bytes_out":    rw.written,
-			}
+			if rw.statusCode >= http.StatusInternalServerError {
+				metadata := map[string]interface{}{
+					"remote_addr":  r.RemoteAddr,
+					"user_agent":   r.UserAgent(),
+					"content_type": r.Header.Get("Content-Type"),
+					"bytes_out":    rw.written,
+					"method":       r.Method,
+					"path":         r.URL.Path,
+					"status_code":  rw.statusCode,
+					"duration_ms":  duration.Milliseconds(),
+				}
 
-			logger.WithContext(ctx).LogHTTPRequest(
-				r.Method,
-				r.URL.Path,
-				rw.statusCode,
-				duration,
-				metadata,
-			)
+				logger.WithContext(ctx).WithFields(metadata).Error("HTTP request failed")
+			}
 		})
 	}
 }

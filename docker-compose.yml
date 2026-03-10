@@ -27,12 +27,17 @@ services:
     environment:
       DB_HOST: db
       DB_PORT: 5432
+      REDIS_ADDR: redis:6379
+      REDIS_DB: 0
+      REDIS_PASSWORD: ""
     ports:
       - "${APP_PORT:-3002}:${APP_PORT:-3002}"
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_PORT:-3002}/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
@@ -57,6 +62,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: itts-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
 
 volumes:
   db-data:

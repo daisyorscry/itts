@@ -14,6 +14,8 @@ type Config struct {
 	AppPort        string
 	Prefork        bool
 	Workers        int
+	Cors           []string
+	FrontendBaseURL string
 	VerifyEmailURL string
 
 	DB struct {
@@ -43,23 +45,23 @@ type Config struct {
 	}
 
 	NewRelic struct {
-        Enabled  bool
-        AppName  string
-        License  string
+		Enabled bool
+		AppName string
+		License string
 	}
 
 	JWT struct {
-        Secret            string
-        AccessDuration    string
-        RefreshDuration   string
-        Issuer            string
+		Secret          string
+		AccessDuration  string
+		RefreshDuration string
+		Issuer          string
 	}
 
 	OAuth struct {
 		GitHub struct {
-            ClientID      string
-            ClientSecret  string
-            RedirectURI   string
+			ClientID     string
+			ClientSecret string
+			RedirectURI  string
 		}
 	}
 }
@@ -85,7 +87,9 @@ func LoadConfig() *Config {
 	cfg.AppPort = viper.GetString("APP_PORT")
 	cfg.Prefork = viper.GetBool("APP_PREFORK")
 	cfg.Workers = viper.GetInt("APP_WORKERS")
+	cfg.FrontendBaseURL = viper.GetString("FRONTEND_BASE_URL")
 	cfg.VerifyEmailURL = viper.GetString("VERIFY_EMAIL_URL")
+	cfg.Cors = parseCSVEnv("CORS")
 
 	cfg.DB.Host = viper.GetString("DB_HOST")
 	cfg.DB.Port = viper.GetString("DB_PORT")
@@ -121,4 +125,24 @@ func LoadConfig() *Config {
 	cfg.OAuth.GitHub.RedirectURI = viper.GetString("GITHUB_REDIRECT_URI")
 
 	return cfg
+}
+
+func parseCSVEnv(key string) []string {
+	raw := strings.TrimSpace(viper.GetString(key))
+	if raw == "" {
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	values := make([]string, 0, len(parts))
+	for _, part := range parts {
+		value := strings.TrimSpace(part)
+		value = strings.Trim(value, `"'`)
+		if value == "" {
+			continue
+		}
+		values = append(values, value)
+	}
+
+	return values
 }

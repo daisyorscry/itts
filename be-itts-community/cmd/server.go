@@ -88,6 +88,8 @@ func main() {
 			newrelic.ConfigAppName(cfg.NewRelic.AppName),
 			newrelic.ConfigLicense(cfg.NewRelic.License),
 			newrelic.ConfigDistributedTracerEnabled(true),
+			newrelic.ConfigAIMonitoringEnabled(true),
+			newrelic.ConfigCustomInsightsEventsMaxSamplesStored(100000),
 		)
 		if err == nil {
 			tracer = nr.NewNRTracer(app)
@@ -103,7 +105,7 @@ func main() {
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "http://127.0.0.1:3000", "https://itts-community.daisyorscry.sbs"},
+		AllowedOrigins:   cfg.Cors,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With"},
 		ExposedHeaders:   []string{"Link", "X-Request-Id"},
@@ -156,6 +158,7 @@ func main() {
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DBConn:             dbConn,
+		FrontendBaseURL:    cfg.FrontendBaseURL,
 		VerifyEmailURL:     cfg.VerifyEmailURL,
 		Mailer:             nil,
 		Locker:             locker,
