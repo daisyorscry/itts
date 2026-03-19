@@ -63,6 +63,13 @@ go mod download
 go run ./cmd
 ```
 
+Atau pakai hot reload dengan Air:
+
+```bash
+go install github.com/air-verse/air@latest
+make air
+```
+
 ---
 
 ## Endpoint Utama (sekilas)

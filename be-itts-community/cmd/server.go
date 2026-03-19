@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -27,6 +29,26 @@ import (
 	"be-itts-community/pkg/observability/nr"
 	routes "be-itts-community/route"
 )
+
+func isAllowedOrigin(origin string, configuredOrigins []string) bool {
+	origin = strings.TrimSpace(origin)
+	if origin == "" {
+		return false
+	}
+
+	for _, allowed := range configuredOrigins {
+		if origin == strings.TrimSpace(allowed) {
+			return true
+		}
+	}
+
+	parsedOrigin, err := url.Parse(origin)
+	if err != nil || parsedOrigin.Scheme != "https" {
+		return false
+	}
+
+	return strings.HasSuffix(parsedOrigin.Hostname(), "-v2-figmaiframepreview.figma.site")
+}
 
 func runMigrations(sqlDB *sql.DB, log *core.Logger, migrationsDir string) error {
 	if err := goose.SetDialect("postgres"); err != nil {
@@ -105,7 +127,10 @@ func main() {
 
 	// CORS
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   cfg.Cors,
+		AllowedOrigins: []string{},
+		AllowOriginFunc: func(r *http.Request, origin string) bool {
+			return isAllowedOrigin(origin, cfg.Cors)
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Requested-With"},
 		ExposedHeaders:   []string{"Link", "X-Request-Id"},
@@ -159,7 +184,6 @@ func main() {
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DBConn:             dbConn,
 		FrontendBaseURL:    cfg.FrontendBaseURL,
-		VerifyEmailURL:     cfg.VerifyEmailURL,
 		Mailer:             nil,
 		Locker:             locker,
 		Tracer:             tracer,
@@ -178,7 +202,7 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
+		Addr:         fmt.Sprintf("0.0.0.0:%s", port),
 		Handler:      r,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,

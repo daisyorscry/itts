@@ -17,19 +17,18 @@ import (
 )
 
 type RouteDeps struct {
-	DBConn              db.Connection
-	FrontendBaseURL     string
-	VerifyEmailURL      string
-	Mailer              service.Mailer
-	Locker              lock.Locker
-	Tracer              nr.Tracer
-	JWTSecret           string
-	JWTAccessDur        time.Duration
-	JWTRefreshDur       time.Duration
-	JWTIssuer           string
-	GitHubClientID      string
-	GitHubClientSecret  string
-	GitHubRedirectURI   string
+	DBConn             db.Connection
+	FrontendBaseURL    string
+	Mailer             service.Mailer
+	Locker             lock.Locker
+	Tracer             nr.Tracer
+	JWTSecret          string
+	JWTAccessDur       time.Duration
+	JWTRefreshDur      time.Duration
+	JWTIssuer          string
+	GitHubClientID     string
+	GitHubClientSecret string
+	GitHubRedirectURI  string
 }
 
 func RegisterRoutes(r chi.Router, deps RouteDeps) {
@@ -71,7 +70,7 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	regRepo := repository.NewRegistrationRepository(deps.DBConn)
 	emailVerRepo := repository.NewEmailVerificationRepository(deps.DBConn)
 	regSvc := service.NewRegistrationService(regRepo, emailVerRepo, deps.Mailer, deps.Locker, deps.Tracer)
-	regH := rest.NewRegistrationHandler(regSvc, deps.VerifyEmailURL)
+	regH := rest.NewRegistrationHandler(regSvc)
 
 	// ===== ROADMAPS =====
 	roadmapRepo := repository.NewRoadmapRepository(deps.DBConn)

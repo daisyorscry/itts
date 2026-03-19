@@ -3,6 +3,7 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -16,12 +17,11 @@ import (
 )
 
 type RegistrationHandler struct {
-	svc            service.RegistrationService
-	verifyEmailURL string
+	svc service.RegistrationService
 }
 
-func NewRegistrationHandler(svc service.RegistrationService, verifyEmailURL string) *RegistrationHandler {
-	return &RegistrationHandler{svc: svc, verifyEmailURL: verifyEmailURL}
+func NewRegistrationHandler(svc service.RegistrationService) *RegistrationHandler {
+	return &RegistrationHandler{svc: svc}
 }
 
 func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +30,7 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
 		return
 	}
-	reg, err := h.svc.Register(r.Context(), req, h.verifyEmailURL)
+	reg, err := h.svc.Register(r.Context(), req, h.resolveVerifyEmailURL(r))
 	if err != nil {
 		core.RespondError(w, r, err)
 		return
@@ -41,6 +41,31 @@ func (h *RegistrationHandler) Register(w http.ResponseWriter, r *http.Request) {
 		"status":  reg.Status,
 		"message": "Your registration has been received. Please check your email. We will approve it soon",
 	})
+}
+
+func (h *RegistrationHandler) resolveVerifyEmailURL(r *http.Request) string {
+	requestOrigin := strings.TrimSpace(r.Header.Get("Origin"))
+	if requestOrigin == "" {
+		if referer := strings.TrimSpace(r.Referer()); referer != "" {
+			if parsedReferer, err := url.Parse(referer); err == nil && parsedReferer.Scheme != "" && parsedReferer.Host != "" {
+				requestOrigin = parsedReferer.Scheme + "://" + parsedReferer.Host
+			}
+		}
+	}
+	if requestOrigin == "" {
+		return ""
+	}
+
+	parsedOrigin, err := url.Parse(requestOrigin)
+	if err != nil || parsedOrigin.Scheme == "" || parsedOrigin.Host == "" {
+		return ""
+	}
+
+	parsedOrigin.Path = "/verify-email"
+	parsedOrigin.RawPath = ""
+	parsedOrigin.RawQuery = ""
+	parsedOrigin.Fragment = ""
+	return parsedOrigin.String()
 }
 
 func (h *RegistrationHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {

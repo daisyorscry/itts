@@ -14,6 +14,8 @@ help:
 	@echo "  make build        - Build Docker image"
 	@echo "  make push-harbor  - Build & push image ke Harbor registry"
 	@echo "  make run          - Jalankan server lokal (go run)"
+	@echo "  make air          - Jalankan server lokal dengan hot reload"
+	@echo "  make air-install  - Install Air CLI ke GOPATH/bin"
 	@echo "  make test         - Jalankan tests"
 	@echo "  make migrate-up   - Jalankan migrasi database up"
 	@echo "  make migrate-down - Jalankan migrasi database down"
@@ -30,6 +32,14 @@ push-harbor: build
 .PHONY: run
 run:
 	go run ./cmd
+
+.PHONY: air
+air:
+	air -c .air.toml
+
+.PHONY: air-install
+air-install:
+	go install github.com/air-verse/air@latest
 
 .PHONY: test
 test:

@@ -2,7 +2,9 @@ package rest
 
 import (
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,16 +12,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/daisyorscry/itts/core"
-
 	"be-itts-community/internal/service"
 	"be-itts-community/pkg/oauth"
 )
 
 type OAuthHandler struct {
-	authService  service.AuthService
-	githubClient *oauth.GitHubOAuthClient
+	authService     service.AuthService
+	githubClient    *oauth.GitHubOAuthClient
 	frontendBaseURL string
+}
+
+type oauthStatePayload struct {
+	Nonce  string `json:"nonce"`
+	Origin string `json:"origin,omitempty"`
 }
 
 // NewOAuthHandler creates a new OAuth handler
@@ -34,9 +39,13 @@ func NewOAuthHandler(authService service.AuthService, githubClient *oauth.GitHub
 // HandleGitHubAuth redirects to GitHub OAuth page
 // GET /api/v1/auth/oauth/github
 func (h *OAuthHandler) HandleGitHubAuth(w http.ResponseWriter, r *http.Request) {
+	origin := h.resolveRequestOrigin(r)
 	state := r.URL.Query().Get("state")
 	if state == "" {
-		state = generateRandomState()
+		state = encodeOAuthState(oauthStatePayload{
+			Nonce:  generateRandomState(),
+			Origin: origin,
+		})
 	}
 
 	authURL := h.githubClient.GetAuthURL(state)
@@ -51,32 +60,50 @@ func (h *OAuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reque
 	// Parse query parameters
 	code := r.URL.Query().Get("code")
 	state := r.URL.Query().Get("state")
-
-	if code == "" {
-		core.WriteError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "missing authorization code", nil)
-		return
+	statePayload := decodeOAuthState(state)
+	targetOrigin := strings.TrimSpace(statePayload.Origin)
+	if targetOrigin == "" {
+		targetOrigin = h.frontendBaseURL
 	}
 
-	// TODO: Validate state parameter for CSRF protection
-	_ = state
+	if code == "" {
+		h.writeOAuthPopupResponse(w, targetOrigin, map[string]any{
+			"type":             "OAUTH_ERROR",
+			"error":            "INVALID_REQUEST",
+			"errorDescription": "missing authorization code",
+		})
+		return
+	}
 
 	// Exchange code for access token
 	accessToken, err := h.githubClient.ExchangeCode(ctx, code)
 	if err != nil {
-		core.RespondError(w, r, core.BadRequest(fmt.Sprintf("Failed to exchange code: %v", err)))
+		h.writeOAuthPopupResponse(w, targetOrigin, map[string]any{
+			"type":             "OAUTH_ERROR",
+			"error":            "oauth_exchange_failed",
+			"errorDescription": fmt.Sprintf("Failed to exchange code: %v", err),
+		})
 		return
 	}
 
 	// Get GitHub user profile
 	githubUser, err := h.githubClient.GetUser(ctx, accessToken)
 	if err != nil {
-		core.RespondError(w, r, core.BadRequest(fmt.Sprintf("Failed to get GitHub user: %v", err)))
+		h.writeOAuthPopupResponse(w, targetOrigin, map[string]any{
+			"type":             "OAUTH_ERROR",
+			"error":            "oauth_user_fetch_failed",
+			"errorDescription": fmt.Sprintf("Failed to get GitHub user: %v", err),
+		})
 		return
 	}
 
 	// Validate required fields
 	if githubUser.Email == "" {
-		core.RespondError(w, r, core.BadRequest("GitHub account must have a verified email"))
+		h.writeOAuthPopupResponse(w, targetOrigin, map[string]any{
+			"type":             "OAUTH_ERROR",
+			"error":            "oauth_email_required",
+			"errorDescription": "GitHub account must have a verified email",
+		})
 		return
 	}
 
@@ -105,22 +132,20 @@ func (h *OAuthHandler) HandleGitHubCallback(w http.ResponseWriter, r *http.Reque
 		providerData,
 	)
 	if err != nil {
-		// Redirect to frontend with error
-		errorURL := fmt.Sprintf("%s/login?error=%s", h.frontendBaseURL, url.QueryEscape(err.Error()))
-		http.Redirect(w, r, errorURL, http.StatusTemporaryRedirect)
+		h.writeOAuthPopupResponse(w, targetOrigin, map[string]any{
+			"type":             "OAUTH_ERROR",
+			"error":            "oauth_callback_failed",
+			"errorDescription": err.Error(),
+		})
 		return
 	}
 
-	// Redirect to frontend with tokens
-	// Frontend will receive tokens as query params and store them
-	successURL := fmt.Sprintf(
-		"%s/auth/callback?access_token=%s&refresh_token=%s&expires_in=%d",
-		h.frontendBaseURL,
-		url.QueryEscape(response.AccessToken),
-		url.QueryEscape(response.RefreshToken),
-		response.ExpiresIn,
-	)
-	http.Redirect(w, r, successURL, http.StatusTemporaryRedirect)
+	h.writeOAuthPopupResponse(w, targetOrigin, map[string]any{
+		"type":         "OAUTH_SUCCESS",
+		"accessToken":  response.AccessToken,
+		"refreshToken": response.RefreshToken,
+		"expiresIn":    response.ExpiresIn,
+	})
 }
 
 // Helper: generate random state for CSRF protection
@@ -132,4 +157,89 @@ func generateRandomState() string {
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
 	return hex.EncodeToString(b)
+}
+
+func encodeOAuthState(payload oauthStatePayload) string {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		return generateRandomState()
+	}
+	return base64.RawURLEncoding.EncodeToString(data)
+}
+
+func decodeOAuthState(state string) oauthStatePayload {
+	if strings.TrimSpace(state) == "" {
+		return oauthStatePayload{}
+	}
+
+	raw, err := base64.RawURLEncoding.DecodeString(state)
+	if err != nil {
+		return oauthStatePayload{}
+	}
+
+	var payload oauthStatePayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return oauthStatePayload{}
+	}
+	return payload
+}
+
+func (h *OAuthHandler) resolveRequestOrigin(r *http.Request) string {
+	requestOrigin := strings.TrimSpace(r.Header.Get("Origin"))
+	if requestOrigin != "" {
+		return requestOrigin
+	}
+
+	referer := strings.TrimSpace(r.Referer())
+	if referer == "" {
+		return h.frontendBaseURL
+	}
+
+	parsedReferer, err := url.Parse(referer)
+	if err != nil || parsedReferer.Scheme == "" || parsedReferer.Host == "" {
+		return h.frontendBaseURL
+	}
+
+	return parsedReferer.Scheme + "://" + parsedReferer.Host
+}
+
+func (h *OAuthHandler) writeOAuthPopupResponse(w http.ResponseWriter, targetOrigin string, payload map[string]any) {
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		http.Error(w, "failed to build oauth response", http.StatusInternalServerError)
+		return
+	}
+
+	targetOriginJSON, err := json.Marshal(strings.TrimSpace(targetOrigin))
+	if err != nil {
+		http.Error(w, "failed to build oauth response", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprintf(w, `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>OAuth Callback</title>
+</head>
+<body>
+  <script>
+    (function () {
+      var payload = %s;
+      var targetOrigin = %s || "*";
+
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage(payload, targetOrigin);
+        window.close();
+        return;
+      }
+
+      document.body.textContent = payload.type === "OAUTH_SUCCESS"
+        ? "Authentication completed. You can close this window."
+        : (payload.errorDescription || "Authentication failed. You can close this window.");
+    })();
+  </script>
+</body>
+</html>`, payloadJSON, targetOriginJSON)
 }
