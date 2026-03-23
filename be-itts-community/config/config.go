@@ -9,14 +9,15 @@ import (
 )
 
 type Config struct {
-	AppName        string
-	AppEnv         string
-	AppPort        string
-	Prefork        bool
-	Workers        int
-	Cors           []string
+	AppName         string
+	AppEnv          string
+	AppHost         string
+	AppPort         string
+	Prefork         bool
+	Workers         int
+	Cors            []string
 	FrontendBaseURL string
-	VerifyEmailURL string
+	VerifyEmailURL  string
 
 	DB struct {
 		Host     string
@@ -36,7 +37,8 @@ type Config struct {
 		From     string
 	}
 
-	LogLevel string
+	LogLevel     string
+	LogErrorFile string
 
 	Redis struct {
 		Addr     string
@@ -71,6 +73,7 @@ func LoadConfig() *Config {
 	viper.SetConfigType("env")
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.SetDefault("LOG_ERROR_FILE", "error.log")
 
 	if err := viper.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
@@ -84,6 +87,7 @@ func LoadConfig() *Config {
 	cfg := &Config{}
 	cfg.AppName = viper.GetString("APP_NAME")
 	cfg.AppEnv = viper.GetString("APP_ENV")
+	cfg.AppHost = viper.GetString("APP_HOST")
 	cfg.AppPort = viper.GetString("APP_PORT")
 	cfg.Prefork = viper.GetBool("APP_PREFORK")
 	cfg.Workers = viper.GetInt("APP_WORKERS")
@@ -106,6 +110,7 @@ func LoadConfig() *Config {
 	cfg.Mail.From = viper.GetString("MAIL_FROM")
 
 	cfg.LogLevel = viper.GetString("LOG_LEVEL")
+	cfg.LogErrorFile = viper.GetString("LOG_ERROR_FILE")
 
 	cfg.Redis.Addr = viper.GetString("REDIS_ADDR")
 	cfg.Redis.DB = viper.GetInt("REDIS_DB")
