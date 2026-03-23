@@ -1,18 +1,16 @@
 services:
   web:
-    image: harbor.itts.fun/ittscommunity/ui:latest
+    build:
+      context: ./web-app
+      dockerfile: Dockerfile
     container_name: itts-frontend
     env_file:
       - .env
     ports:
-      - "${PORT:-3000}:3000"
+      - "10.66.66.1:${PORT}:80"
     restart: unless-stopped
     healthcheck:
-      test: >
-        CMD-SHELL
-        node -e "http=require('http');
-        http.get({host:'127.0.0.1',port:process.env.PORT||3000,path:'/'},r=>process.exit((r.statusCode>=200&&r.statusCode<500)?0:1))
-        .on('error',()=>process.exit(1))"
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -20,18 +18,14 @@ services:
       - api
 
   api:
-    image: harbor.itts.fun/ittscommunity/core-service:latest
+    build:
+      context: .
+      dockerfile: ./be-itts-community/Dockerfile
     container_name: itts-backend
     env_file:
       - .env
-    environment:
-      DB_HOST: db
-      DB_PORT: 5432
-      REDIS_ADDR: redis:6379
-      REDIS_DB: 0
-      REDIS_PASSWORD: ""
     ports:
-      - "${APP_PORT:-3002}:${APP_PORT:-3002}"
+      - "10.66.66.1:${APP_PORT}:${APP_PORT}"
     restart: unless-stopped
     depends_on:
       db:
@@ -39,7 +33,7 @@ services:
       redis:
         condition: service_started
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_PORT:-3002}/healthz >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:${APP_PORT}/healthz >/dev/null 2>&1 || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
@@ -48,12 +42,10 @@ services:
     image: postgres:16-alpine
     container_name: itts-postgres
     environment:
-      POSTGRES_DB: ittscommunity
-      POSTGRES_USER: root
-      POSTGRES_PASSWORD: root
-      TZ: Asia/Jakarta
-    ports:
-      - "5422:5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
     volumes:
       - db-data:/var/lib/postgresql/data
     restart: unless-stopped
@@ -66,8 +58,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: itts-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     ports:
-      - "6379:6379"
+      - "10.66.66.1:6888:6379"
     restart: unless-stopped
 
 volumes:
