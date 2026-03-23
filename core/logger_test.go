@@ -117,6 +117,31 @@ func TestLogger_WithError(t *testing.T) {
 	assert.Equal(t, "test error", logEntry["error"])
 }
 
+func TestLogger_ErrorOutputOnlyReceivesErrorLogs(t *testing.T) {
+	primaryBuf := &bytes.Buffer{}
+	errorBuf := &bytes.Buffer{}
+	cfg := LogConfig{
+		Level:       LevelInfo,
+		ServiceName: "test-service",
+		Environment: "test",
+		Pretty:      false,
+		Output:      primaryBuf,
+		ErrorOutput: errorBuf,
+	}
+
+	logger := NewLogger(cfg)
+	logger.Info("info message")
+
+	assert.Contains(t, primaryBuf.String(), "info message")
+	assert.Empty(t, errorBuf.String())
+
+	logger.Error("error message")
+
+	assert.Contains(t, primaryBuf.String(), "error message")
+	assert.Contains(t, errorBuf.String(), "error message")
+	assert.NotContains(t, errorBuf.String(), "info message")
+}
+
 func TestLogger_WithContext(t *testing.T) {
 	buf := &bytes.Buffer{}
 	cfg := LogConfig{

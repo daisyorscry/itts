@@ -1,6 +1,9 @@
 package model
 
 import (
+	"database/sql/driver"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -9,6 +12,64 @@ import (
 // =====================================
 
 type ProgramEnum string
+
+type ProgramEnumArray []ProgramEnum
+
+func (a ProgramEnumArray) Value() (driver.Value, error) {
+	if len(a) == 0 {
+		return "{}", nil
+	}
+
+	values := make([]string, 0, len(a))
+	for _, item := range a {
+		values = append(values, string(item))
+	}
+
+	return "{" + strings.Join(values, ",") + "}", nil
+}
+
+func (a *ProgramEnumArray) Scan(value any) error {
+	if value == nil {
+		*a = nil
+		return nil
+	}
+
+	var raw string
+	switch v := value.(type) {
+	case string:
+		raw = v
+	case []byte:
+		raw = string(v)
+	default:
+		return fmt.Errorf("unsupported Scan, storing driver.Value type %T into type *model.ProgramEnumArray", value)
+	}
+
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "{}" {
+		*a = ProgramEnumArray{}
+		return nil
+	}
+
+	raw = strings.TrimPrefix(raw, "{")
+	raw = strings.TrimSuffix(raw, "}")
+	if raw == "" {
+		*a = ProgramEnumArray{}
+		return nil
+	}
+
+	parts := strings.Split(raw, ",")
+	out := make(ProgramEnumArray, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(strings.Trim(part, `"`))
+		if part == "" {
+			continue
+		}
+		out = append(out, ProgramEnum(part))
+	}
+
+	*a = out
+	return nil
+}
 
 const (
 	ProgramNetworking  ProgramEnum = "networking"
@@ -145,9 +206,9 @@ type Mentor struct {
 	Title     *string
 	Bio       *string
 	AvatarURL *string
-	Programs  []ProgramEnum `gorm:"type:program_enum[]"`
-	IsActive  bool          `gorm:"default:true;index"`
-	Priority  int           `gorm:"default:0;index"`
+	Programs  ProgramEnumArray `gorm:"type:program_enum[]"`
+	IsActive  bool             `gorm:"default:true;index"`
+	Priority  int              `gorm:"default:0;index"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

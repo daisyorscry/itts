@@ -71,15 +71,16 @@ func main() {
 
 	// core logger
 	log := core.NewLogger(core.LogConfig{
-		Level:       core.LogLevel(cfg.LogLevel),
-		ServiceName: cfg.AppName,
-		Environment: cfg.AppEnv,
-		Pretty:      cfg.AppEnv != "production",
+		Level:         core.LogLevel(cfg.LogLevel),
+		ServiceName:   cfg.AppName,
+		Environment:   cfg.AppEnv,
+		Pretty:        cfg.AppEnv != "production",
+		ErrorFilePath: cfg.LogErrorFile,
 	})
 	log.WithFields(map[string]any{"gomaxprocs": runtime.GOMAXPROCS(0)}).Info("starting app")
 
 	// DB connect
-	dbConn := db.Connect(cfg.DB.Host, cfg.DB.User, cfg.DB.Password, cfg.DB.Name, cfg.DB.Port, cfg.DB.SSLMode, cfg.DB.Timezone)
+	dbConn := db.Connect(cfg.DB.Host, cfg.DB.User, cfg.DB.Password, cfg.DB.Name, cfg.DB.Port, cfg.DB.SSLMode, cfg.DB.Timezone, log, cfg.AppEnv)
 	baseDB := dbConn.Get(context.Background())
 	sqlDB, err := baseDB.DB()
 	if err != nil {
@@ -201,8 +202,13 @@ func main() {
 		port = "3000"
 	}
 
+	host := cfg.AppHost
+	if host == "" {
+		host = "127.0.0.1"
+	}
+
 	srv := &http.Server{
-		Addr:         fmt.Sprintf("0.0.0.0:%s", port),
+		Addr:         fmt.Sprintf("%s:%s", host, port),
 		Handler:      r,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,

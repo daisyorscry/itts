@@ -141,37 +141,30 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 
 		// ===== PMB PUBLIC ROUTES =====
 		api.Route("/pmb", func(pmb chi.Router) {
-			// Public endpoints (require authentication)
-			pmb.Use(middleware.RequireAuth())
+			// Public information
+			pmb.Get("/tracks/active", pmbH.ListActiveAdmissionTracks)
+			pmb.Get("/faculties/{faculty_id}/programs", pmbH.ListStudyProgramsByFaculty)
+			pmb.Get("/programs/{program_id}/quota", pmbH.GetAvailableQuota)
+			pmb.Get("/results/passed", pmbH.ListPassedApplicants)
 
-			// Applicant self-management
-			pmb.Get("/me/applicant", pmbH.GetMyApplicant)
+			// Authenticated applicant endpoints
+			pmb.Group(func(protected chi.Router) {
+				protected.Use(middleware.RequireAuth())
 
-			// Application management
-			pmb.Post("/applications", pmbH.CreateApplication)
-			pmb.Get("/applicants/{applicant_id}/applications", pmbH.ListApplicationsByApplicant)
+				// Applicant self-management
+				protected.Get("/me/applicant", pmbH.GetMyApplicant)
 
-			// Documents
-			pmb.Post("/documents", pmbH.CreateApplicantDocument)
-			pmb.Delete("/documents/{id}", pmbH.DeleteApplicantDocument)
-			pmb.Get("/applicants/{applicant_id}/documents", pmbH.ListDocumentsByApplicant)
+				// Application management
+				protected.Post("/applications", pmbH.CreateApplication)
+				protected.Get("/applicants/{applicant_id}/applications", pmbH.ListApplicationsByApplicant)
 
-			// Re-registration
-			pmb.Post("/re-registration", pmbH.CreateReRegistration)
+				// Documents
+				protected.Post("/documents", pmbH.CreateApplicantDocument)
+				protected.Delete("/documents/{id}", pmbH.DeleteApplicantDocument)
+				protected.Get("/applicants/{applicant_id}/documents", pmbH.ListDocumentsByApplicant)
 
-			// Public information (no auth required)
-			pmb.Group(func(public chi.Router) {
-				// Active tracks for registration
-				public.Get("/tracks/active", pmbH.ListActiveAdmissionTracks)
-
-				// Programs by faculty
-				public.Get("/faculties/{faculty_id}/programs", pmbH.ListStudyProgramsByFaculty)
-
-				// Check quota
-				public.Get("/programs/{program_id}/quota", pmbH.GetAvailableQuota)
-
-				// Passed applicants (public announcement)
-				public.Get("/results/passed", pmbH.ListPassedApplicants)
+				// Re-registration
+				protected.Post("/re-registration", pmbH.CreateReRegistration)
 			})
 		})
 

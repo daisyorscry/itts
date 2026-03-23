@@ -14,11 +14,11 @@ type LoginRequest struct {
 
 // LoginResponse represents successful login response
 type LoginResponse struct {
-	AccessToken  string        `json:"access_token"`
-	RefreshToken string        `json:"refresh_token"`
-	TokenType    string        `json:"token_type"` // "Bearer"
-	ExpiresIn    int64         `json:"expires_in"` // seconds
-	User         UserResponse  `json:"user"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	TokenType    string       `json:"token_type"` // "Bearer"
+	ExpiresIn    int64        `json:"expires_in"` // seconds
+	User         UserResponse `json:"user"`
 }
 
 // RefreshTokenRequest represents token refresh request
@@ -82,16 +82,23 @@ type UpdateUserRequest struct {
 
 // UserResponse represents user in API response
 type UserResponse struct {
-	ID           string          `json:"id"`
-	Email        string          `json:"email"`
-	FullName     string          `json:"full_name"`
-	IsActive     bool            `json:"is_active"`
-	IsSuperAdmin bool            `json:"is_super_admin"`
-	LastLoginAt  *time.Time      `json:"last_login_at"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
-	Roles        []RoleResponse  `json:"roles"` // Always include roles array
-	Permissions  []string        `json:"permissions,omitempty"` // computed permission names
+	ID              string                       `json:"id"`
+	Email           string                       `json:"email"`
+	FullName        string                       `json:"full_name"`
+	IsActive        bool                         `json:"is_active"`
+	IsSuperAdmin    bool                         `json:"is_super_admin"`
+	LastLoginAt     *time.Time                   `json:"last_login_at"`
+	CreatedAt       time.Time                    `json:"created_at"`
+	UpdatedAt       time.Time                    `json:"updated_at"`
+	Roles           []RoleResponse               `json:"roles"`                 // Always include roles array
+	Permissions     []string                     `json:"permissions,omitempty"` // computed permission names
+	RoleAssignments []UserRoleAssignmentResponse `json:"role_assignments,omitempty"`
+}
+
+type UserSummaryResponse struct {
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	FullName string `json:"full_name"`
 }
 
 // =====================================
@@ -124,6 +131,18 @@ type RoleResponse struct {
 	CreatedAt    time.Time            `json:"created_at"`
 	UpdatedAt    time.Time            `json:"updated_at"`
 	Permissions  []PermissionResponse `json:"permissions,omitempty"`
+}
+
+type UserRoleAssignmentResponse struct {
+	ID            string               `json:"id"`
+	UserID        string               `json:"user_id"`
+	RoleID        string               `json:"role_id"`
+	GrantedBy     *string              `json:"granted_by"`
+	GrantedByUser *UserSummaryResponse `json:"granted_by_user,omitempty"`
+	GrantedAt     time.Time            `json:"granted_at"`
+	ExpiresAt     *time.Time           `json:"expires_at"`
+	IsExpired     bool                 `json:"is_expired"`
+	Role          RoleResponse         `json:"role"`
 }
 
 // AssignRoleRequest represents role assignment to user
@@ -205,8 +224,8 @@ type AuthContext struct {
 	UserID       string   `json:"user_id"`
 	Email        string   `json:"email"`
 	IsSuperAdmin bool     `json:"is_super_admin"`
-	Roles        []string `json:"roles"`        // role names
-	Permissions  []string `json:"permissions"`  // permission names like "events:create"
+	Roles        []string `json:"roles"`       // role names
+	Permissions  []string `json:"permissions"` // permission names like "events:create"
 }
 
 // HasPermission checks if user has specific permission
@@ -276,6 +295,14 @@ func (u *User) ToUserResponse() UserResponse {
 	return resp
 }
 
+func (u *User) ToUserSummaryResponse() UserSummaryResponse {
+	return UserSummaryResponse{
+		ID:       u.ID,
+		Email:    u.Email,
+		FullName: u.FullName,
+	}
+}
+
 // ToRoleResponse converts Role model to RoleResponse DTO
 func (r *Role) ToRoleResponse() RoleResponse {
 	resp := RoleResponse{
@@ -294,6 +321,26 @@ func (r *Role) ToRoleResponse() RoleResponse {
 		for i, perm := range r.Permissions {
 			resp.Permissions[i] = perm.ToPermissionResponse()
 		}
+	}
+
+	return resp
+}
+
+func (ur *UserRole) ToUserRoleAssignmentResponse(now time.Time) UserRoleAssignmentResponse {
+	resp := UserRoleAssignmentResponse{
+		ID:        ur.ID,
+		UserID:    ur.UserID,
+		RoleID:    ur.RoleID,
+		GrantedBy: ur.GrantedBy,
+		GrantedAt: ur.GrantedAt,
+		ExpiresAt: ur.ExpiresAt,
+		IsExpired: ur.ExpiresAt != nil && ur.ExpiresAt.Before(now),
+		Role:      ur.Role.ToRoleResponse(),
+	}
+
+	if ur.Granter != nil {
+		granter := ur.Granter.ToUserSummaryResponse()
+		resp.GrantedByUser = &granter
 	}
 
 	return resp

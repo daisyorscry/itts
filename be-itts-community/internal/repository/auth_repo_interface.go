@@ -32,6 +32,7 @@ type AuthRepository interface {
 	AssignRolesToUser(ctx context.Context, userID string, roleIDs []string, grantedBy *string) error
 	RemoveRolesFromUser(ctx context.Context, userID string, roleIDs []string) error
 	GetUserRoles(ctx context.Context, userID string) ([]model.Role, error)
+	GetUserRoleAssignments(ctx context.Context, userID string) ([]model.UserRole, error)
 
 	// OAuth Operations
 	GetOAuthAccount(ctx context.Context, provider, providerID string) (*model.OAuthAccount, error)

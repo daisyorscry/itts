@@ -512,7 +512,7 @@ func (s *authService) GetUser(ctx context.Context, userID string) (*model.UserRe
 		defer s.tracer.StartSegment(ctx, "AuthService.GetUser")()
 	}
 
-	user, err := s.authRepo.GetUserWithRoles(ctx, userID)
+	user, err := s.authRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, core.NotFound("user", userID)
@@ -520,7 +520,33 @@ func (s *authService) GetUser(ctx context.Context, userID string) (*model.UserRe
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 
+	assignments, err := s.authRepo.GetUserRoleAssignments(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user role assignments: %w", err)
+	}
+
 	resp := user.ToUserResponse()
+
+	resp.Roles = make([]model.RoleResponse, 0, len(assignments))
+	resp.RoleAssignments = make([]model.UserRoleAssignmentResponse, 0, len(assignments))
+
+	now := time.Now()
+	for _, assignment := range assignments {
+		resp.Roles = append(resp.Roles, assignment.Role.ToRoleResponse())
+		resp.RoleAssignments = append(resp.RoleAssignments, assignment.ToUserRoleAssignmentResponse(now))
+	}
+
+	if user.IsSuperAdmin {
+		resp.Permissions = []string{"*:*"}
+		return &resp, nil
+	}
+
+	permissions, err := s.permissionRepo.GetUserPermissionNames(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user permissions: %w", err)
+	}
+
+	resp.Permissions = permissions
 	return &resp, nil
 }
 

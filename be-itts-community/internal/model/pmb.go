@@ -87,8 +87,8 @@ type Applicant struct {
 	CreatedAt      time.Time `gorm:"autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"autoUpdateTime"`
 
-	Applications []Application
-	Documents    []ApplicantDocument
+	Applications []Application       `gorm:"foreignKey:ApplicantID;references:ID"`
+	Documents    []ApplicantDocument `gorm:"foreignKey:ApplicantID;references:ID"`
 }
 
 type AdmissionTrack struct {
@@ -100,7 +100,7 @@ type AdmissionTrack struct {
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime"`
 
-	Applications []Application
+	Applications []Application `gorm:"foreignKey:TrackID;references:ID"`
 }
 
 type Faculty struct {
@@ -110,7 +110,7 @@ type Faculty struct {
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 
-	StudyPrograms []StudyProgram
+	StudyPrograms []StudyProgram `gorm:"foreignKey:FacultyID;references:ID"`
 }
 
 type StudyProgram struct {
@@ -123,8 +123,8 @@ type StudyProgram struct {
 	CreatedAt   time.Time `gorm:"autoCreateTime"`
 	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
 
-	Faculty      Faculty
-	Applications []Application
+	Faculty      Faculty       `gorm:"foreignKey:FacultyID;references:ID"`
+	Applications []Application `gorm:"foreignKey:ProgramID;references:ID"`
 }
 
 type Application struct {
@@ -138,13 +138,13 @@ type Application struct {
 	CreatedAt         time.Time `gorm:"autoCreateTime"`
 	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
 
-	Applicant Applicant
-	Track     AdmissionTrack
-	Program   StudyProgram
+	Applicant Applicant      `gorm:"foreignKey:ApplicantID;references:ID"`
+	Track     AdmissionTrack `gorm:"foreignKey:TrackID;references:ID"`
+	Program   StudyProgram   `gorm:"foreignKey:ProgramID;references:ID"`
 
-	Evaluations    []Evaluation
-	FinalResult    *FinalResult
-	ReRegistration *ReRegistration
+	Evaluations    []Evaluation    `gorm:"foreignKey:ApplicationID;references:ID"`
+	FinalResult    *FinalResult    `gorm:"foreignKey:ApplicationID;references:ID"`
+	ReRegistration *ReRegistration `gorm:"foreignKey:ApplicationID;references:ID"`
 }
 
 type ApplicantDocument struct {
@@ -158,7 +158,7 @@ type ApplicantDocument struct {
 	CreatedAt          time.Time `gorm:"autoCreateTime"`
 	UpdatedAt          time.Time `gorm:"autoUpdateTime"`
 
-	Applicant Applicant
+	Applicant Applicant `gorm:"foreignKey:ApplicantID;references:ID"`
 }
 
 type Evaluation struct {
@@ -170,7 +170,7 @@ type Evaluation struct {
 	CreatedAt      time.Time `gorm:"autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"autoUpdateTime"`
 
-	Application Application
+	Application Application `gorm:"foreignKey:ApplicationID;references:ID"`
 }
 
 type FinalResult struct {
@@ -182,7 +182,7 @@ type FinalResult struct {
 	DecisionDate  time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 
-	Application Application
+	Application Application `gorm:"foreignKey:ApplicationID;references:ID"`
 }
 
 type ReRegistration struct {
@@ -194,5 +194,9 @@ type ReRegistration struct {
 	CreatedAt          time.Time `gorm:"autoCreateTime"`
 	UpdatedAt          time.Time `gorm:"autoUpdateTime"`
 
-	Application Application
+	Application Application `gorm:"foreignKey:ApplicationID;references:ID"`
+}
+
+func (ReRegistration) TableName() string {
+	return "re_registration"
 }

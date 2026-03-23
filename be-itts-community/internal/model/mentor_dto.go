@@ -58,7 +58,7 @@ type MentorListResponse struct {
 func (r CreateMentorRequest) ToModel() Mentor {
 	m := Mentor{
 		FullName: r.FullName,
-		Programs: r.Programs,
+		Programs: ProgramEnumArray(r.Programs),
 		IsActive: true,
 		Priority: 0,
 	}
@@ -84,7 +84,7 @@ func MentorToResponse(m Mentor) MentorResponse {
 	resp := MentorResponse{
 		ID:        m.ID,
 		FullName:  m.FullName,
-		Programs:  m.Programs,
+		Programs:  []ProgramEnum(m.Programs),
 		IsActive:  m.IsActive,
 		Priority:  m.Priority,
 		CreatedAt: m.CreatedAt,

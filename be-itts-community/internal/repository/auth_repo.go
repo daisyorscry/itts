@@ -276,6 +276,29 @@ func (r *authRepository) GetUserRoles(ctx context.Context, userID string) ([]mod
 	return roles, nil
 }
 
+// GetUserRoleAssignments retrieves detailed role assignments for a user.
+func (r *authRepository) GetUserRoleAssignments(ctx context.Context, userID string) ([]model.UserRole, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "user_roles", "SELECT")()
+	}
+
+	var assignments []model.UserRole
+	err := r.db.Get(ctx).
+		Preload("Role").
+		Preload("Role.Permissions").
+		Preload("Role.Permissions.Resource").
+		Preload("Role.Permissions.Action").
+		Preload("Granter").
+		Where("user_id = ?", userID).
+		Order("granted_at DESC").
+		Find(&assignments).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return assignments, nil
+}
+
 // GetOAuthAccount retrieves OAuth account by provider and provider ID
 func (r *authRepository) GetOAuthAccount(ctx context.Context, provider, providerID string) (*model.OAuthAccount, error) {
 	if RepoTracer != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -22,11 +23,13 @@ const (
 
 // LogConfig holds logger configuration
 type LogConfig struct {
-	Level       LogLevel // Log level
-	ServiceName string   // Service name (e.g., "control-plane-api")
-	Environment string   // Environment (e.g., "production", "staging", "development")
-	Pretty      bool     // Pretty print for development
-	Output      io.Writer
+	Level         LogLevel // Log level
+	ServiceName   string   // Service name (e.g., "control-plane-api")
+	Environment   string   // Environment (e.g., "production", "staging", "development")
+	Pretty        bool     // Pretty print for development
+	Output        io.Writer
+	ErrorOutput   io.Writer
+	ErrorFilePath string
 }
 
 // Logger wraps zerolog with additional functionality
@@ -51,15 +54,29 @@ func NewLogger(cfg LogConfig) *Logger {
 		output = os.Stdout
 	}
 
+	errorOutput := cfg.ErrorOutput
+	if errorOutput == nil && cfg.ErrorFilePath != "" {
+		file, err := openLogFile(cfg.ErrorFilePath)
+		if err == nil {
+			errorOutput = file
+		}
+	}
+
+	writer := output
+	if errorOutput != nil {
+		writer = zerolog.MultiLevelWriter(output, errorLevelWriter{writer: errorOutput})
+	}
+
 	// Create logger
 	var zlog zerolog.Logger
 	if cfg.Pretty {
 		zlog = zerolog.New(zerolog.ConsoleWriter{
-			Out:        output,
+			Out:        writer,
 			TimeFormat: time.RFC3339,
+			NoColor:    true,
 		}).With().Timestamp().Logger()
 	} else {
-		zlog = zerolog.New(output).With().Timestamp().Logger()
+		zlog = zerolog.New(writer).With().Timestamp().Logger()
 	}
 
 	// Add service metadata
@@ -74,6 +91,22 @@ func NewLogger(cfg LogConfig) *Logger {
 		serviceName: cfg.ServiceName,
 		environment: cfg.Environment,
 	}
+}
+
+type errorLevelWriter struct {
+	writer io.Writer
+}
+
+func (w errorLevelWriter) Write(p []byte) (int, error) {
+	return w.writer.Write(p)
+}
+
+func (w errorLevelWriter) WriteLevel(level zerolog.Level, p []byte) (int, error) {
+	if level < zerolog.ErrorLevel {
+		return len(p), nil
+	}
+
+	return w.writer.Write(p)
 }
 
 // WithContext extracts logger from context or returns current logger
@@ -310,6 +343,17 @@ func getHostname() string {
 		return "unknown"
 	}
 	return hostname
+}
+
+func openLogFile(path string) (*os.File, error) {
+	dir := filepath.Dir(path)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return nil, err
+		}
+	}
+
+	return os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 }
 
 // Global logger instance (optional, for convenience)

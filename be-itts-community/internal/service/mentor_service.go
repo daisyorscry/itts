@@ -84,7 +84,7 @@ func (s *mentorService) Update(ctx context.Context, id string, req model.UpdateM
 		m.AvatarURL = req.AvatarURL
 	}
 	if req.Programs != nil {
-		m.Programs = req.Programs
+		m.Programs = model.ProgramEnumArray(req.Programs)
 	}
 	if req.IsActive != nil {
 		m.IsActive = *req.IsActive
