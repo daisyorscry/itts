@@ -20,6 +20,6 @@ type EventService interface {
 	SetStatus(ctx context.Context, req model.SetEventStatusRequest) (model.EventResponse, error)
 }
 
-func NewEventService(repo repository.EventRepository, locker lock.Locker, tracer nr.Tracer) EventService {
-	return &eventService{repo: repo, locker: locker, tracer: tracer}
+func NewEventService(repo repository.EventRepository, regRepo repository.EventRegistrationRepository, locker lock.Locker, tracer nr.Tracer) EventService {
+	return &eventService{repo: repo, regRepo: regRepo, locker: locker, tracer: tracer}
 }

@@ -12,8 +12,9 @@ import { Input } from '@components/ui/input';
 import * as SelectUI from '@components/ui/select';
 import { Text } from '@components/ui/text';
 import { Textarea } from '@components/ui/textarea';
-import { useCreateEvent } from '@feature/event/hooks';
+import { useCreateEvent, useUploadEventImage } from '@feature/event/hooks';
 import { eventSchema, type CreateEventRequest, type EventFormData } from '@feature/event/types';
+import { EventImageField } from './EventImageField';
 
 type EventFormInput = z.input<typeof eventSchema>;
 const programOptions = [
@@ -32,6 +33,7 @@ const statusOptions = [
 export function AdminEventCreate() {
   const navigate = useNavigate();
   const { mutate: createEvent, isPending } = useCreateEvent();
+  const uploadImage = useUploadEventImage();
   const form = useForm<EventFormInput, unknown, EventFormData>({
     resolver: zodResolver(eventSchema),
     mode: 'onChange',
@@ -48,7 +50,7 @@ export function AdminEventCreate() {
       venue: '',
     },
   });
-  const { control, register, handleSubmit, formState: { errors } } = form;
+  const { control, register, handleSubmit, setValue, watch, formState: { errors } } = form;
 
   const handleValidSubmit: SubmitHandler<EventFormData> = (data) => {
     const payload: CreateEventRequest = {
@@ -56,7 +58,7 @@ export function AdminEventCreate() {
       title: data.title,
       summary: data.summary || undefined,
       description: data.description || undefined,
-      image_url: data.image_url || undefined,
+      file_path: data.image_url || undefined,
       program: data.program || undefined,
       status: data.status,
       starts_at: new Date(data.starts_at).toISOString(),
@@ -167,9 +169,15 @@ export function AdminEventCreate() {
               <FormUI.FormField id="venue" label="Venue" error={errors.venue?.message} tone="inverse">
                 <Input id="venue" {...register('venue')} tone="inverse" />
               </FormUI.FormField>
-              <FormUI.FormField id="image_url" label="Image URL" error={errors.image_url?.message} tone="inverse">
-                <Input id="image_url" {...register('image_url')} hasError={Boolean(errors.image_url)} tone="inverse" />
-              </FormUI.FormField>
+              <EventImageField
+                value={watch('image_url') || ''}
+                error={errors.image_url?.message}
+                isUploading={uploadImage.isPending}
+                onFileSelect={async (file) => {
+                  const response = await uploadImage.mutateAsync(file);
+                  setValue('image_url', response.data.file_path, { shouldDirty: true, shouldValidate: true });
+                }}
+              />
             </LayoutUI.Container>
 
             <FormUI.FormField id="summary" label="Summary" error={errors.summary?.message} tone="inverse">

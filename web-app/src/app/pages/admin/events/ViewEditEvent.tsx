@@ -13,9 +13,10 @@ import { Input } from '@components/ui/input';
 import * as SelectUI from '@components/ui/select';
 import { Text } from '@components/ui/text';
 import { Textarea } from '@components/ui/textarea';
-import { useEvent, useUpdateEvent } from '@feature/event/hooks';
+import { useEvent, useUpdateEvent, useUploadEventImage } from '@feature/event/hooks';
 import { eventSchema, type EventFormData, type UpdateEventRequest } from '@feature/event/types';
 import { formatDateTime } from '@utility/date';
+import { EventImageField } from './EventImageField';
 
 type EventFormInput = z.input<typeof eventSchema>;
 const programOptions = [
@@ -47,6 +48,7 @@ export function AdminEventEdit() {
   const [isEditMode, setIsEditMode] = useState(isRouteEditMode);
   const { data: event, isLoading, error } = useEvent(id ?? '', Boolean(id));
   const { mutate: updateEvent, isPending } = useUpdateEvent(id ?? '');
+  const uploadImage = useUploadEventImage();
   const hasInitialized = useRef(false);
   const form = useForm<EventFormInput, unknown, EventFormData>({
     resolver: zodResolver(eventSchema),
@@ -149,7 +151,7 @@ export function AdminEventEdit() {
       title: data.title,
       summary: data.summary || undefined,
       description: data.description || undefined,
-      image_url: data.image_url || undefined,
+      file_path: data.image_url || undefined,
       program: data.program || undefined,
       status: data.status,
       starts_at: new Date(data.starts_at).toISOString(),
@@ -268,9 +270,16 @@ export function AdminEventEdit() {
               <FormUI.FormField id="venue" label="Venue" error={errors.venue?.message} tone="inverse">
                 <Input id="venue" {...register('venue')} disabled={!isEditMode} tone="inverse" className={!isEditMode ? 'cursor-default opacity-80' : undefined} />
               </FormUI.FormField>
-              <FormUI.FormField id="image_url" label="Image URL" error={errors.image_url?.message} tone="inverse">
-                <Input id="image_url" {...register('image_url')} disabled={!isEditMode} hasError={Boolean(errors.image_url)} tone="inverse" className={!isEditMode ? 'cursor-default opacity-80' : undefined} />
-              </FormUI.FormField>
+              <EventImageField
+                value={watch('image_url') || ''}
+                error={errors.image_url?.message}
+                disabled={!isEditMode || isPending}
+                isUploading={uploadImage.isPending}
+                onFileSelect={async (file) => {
+                  const response = await uploadImage.mutateAsync(file);
+                  setValue('image_url', response.data.file_path, { shouldDirty: true, shouldValidate: true });
+                }}
+              />
             </LayoutUI.Container>
 
             <FormUI.FormField id="summary" label="Summary" error={errors.summary?.message} tone="inverse">

@@ -16,14 +16,19 @@ import (
 )
 
 type eventService struct {
-	repo   repository.EventRepository
-	locker lock.Locker
-	tracer nr.Tracer
+	repo    repository.EventRepository
+	regRepo repository.EventRegistrationRepository
+	locker  lock.Locker
+	tracer  nr.Tracer
 }
 
 func (s *eventService) Create(ctx context.Context, req model.CreateEventRequest) (model.EventResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "EventService.Create")()
+	}
+
+	if req.ImageURL == "" && req.FilePath != "" {
+		req.ImageURL = req.FilePath
 	}
 
 	if err := validator.Validate(req); err != nil {
@@ -32,6 +37,9 @@ func (s *eventService) Create(ctx context.Context, req model.CreateEventRequest)
 
 	if req.EndsAt != nil && req.EndsAt.Before(req.StartsAt) {
 		return model.EventResponse{}, core.BadRequest("ends_at must be after starts_at")
+	}
+	if req.IsPaid && req.Price <= 0 {
+		return model.EventResponse{}, core.BadRequest("price must be greater than zero for paid events")
 	}
 
 	ev := req.ToModel()
@@ -48,7 +56,7 @@ func (s *eventService) Create(ctx context.Context, req model.CreateEventRequest)
 	if err != nil {
 		return model.EventResponse{}, core.InternalServerError("failed to load event").WithError(err)
 	}
-	return model.EventToResponse(*result), nil
+	return s.toEventResponse(ctx, *result)
 }
 
 func (s *eventService) Get(ctx context.Context, id string) (model.EventResponse, error) {
@@ -59,7 +67,7 @@ func (s *eventService) Get(ctx context.Context, id string) (model.EventResponse,
 		}
 		return model.EventResponse{}, core.InternalServerError("failed to fetch event").WithError(err)
 	}
-	return model.EventToResponse(*m), nil
+	return s.toEventResponse(ctx, *m)
 }
 
 func (s *eventService) GetBySlug(ctx context.Context, slug string) (model.EventResponse, error) {
@@ -70,12 +78,16 @@ func (s *eventService) GetBySlug(ctx context.Context, slug string) (model.EventR
 		}
 		return model.EventResponse{}, core.InternalServerError("failed to fetch event").WithError(err)
 	}
-	return model.EventToResponse(*m), nil
+	return s.toEventResponse(ctx, *m)
 }
 
 func (s *eventService) Update(ctx context.Context, id string, req model.UpdateEventRequest) (model.EventResponse, error) {
 	if s.tracer != nil {
 		defer s.tracer.StartSegment(ctx, "EventService.Update")()
+	}
+
+	if req.ImageURL == nil && req.FilePath != nil {
+		req.ImageURL = req.FilePath
 	}
 
 	if err := validator.Validate(req); err != nil {
@@ -120,9 +132,33 @@ func (s *eventService) Update(ctx context.Context, id string, req model.UpdateEv
 	if req.Venue != nil {
 		ev.Venue = req.Venue
 	}
+	if req.Benefits != nil {
+		ev.Benefits = append(model.StringArray{}, (*req.Benefits)...)
+	}
+	if req.Capacity != nil {
+		ev.Capacity = *req.Capacity
+	}
+	if req.RegistrationDeadline != nil {
+		ev.RegistrationDeadline = req.RegistrationDeadline
+	}
+	if req.IsPaid != nil {
+		ev.IsPaid = *req.IsPaid
+		if !ev.IsPaid {
+			ev.Price = 0
+		}
+	}
+	if req.Price != nil {
+		ev.Price = *req.Price
+	}
+	if req.Currency != nil {
+		ev.Currency = *req.Currency
+	}
 
 	if ev.EndsAt != nil && ev.EndsAt.Before(ev.StartsAt) {
 		return model.EventResponse{}, core.BadRequest("ends_at must be after starts_at")
+	}
+	if ev.IsPaid && ev.Price <= 0 {
+		return model.EventResponse{}, core.BadRequest("price must be greater than zero for paid events")
 	}
 
 	if err := s.locker.WithLock(ctx, "lock:events:"+id, 10*time.Second, func(ctx context.Context) error {
@@ -137,7 +173,7 @@ func (s *eventService) Update(ctx context.Context, id string, req model.UpdateEv
 	if err != nil {
 		return model.EventResponse{}, core.InternalServerError("failed to load event").WithError(err)
 	}
-	return model.EventToResponse(*result), nil
+	return s.toEventResponse(ctx, *result)
 }
 
 func (s *eventService) Delete(ctx context.Context, id string) error {
@@ -159,7 +195,7 @@ func (s *eventService) List(ctx context.Context, p repository.ListParams) (model
 	if err != nil {
 		return model.EventListResponse{}, core.InternalServerError("failed to list events").WithError(err)
 	}
-	return eventListToResponse(*result), nil
+	return s.eventListToResponse(ctx, *result)
 }
 
 func (s *eventService) SetStatus(ctx context.Context, req model.SetEventStatusRequest) (model.EventResponse, error) {
@@ -193,7 +229,7 @@ func (s *eventService) SetStatus(ctx context.Context, req model.SetEventStatusRe
 	if err != nil {
 		return model.EventResponse{}, core.InternalServerError("failed to load event").WithError(err)
 	}
-	return model.EventToResponse(*result), nil
+	return s.toEventResponse(ctx, *result)
 }
 
 func (s *eventService) runTransaction(ctx context.Context, fn func(txCtx context.Context) error) error {
@@ -204,10 +240,14 @@ func (s *eventService) runTransaction(ctx context.Context, fn func(txCtx context
 // List Response Helpers
 // ========================================
 
-func eventListToResponse(pr repository.PageResult[model.Event]) model.EventListResponse {
+func (s *eventService) eventListToResponse(ctx context.Context, pr repository.PageResult[model.Event]) (model.EventListResponse, error) {
 	data := make([]model.EventResponse, 0, len(pr.Data))
 	for _, m := range pr.Data {
-		data = append(data, model.EventToResponse(m))
+		resp, err := s.toEventResponse(ctx, m)
+		if err != nil {
+			return model.EventListResponse{}, err
+		}
+		data = append(data, resp)
 	}
 	return model.EventListResponse{
 		Data:       data,
@@ -215,5 +255,23 @@ func eventListToResponse(pr repository.PageResult[model.Event]) model.EventListR
 		Page:       pr.Page,
 		PageSize:   pr.PageSize,
 		TotalPages: pr.TotalPages,
+	}, nil
+}
+
+func (s *eventService) toEventResponse(ctx context.Context, m model.Event) (model.EventResponse, error) {
+	resp := model.EventToResponse(m)
+	if m.Capacity <= 0 {
+		resp.RemainingSlots = 0
+		return resp, nil
 	}
+	approvedCount, err := s.regRepo.CountByEventAndStatuses(ctx, m.ID, []model.EventRegistrationStatus{model.EventRegistrationApproved})
+	if err != nil {
+		return model.EventResponse{}, core.InternalServerError("failed to count event registrations").WithError(err)
+	}
+	remaining := m.Capacity - int(approvedCount)
+	if remaining < 0 {
+		remaining = 0
+	}
+	resp.RemainingSlots = remaining
+	return resp, nil
 }

@@ -3,6 +3,8 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -25,6 +27,52 @@ func NewEventHandler(eventSvc service.EventService, speakerSvc service.EventSpea
 
 }
 
+func withAbsoluteEventImageURL(r *http.Request, event model.EventResponse) model.EventResponse {
+	if event.FilePath == "" {
+		event.FilePath = event.ImageURL
+	}
+	if event.FilePath != "" {
+		event.ImageURL = buildAbsoluteAssetURL(r, event.FilePath)
+	}
+	return event
+}
+
+func withAbsoluteEventListImageURL(r *http.Request, list model.EventListResponse) model.EventListResponse {
+	for idx := range list.Data {
+		list.Data[idx] = withAbsoluteEventImageURL(r, list.Data[idx])
+	}
+	return list
+}
+
+func buildAbsoluteAssetURL(r *http.Request, path string) string {
+	if path == "" {
+		return ""
+	}
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return path
+	}
+
+	scheme := "http"
+	if forwardedProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwardedProto != "" {
+		scheme = forwardedProto
+	} else if r.TLS != nil {
+		scheme = "https"
+	}
+
+	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+	if host == "" {
+		host = r.Host
+	}
+	if host == "" {
+		return path
+	}
+
+	if strings.HasPrefix(path, "/") {
+		return scheme + "://" + host + path
+	}
+	return scheme + "://" + host + "/" + path
+}
+
 // POST /api/v1/admin/events
 func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 	var req model.CreateEventRequest
@@ -37,7 +85,7 @@ func (h *EventHandler) CreateEvent(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.Created(w, r, ev)
+	core.Created(w, r, withAbsoluteEventImageURL(r, ev))
 }
 
 // GET /api/v1/admin/events/:id
@@ -48,7 +96,7 @@ func (h *EventHandler) GetEvent(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, ev)
+	core.OK(w, r, withAbsoluteEventImageURL(r, ev))
 }
 
 // GET /api/v1/events/slug/:slug  (public)
@@ -59,7 +107,7 @@ func (h *EventHandler) GetEventBySlug(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, ev)
+	core.OK(w, r, withAbsoluteEventImageURL(r, ev))
 }
 
 // PATCH /api/v1/admin/events/:id
@@ -75,7 +123,7 @@ func (h *EventHandler) UpdateEvent(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, ev)
+	core.OK(w, r, withAbsoluteEventImageURL(r, ev))
 }
 
 // DELETE /api/v1/admin/events/:id
@@ -122,7 +170,7 @@ func (h *EventHandler) ListEvents(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, res)
+	core.OK(w, r, withAbsoluteEventListImageURL(r, res))
 }
 
 func (h *EventHandler) SetEventStatus(w http.ResponseWriter, r *http.Request) {
@@ -222,12 +270,42 @@ func (h *EventHandler) RegisterToEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.EventID = eventID
-	reg, err := h.registerSvc.Register(r.Context(), req)
+	reg, err := h.registerSvc.Register(r.Context(), req, h.resolveVerifyRegistrationURL(r))
 	if err != nil {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.Created(w, r, reg)
+	core.Created(w, r, map[string]any{
+		"id":      reg.ID,
+		"email":   reg.Email,
+		"status":  reg.Status,
+		"message": "Registration received. Please verify your email to continue.",
+	})
+}
+
+func (h *EventHandler) VerifyRegistration(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	reg, err := h.registerSvc.VerifyRegistration(r.Context(), token)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
+}
+
+func (h *EventHandler) CreateRegistrationPayment(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	var req model.CreateEventRegistrationPaymentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
+	}
+	reg, err := h.registerSvc.CreatePayment(r.Context(), id, req)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
 }
 
 func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request) {
@@ -245,6 +323,9 @@ func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request)
 	if v := q.Get("email"); v != "" {
 		lp.Filters["email"] = v
 	}
+	if v := q.Get("status"); v != "" {
+		lp.Filters["status"] = v
+	}
 	res, err := h.registerSvc.AdminList(r.Context(), lp)
 	if err != nil {
 		core.RespondError(w, r, err)
@@ -260,4 +341,29 @@ func (h *EventHandler) Unregister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	core.NoContent(w, r)
+}
+
+func (h *EventHandler) resolveVerifyRegistrationURL(r *http.Request) string {
+	requestOrigin := strings.TrimSpace(r.Header.Get("Origin"))
+	if requestOrigin == "" {
+		if referer := strings.TrimSpace(r.Referer()); referer != "" {
+			if parsedReferer, err := url.Parse(referer); err == nil && parsedReferer.Scheme != "" && parsedReferer.Host != "" {
+				requestOrigin = parsedReferer.Scheme + "://" + parsedReferer.Host
+			}
+		}
+	}
+	if requestOrigin == "" {
+		return ""
+	}
+
+	parsedOrigin, err := url.Parse(requestOrigin)
+	if err != nil || parsedOrigin.Scheme == "" || parsedOrigin.Host == "" {
+		return ""
+	}
+
+	parsedOrigin.Path = "/events/verify-registration"
+	parsedOrigin.RawPath = ""
+	parsedOrigin.RawQuery = ""
+	parsedOrigin.Fragment = ""
+	return parsedOrigin.String()
 }

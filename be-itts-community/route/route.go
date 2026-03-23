@@ -94,12 +94,13 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 
 	// ===== EVENTS =====
 	eventRepo := repository.NewEventRepository(deps.DBConn)
-	eventSvc := service.NewEventService(eventRepo, deps.Locker, deps.Tracer)
+	eventRegRepo := repository.NewEventRegistrationRepository(deps.DBConn)
+	eventSvc := service.NewEventService(eventRepo, eventRegRepo, deps.Locker, deps.Tracer)
 	eventSpeakerRepo := repository.NewEventSpeakerRepository(deps.DBConn)
 	eventSpeakerSvc := service.NewEventSpeakerService(eventSpeakerRepo, deps.Locker, deps.Tracer)
-	eventRegRepo := repository.NewEventRegistrationRepository(deps.DBConn)
-	eventRegSvc := service.NewEventRegistrationService(eventRepo, eventRegRepo, deps.Locker, deps.Tracer)
+	eventRegSvc := service.NewEventRegistrationService(eventRepo, eventRegRepo, deps.Mailer, deps.Locker, deps.Tracer)
 	eventH := rest.NewEventHandler(eventSvc, eventSpeakerSvc, eventRegSvc)
+	uploadH := rest.NewUploadHandler()
 
 	// ===== PMB (Penerimaan Mahasiswa Baru) =====
 	pmbRepo := repository.NewPMBRepository(deps.DBConn)
@@ -136,14 +137,19 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 		})
 
 		// Public events
+		api.Get("/events", eventH.ListEvents)
 		api.Get("/events/slug/{slug}", eventH.GetEventBySlug)
 		api.Post("/events/{event_id}/register", eventH.RegisterToEvent)
+		api.Get("/events/registrations/verify", eventH.VerifyRegistration)
+		api.Post("/events/registrations/{id}/payment", eventH.CreateRegistrationPayment)
 
 		// ===== PMB PUBLIC ROUTES =====
 		api.Route("/pmb", func(pmb chi.Router) {
 			// Public information
 			pmb.Get("/tracks/active", pmbH.ListActiveAdmissionTracks)
+			pmb.Get("/faculties", pmbH.ListFaculties)
 			pmb.Get("/faculties/{faculty_id}/programs", pmbH.ListStudyProgramsByFaculty)
+			pmb.Get("/programs/{id}", pmbH.GetPublicStudyProgram)
 			pmb.Get("/programs/{program_id}/quota", pmbH.GetAvailableQuota)
 			pmb.Get("/results/passed", pmbH.ListPassedApplicants)
 
@@ -153,6 +159,8 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 
 				// Applicant self-management
 				protected.Get("/me/applicant", pmbH.GetMyApplicant)
+				protected.Post("/me/applicant", pmbH.CreateMyApplicant)
+				protected.Patch("/me/applicant", pmbH.UpdateMyApplicant)
 
 				// Application management
 				protected.Post("/applications", pmbH.CreateApplication)
@@ -244,6 +252,7 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			admin.With(middleware.RequirePermission("events:update")).Patch("/events/{id}", eventH.UpdateEvent)
 			admin.With(middleware.RequirePermission("events:delete")).Delete("/events/{id}", eventH.DeleteEvent)
 			admin.With(middleware.RequirePermission("events:update")).Patch("/events/{id}/status", eventH.SetEventStatus)
+			admin.With(middleware.RequireAnyPermission("events:create", "events:update")).Post("/uploads/images", uploadH.UploadEventImage)
 
 			// ===== EVENT SPEAKERS =====
 			admin.With(middleware.RequirePermission("event_speakers:list")).Get("/event-speakers", eventH.ListSpeakers)

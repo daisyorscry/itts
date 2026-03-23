@@ -1,9 +1,12 @@
 import { apiClient } from '../../utility/api';
 import type { ApiResponse } from '../../utility/response';
 import type {
+  CreateEventRegistrationPaymentRequest,
+  CreatePublicEventRegistrationRequest,
   CreateEventRequest,
   CreateSpeakerRequest,
   Event,
+  EventRegistration,
   EventListResponse,
   EventRegistrationListResponse,
   ListEventRegistrationsParams,
@@ -12,8 +15,10 @@ import type {
   SetEventStatusRequest,
   Speaker,
   SpeakerListResponse,
+  UploadedEventImage,
   UpdateEventRequest,
   UpdateSpeakerRequest,
+  VerifyEventRegistrationRequest,
 } from './types';
 
 const EVENT_BASE = '/admin/events';
@@ -25,8 +30,18 @@ export async function listEventsApi(params?: ListEventsParams): Promise<ApiRespo
   return response.data;
 }
 
+export async function listPublicEventsApi(params?: ListEventsParams): Promise<ApiResponse<EventListResponse>> {
+  const response = await apiClient.get<ApiResponse<EventListResponse>>('/events', { params });
+  return response.data;
+}
+
 export async function getEventApi(id: string): Promise<ApiResponse<Event>> {
   const response = await apiClient.get<ApiResponse<Event>>(`${EVENT_BASE}/${id}`);
+  return response.data;
+}
+
+export async function getPublicEventBySlugApi(slug: string): Promise<ApiResponse<Event>> {
+  const response = await apiClient.get<ApiResponse<Event>>(`/events/slug/${encodeURIComponent(slug)}`);
   return response.data;
 }
 
@@ -37,6 +52,18 @@ export async function createEventApi(payload: CreateEventRequest): Promise<ApiRe
 
 export async function updateEventApi(id: string, payload: UpdateEventRequest): Promise<ApiResponse<Event>> {
   const response = await apiClient.patch<ApiResponse<Event>>(`${EVENT_BASE}/${id}`, payload);
+  return response.data;
+}
+
+export async function uploadEventImageApi(file: File): Promise<ApiResponse<UploadedEventImage>> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await apiClient.post<ApiResponse<UploadedEventImage>>('/admin/uploads/images', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  });
   return response.data;
 }
 
@@ -75,4 +102,31 @@ export async function listEventRegistrationsApi(params?: ListEventRegistrationsP
 
 export async function deleteEventRegistrationApi(id: string): Promise<void> {
   await apiClient.delete(`${REGISTRATION_BASE}/${id}`);
+}
+
+export async function registerToPublicEventApi(
+  eventId: string,
+  payload: CreatePublicEventRegistrationRequest,
+): Promise<ApiResponse<EventRegistration>> {
+  const response = await apiClient.post<ApiResponse<EventRegistration>>(`/events/${eventId}/register`, payload);
+  return response.data;
+}
+
+export async function verifyEventRegistrationApi(
+  payload: VerifyEventRegistrationRequest,
+): Promise<ApiResponse<EventRegistration>> {
+  const response = await apiClient.get<ApiResponse<EventRegistration>>('/events/registrations/verify', {
+    params: {
+      token: payload.token,
+    },
+  });
+  return response.data;
+}
+
+export async function createEventRegistrationPaymentApi(
+  id: string,
+  payload: CreateEventRegistrationPaymentRequest,
+): Promise<ApiResponse<EventRegistration>> {
+  const response = await apiClient.post<ApiResponse<EventRegistration>>(`/events/registrations/${id}/payment`, payload);
+  return response.data;
 }

@@ -8,6 +8,10 @@ import { About } from "./pages/About";
 import { Community } from "./pages/Community";
 import { Program } from "./pages/Program";
 import { Events } from "./pages/Events";
+import { EventDetail } from "./pages/EventDetail";
+import { EventRegistrationVerify } from "./pages/EventRegistrationVerify";
+import { Admission } from "./pages/Admission";
+import { AdmissionProgramDetail } from "./pages/AdmissionProgramDetail";
 import { Docs } from "./pages/Docs";
 import { Blog } from "./pages/Blog";
 import { SignIn } from "./pages/SignIn";
@@ -68,6 +72,10 @@ export const router = createBrowserRouter([
       { path: "community", Component: Community },
       { path: "program", Component: Program },
       { path: "events", Component: Events },
+      { path: "events/:slug", Component: EventDetail },
+      { path: "events/verify-registration", Component: EventRegistrationVerify },
+      { path: "admission", Component: Admission },
+      { path: "admission/programs/:id", Component: AdmissionProgramDetail },
       { path: "docs", Component: Docs },
       { path: "blog", Component: Blog },
       { path: "sign-in", Component: SignIn },

@@ -25,7 +25,9 @@ import (
 	"be-itts-community/config"
 	"be-itts-community/internal/db"
 	"be-itts-community/internal/repository"
+	"be-itts-community/internal/service"
 	"be-itts-community/pkg/lock"
+	mailerpkg "be-itts-community/pkg/mailer"
 	"be-itts-community/pkg/observability/nr"
 	routes "be-itts-community/route"
 )
@@ -153,6 +155,10 @@ func main() {
 		}
 		core.OK(w, req, map[string]any{"status": "ok"})
 	})
+	if err := os.MkdirAll("./uploads/events", 0o755); err != nil {
+		log.Critical("failed to prepare uploads directory", err)
+	}
+	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
 
 	// Wire repository tracer for instrumentation
 	repository.RepoTracer = tracer
@@ -181,11 +187,16 @@ func main() {
 		jwtRefreshDur = 168 * time.Hour
 	}
 
+	var configuredMailer service.Mailer
+	if cfg.Mail.Host != "" && cfg.Mail.Port > 0 && cfg.Mail.From != "" {
+		configuredMailer = mailerpkg.NewSMTPMailer(cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.User, cfg.Mail.Password, cfg.Mail.From)
+	}
+
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DBConn:             dbConn,
 		FrontendBaseURL:    cfg.FrontendBaseURL,
-		Mailer:             nil,
+		Mailer:             configuredMailer,
 		Locker:             locker,
 		Tracer:             tracer,
 		JWTSecret:          cfg.JWT.Secret,
@@ -204,7 +215,7 @@ func main() {
 
 	host := cfg.AppHost
 	if host == "" {
-		host = "127.0.0.1"
+		host = "0.0.0.0"
 	}
 
 	srv := &http.Server{

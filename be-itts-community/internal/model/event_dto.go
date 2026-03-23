@@ -5,29 +5,43 @@ import "time"
 // Event DTOs
 
 type CreateEventRequest struct {
-	Slug        string      `json:"slug"`
-	Title       string      `json:"title" validate:"required,min=3"`
-	Summary     string      `json:"summary"`
-	Description string      `json:"description"`
-	ImageURL    string      `json:"image_url"`
-	Program     ProgramEnum `json:"program" validate:"omitempty,oneof=networking devsecops programming"`
-	Status      EventStatus `json:"status" validate:"omitempty,oneof=draft open ongoing closed"`
-	StartsAt    time.Time   `json:"starts_at" validate:"required"`
-	EndsAt      *time.Time  `json:"ends_at"`
-	Venue       string      `json:"venue"`
+	Slug                 string      `json:"slug"`
+	Title                string      `json:"title" validate:"required,min=3"`
+	Summary              string      `json:"summary"`
+	Description          string      `json:"description"`
+	ImageURL             string      `json:"image_url"`
+	FilePath             string      `json:"file_path"`
+	Benefits             []string    `json:"benefits"`
+	Program              ProgramEnum `json:"program" validate:"omitempty,oneof=networking devsecops programming"`
+	Status               EventStatus `json:"status" validate:"omitempty,oneof=draft open ongoing closed"`
+	Capacity             int         `json:"capacity" validate:"gte=0"`
+	RegistrationDeadline *time.Time  `json:"registration_deadline"`
+	IsPaid               bool        `json:"is_paid"`
+	Price                int64       `json:"price" validate:"gte=0"`
+	Currency             string      `json:"currency"`
+	StartsAt             time.Time   `json:"starts_at" validate:"required"`
+	EndsAt               *time.Time  `json:"ends_at"`
+	Venue                string      `json:"venue"`
 }
 
 type UpdateEventRequest struct {
-	Slug        *string      `json:"slug,omitempty"`
-	Title       *string      `json:"title,omitempty" validate:"omitempty,min=3"`
-	Summary     *string      `json:"summary,omitempty"`
-	Description *string      `json:"description,omitempty"`
-	ImageURL    *string      `json:"image_url,omitempty"`
-	Program     *ProgramEnum `json:"program,omitempty" validate:"omitempty,oneof=networking devsecops programming"`
-	Status      *EventStatus `json:"status,omitempty" validate:"omitempty,oneof=draft open ongoing closed"`
-	StartsAt    *time.Time   `json:"starts_at,omitempty"`
-	EndsAt      *time.Time   `json:"ends_at,omitempty"`
-	Venue       *string      `json:"venue,omitempty"`
+	Slug                 *string      `json:"slug,omitempty"`
+	Title                *string      `json:"title,omitempty" validate:"omitempty,min=3"`
+	Summary              *string      `json:"summary,omitempty"`
+	Description          *string      `json:"description,omitempty"`
+	ImageURL             *string      `json:"image_url,omitempty"`
+	FilePath             *string      `json:"file_path,omitempty"`
+	Benefits             *[]string    `json:"benefits,omitempty"`
+	Program              *ProgramEnum `json:"program,omitempty" validate:"omitempty,oneof=networking devsecops programming"`
+	Status               *EventStatus `json:"status,omitempty" validate:"omitempty,oneof=draft open ongoing closed"`
+	Capacity             *int         `json:"capacity,omitempty" validate:"omitempty,gte=0"`
+	RegistrationDeadline *time.Time   `json:"registration_deadline,omitempty"`
+	IsPaid               *bool        `json:"is_paid,omitempty"`
+	Price                *int64       `json:"price,omitempty" validate:"omitempty,gte=0"`
+	Currency             *string      `json:"currency,omitempty"`
+	StartsAt             *time.Time   `json:"starts_at,omitempty"`
+	EndsAt               *time.Time   `json:"ends_at,omitempty"`
+	Venue                *string      `json:"venue,omitempty"`
 }
 
 type SetEventStatusRequest struct {
@@ -61,31 +75,56 @@ type SetSpeakerOrderRequest struct {
 // Registrations
 
 type CreateEventRegistrationRequest struct {
-	EventID  string `json:"event_id" validate:"required,uuid4"`
-	FullName string `json:"full_name" validate:"required,min=3"`
-	Email    string `json:"email" validate:"required,email"`
+	EventID     string `json:"event_id" validate:"required"`
+	FullName    string `json:"full_name" validate:"required,min=3"`
+	Email       string `json:"email" validate:"required,email"`
+	PhoneNumber string `json:"phone_number,omitempty"`
+	Institution string `json:"institution,omitempty"`
 }
 
 type UpdateEventRegistrationRequest struct {
-	FullName *string `json:"full_name,omitempty" validate:"omitempty,min=3"`
-	Email    *string `json:"email,omitempty" validate:"omitempty,email"`
+	FullName    *string                  `json:"full_name,omitempty" validate:"omitempty,min=3"`
+	Email       *string                  `json:"email,omitempty" validate:"omitempty,email"`
+	PhoneNumber *string                  `json:"phone_number,omitempty"`
+	Institution *string                  `json:"institution,omitempty"`
+	Status      *EventRegistrationStatus `json:"status,omitempty"`
+}
+
+type VerifyEventRegistrationRequest struct {
+	Token string `json:"token" validate:"required"`
+}
+
+type CreateEventRegistrationPaymentRequest struct {
+	Provider string `json:"provider" validate:"required"`
+}
+
+type EventRegistrationStatusUpdateRequest struct {
+	Status EventRegistrationStatus `json:"status" validate:"required"`
 }
 
 type EventResponse struct {
-	ID          string            `json:"id"`
-	Slug        string            `json:"slug,omitempty"`
-	Title       string            `json:"title"`
-	Summary     string            `json:"summary,omitempty"`
-	Description string            `json:"description,omitempty"`
-	ImageURL    string            `json:"image_url,omitempty"`
-	Program     string            `json:"program,omitempty"`
-	Status      EventStatus       `json:"status"`
-	StartsAt    time.Time         `json:"starts_at"`
-	EndsAt      *time.Time        `json:"ends_at,omitempty"`
-	Venue       string            `json:"venue,omitempty"`
-	Speakers    []SpeakerResponse `json:"speakers,omitempty"`
-	CreatedAt   time.Time         `json:"created_at"`
-	UpdatedAt   time.Time         `json:"updated_at"`
+	ID                   string            `json:"id"`
+	Slug                 string            `json:"slug,omitempty"`
+	Title                string            `json:"title"`
+	Summary              string            `json:"summary,omitempty"`
+	Description          string            `json:"description,omitempty"`
+	ImageURL             string            `json:"image_url,omitempty"`
+	FilePath             string            `json:"file_path,omitempty"`
+	Benefits             []string          `json:"benefits,omitempty"`
+	Program              string            `json:"program,omitempty"`
+	Status               EventStatus       `json:"status"`
+	Capacity             int               `json:"capacity"`
+	RemainingSlots       int               `json:"remaining_slots"`
+	RegistrationDeadline *time.Time        `json:"registration_deadline,omitempty"`
+	IsPaid               bool              `json:"is_paid"`
+	Price                int64             `json:"price"`
+	Currency             string            `json:"currency,omitempty"`
+	StartsAt             time.Time         `json:"starts_at"`
+	EndsAt               *time.Time        `json:"ends_at,omitempty"`
+	Venue                string            `json:"venue,omitempty"`
+	Speakers             []SpeakerResponse `json:"speakers,omitempty"`
+	CreatedAt            time.Time         `json:"created_at"`
+	UpdatedAt            time.Time         `json:"updated_at"`
 }
 
 type SpeakerResponse struct {
@@ -98,11 +137,20 @@ type SpeakerResponse struct {
 }
 
 type EventRegistrationResponse struct {
-	ID        string    `json:"id"`
-	EventID   string    `json:"event_id"`
-	FullName  string    `json:"full_name"`
-	Email     string    `json:"email"`
-	CreatedAt time.Time `json:"created_at"`
+	ID            string                  `json:"id"`
+	EventID       string                  `json:"event_id"`
+	FullName      string                  `json:"full_name"`
+	Email         string                  `json:"email"`
+	PhoneNumber   string                  `json:"phone_number,omitempty"`
+	Institution   string                  `json:"institution,omitempty"`
+	Status        EventRegistrationStatus `json:"status"`
+	PaymentStatus EventPaymentStatus      `json:"payment_status"`
+	PaymentURL    string                  `json:"payment_url,omitempty"`
+	VerifiedAt    *time.Time              `json:"verified_at,omitempty"`
+	ApprovedAt    *time.Time              `json:"approved_at,omitempty"`
+	WaitlistedAt  *time.Time              `json:"waitlisted_at,omitempty"`
+	RejectedAt    *time.Time              `json:"rejected_at,omitempty"`
+	CreatedAt     time.Time               `json:"created_at"`
 }
 
 type EventListResponse struct {
@@ -145,14 +193,34 @@ func (r CreateEventRequest) ToModel() Event {
 	if r.Description != "" {
 		ev.Description = &r.Description
 	}
-	if r.ImageURL != "" {
-		ev.ImageURL = &r.ImageURL
+	imagePath := r.ImageURL
+	if imagePath == "" {
+		imagePath = r.FilePath
+	}
+	if imagePath != "" {
+		ev.ImageURL = &imagePath
+	}
+	if len(r.Benefits) > 0 {
+		ev.Benefits = append(StringArray{}, r.Benefits...)
 	}
 	if r.Program != "" {
 		ev.Program = &r.Program
 	}
 	if r.Status != "" {
 		ev.Status = r.Status
+	}
+	if r.Capacity > 0 {
+		ev.Capacity = r.Capacity
+	}
+	if r.RegistrationDeadline != nil {
+		ev.RegistrationDeadline = r.RegistrationDeadline
+	}
+	ev.IsPaid = r.IsPaid
+	ev.Price = r.Price
+	if r.Currency != "" {
+		ev.Currency = r.Currency
+	} else {
+		ev.Currency = "IDR"
 	}
 	if r.Venue != "" {
 		ev.Venue = &r.Venue
@@ -178,22 +246,36 @@ func (r CreateSpeakerRequest) ToModel() EventSpeaker {
 }
 
 func (r CreateEventRegistrationRequest) ToModel() EventRegistration {
-	return EventRegistration{
-		EventID:  r.EventID,
-		FullName: r.FullName,
-		Email:    r.Email,
+	reg := EventRegistration{
+		EventID:       r.EventID,
+		FullName:      r.FullName,
+		Email:         r.Email,
+		Status:        EventRegistrationPendingVerification,
+		PaymentStatus: EventPaymentNotRequired,
 	}
+	if r.PhoneNumber != "" {
+		reg.PhoneNumber = &r.PhoneNumber
+	}
+	if r.Institution != "" {
+		reg.Institution = &r.Institution
+	}
+	return reg
 }
 
 func EventToResponse(m Event) EventResponse {
 	resp := EventResponse{
-		ID:        m.ID,
-		Title:     m.Title,
-		Status:    m.Status,
-		StartsAt:  m.StartsAt,
-		EndsAt:    m.EndsAt,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
+		ID:             m.ID,
+		Title:          m.Title,
+		Status:         m.Status,
+		Capacity:       m.Capacity,
+		IsPaid:         m.IsPaid,
+		Price:          m.Price,
+		Currency:       m.Currency,
+		StartsAt:       m.StartsAt,
+		EndsAt:         m.EndsAt,
+		CreatedAt:      m.CreatedAt,
+		UpdatedAt:      m.UpdatedAt,
+		RemainingSlots: m.Capacity,
 	}
 	if m.Slug != nil {
 		resp.Slug = *m.Slug
@@ -206,9 +288,16 @@ func EventToResponse(m Event) EventResponse {
 	}
 	if m.ImageURL != nil {
 		resp.ImageURL = *m.ImageURL
+		resp.FilePath = *m.ImageURL
+	}
+	if len(m.Benefits) > 0 {
+		resp.Benefits = append([]string{}, m.Benefits...)
 	}
 	if m.Program != nil {
 		resp.Program = string(*m.Program)
+	}
+	if m.RegistrationDeadline != nil {
+		resp.RegistrationDeadline = m.RegistrationDeadline
 	}
 	if m.Venue != nil {
 		resp.Venue = *m.Venue
@@ -238,12 +327,38 @@ func SpeakerToResponse(m EventSpeaker) SpeakerResponse {
 	return resp
 }
 
-func SpeakerListToResponse(data []EventSpeaker, total int64, page, pageSize, totalPages int) SpeakerListResponse {
-	resp := make([]SpeakerResponse, 0, len(data))
-	for _, sp := range data {
-		resp = append(resp, SpeakerToResponse(sp))
+func EventRegistrationToResponse(m EventRegistration) EventRegistrationResponse {
+	resp := EventRegistrationResponse{
+		ID:            m.ID,
+		EventID:       m.EventID,
+		FullName:      m.FullName,
+		Email:         m.Email,
+		Status:        m.Status,
+		PaymentStatus: m.PaymentStatus,
+		VerifiedAt:    m.EmailVerifiedAt,
+		ApprovedAt:    m.ApprovedAt,
+		WaitlistedAt:  m.WaitlistedAt,
+		RejectedAt:    m.RejectedAt,
+		CreatedAt:     m.CreatedAt,
 	}
-	return SpeakerListResponse{
+	if m.PhoneNumber != nil {
+		resp.PhoneNumber = *m.PhoneNumber
+	}
+	if m.Institution != nil {
+		resp.Institution = *m.Institution
+	}
+	if m.PaymentURL != nil {
+		resp.PaymentURL = *m.PaymentURL
+	}
+	return resp
+}
+
+func EventRegistrationListToResponse(data []EventRegistration, total int64, page, pageSize, totalPages int) EventRegistrationListResponse {
+	resp := make([]EventRegistrationResponse, 0, len(data))
+	for _, item := range data {
+		resp = append(resp, EventRegistrationToResponse(item))
+	}
+	return EventRegistrationListResponse{
 		Data:       resp,
 		Total:      total,
 		Page:       page,
@@ -252,22 +367,12 @@ func SpeakerListToResponse(data []EventSpeaker, total int64, page, pageSize, tot
 	}
 }
 
-func EventRegistrationToResponse(m EventRegistration) EventRegistrationResponse {
-	return EventRegistrationResponse{
-		ID:        m.ID,
-		EventID:   m.EventID,
-		FullName:  m.FullName,
-		Email:     m.Email,
-		CreatedAt: m.CreatedAt,
+func SpeakerListToResponse(data []EventSpeaker, total int64, page, pageSize, totalPages int) SpeakerListResponse {
+	resp := make([]SpeakerResponse, 0, len(data))
+	for _, sp := range data {
+		resp = append(resp, SpeakerToResponse(sp))
 	}
-}
-
-func EventRegistrationListToResponse(data []EventRegistration, total int64, page, pageSize, totalPages int) EventRegistrationListResponse {
-	resp := make([]EventRegistrationResponse, 0, len(data))
-	for _, reg := range data {
-		resp = append(resp, EventRegistrationToResponse(reg))
-	}
-	return EventRegistrationListResponse{
+	return SpeakerListResponse{
 		Data:       resp,
 		Total:      total,
 		Page:       page,

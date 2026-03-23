@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // Base API URL - adjust sesuai environment
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.itts.fun/api/v1';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dev-api.itts.fun/api/v1';
 
 // Create axios instance
 export const apiClient = axios.create({

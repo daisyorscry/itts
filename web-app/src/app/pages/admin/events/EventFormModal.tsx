@@ -12,7 +12,7 @@ import { DateRangePicker } from '@components/ui/date-range-picker';
 import { Input } from '@components/ui/input';
 import * as SelectUI from '@components/ui/select';
 import { Textarea } from '@components/ui/textarea';
-import { useCreateEvent, useUpdateEvent } from '@feature/event/hooks';
+import { useCreateEvent, useUpdateEvent, useUploadEventImage } from '@feature/event/hooks';
 import {
   eventSchema,
   type CreateEventRequest,
@@ -20,6 +20,7 @@ import {
   type EventFormData,
   type UpdateEventRequest,
 } from '@feature/event/types';
+import { EventImageField } from './EventImageField';
 
 interface EventFormModalProps {
   event: Event | null;
@@ -56,6 +57,7 @@ export function EventFormModal({ event, isOpen, onClose }: EventFormModalProps) 
   const isEdit = Boolean(event);
   const { mutate: createEvent, isPending: creating } = useCreateEvent();
   const { mutate: updateEvent, isPending: updating } = useUpdateEvent(event?.id ?? '');
+  const uploadImage = useUploadEventImage();
   const form = useForm<EventFormInput, unknown, EventFormData>({
     resolver: zodResolver(eventSchema),
     mode: 'onChange',
@@ -81,7 +83,7 @@ export function EventFormModal({ event, isOpen, onClose }: EventFormModalProps) 
       title: data.title,
       summary: data.summary || undefined,
       description: data.description || undefined,
-      image_url: data.image_url || undefined,
+      file_path: data.image_url || undefined,
       program: data.program || undefined,
       status: data.status,
       starts_at: new Date(data.starts_at).toISOString(),
@@ -95,7 +97,7 @@ export function EventFormModal({ event, isOpen, onClose }: EventFormModalProps) 
         title: payload.title,
         summary: payload.summary,
         description: payload.description,
-        image_url: payload.image_url,
+        file_path: payload.file_path,
         program: payload.program,
         status: payload.status,
         starts_at: payload.starts_at,
@@ -230,9 +232,16 @@ export function EventFormModal({ event, isOpen, onClose }: EventFormModalProps) 
                 <FormUI.FormField id="venue" label="Venue" error={errors.venue?.message} tone="inverse">
                   <Input id="venue" {...register('venue')} tone="inverse" />
                 </FormUI.FormField>
-                <FormUI.FormField id="image_url" label="Image URL" error={errors.image_url?.message} tone="inverse">
-                  <Input id="image_url" {...register('image_url')} hasError={Boolean(errors.image_url)} tone="inverse" />
-                </FormUI.FormField>
+                <EventImageField
+                  value={watch('image_url') || ''}
+                  error={errors.image_url?.message}
+                  disabled={isPending}
+                  isUploading={uploadImage.isPending}
+                  onFileSelect={async (file) => {
+                    const response = await uploadImage.mutateAsync(file);
+                    setValue('image_url', response.data.file_path, { shouldDirty: true, shouldValidate: true });
+                  }}
+                />
               </LayoutUI.Container>
 
               <FormUI.FormField id="summary" label="Summary" error={errors.summary?.message} tone="inverse">
