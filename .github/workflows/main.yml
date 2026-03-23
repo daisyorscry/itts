@@ -1,42 +1,21 @@
-name: Test Workflow
+name: Test Deploy ITTS Community
 
 on:
-  workflow_dispatch:
-
-env:
-  REGISTRY: registry.itts.fun
-  PROJECT: library
-  IMAGE_NAME: test-runner
+  push:
+    branches:
+      - main
 
 jobs:
-  test-push:
-    runs-on: [self-hosted, linux, x64]
+  deploy:
+    runs-on: self-hosted
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Login registry
+      - name: Deploy with Docker Compose
         run: |
-          echo "${{ secrets.HARBOR_PASSWORD }}" | docker login ${{ env.REGISTRY }} \
-            -u "${{ secrets.HARBOR_USERNAME }}" \
-            --password-stdin
-
-      - name: Pull test image
-        run: docker pull alpine:3.20
-
-      - name: Tag test image
-        run: |
-          docker tag alpine:3.20 ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:latest
-          docker tag alpine:3.20 ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
-
-      - name: Push test image
-        run: |
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:latest
-          docker push ${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}
-
-      - name: Verify
-        run: |
-          echo "Pushed:"
-          echo "${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:latest"
-          echo "${{ env.REGISTRY }}/${{ env.PROJECT }}/${{ env.IMAGE_NAME }}:${{ github.run_number }}"
+          pwd
+          ls -lah
+          docker compose down || true
+          docker compose up -d --build
