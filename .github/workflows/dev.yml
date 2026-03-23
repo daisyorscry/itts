@@ -13,9 +13,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Deploy with Docker Compose
+      - name: Build images first
         run: |
-          pwd
-          ls -lah
-          docker compose --env-file /opt/env/itts.env down || true
-          docker compose --env-file /opt/env/itts.env up -d --build
+          docker compose --env-file /opt/env/itts.env build web api
+
+      - name: Recreate only updated services
+        run: |
+          docker compose --env-file /opt/env/itts.env up -d --no-deps web api
