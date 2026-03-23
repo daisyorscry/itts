@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -77,7 +78,7 @@ func LoadConfig() *Config {
 
 	if err := viper.ReadInConfig(); err != nil {
 		var notFound viper.ConfigFileNotFoundError
-		if errors.As(err, &notFound) {
+		if errors.As(err, &notFound) || errors.Is(err, os.ErrNotExist) {
 			log.Println("config: .env not found, using environment variables only")
 		} else {
 			log.Fatalf("error loading config: %v", err)
