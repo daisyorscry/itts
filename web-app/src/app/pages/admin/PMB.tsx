@@ -454,7 +454,7 @@ export function AdminPMB() {
         </TabsContent>
 
         <TabsContent value="applications" className="space-y-4">
-          <CardUI.Card tone="inverse">
+          <CardUI.Card tone="inverse" border={false}>
             <CardUI.CardContent>
               <LayoutUI.Column gap="gap-4">
                 <LayoutUI.Row justify="justify-between" align="items-start" className="gap-4 max-xl:flex-col max-xl:items-start">

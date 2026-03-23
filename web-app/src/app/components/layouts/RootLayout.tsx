@@ -21,6 +21,7 @@ const navLinks = [
   { name: 'Home', path: '/' },
   { name: 'About', path: '/about' },
   { name: 'Events', path: '/events' },
+  { name: 'Admission', path: '/admission' },
   { name: 'Docs', path: '/docs' },
 ];
 
@@ -30,6 +31,7 @@ const footerLinks = {
     { label: 'Community', to: '/community' },
     { label: 'Programs', to: '/program' },
     { label: 'Events', to: '/events' },
+    { label: 'Admission', to: '/admission' },
     { label: 'Mentors', to: '#' },
     { label: 'Partners', to: '#' },
   ],

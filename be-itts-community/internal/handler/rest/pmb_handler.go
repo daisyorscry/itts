@@ -70,6 +70,52 @@ func (h *PMBHandler) GetMyApplicant(w http.ResponseWriter, r *http.Request) {
 	core.OK(w, r, resp)
 }
 
+// POST /api/v1/pmb/me/applicant
+func (h *PMBHandler) CreateMyApplicant(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+
+	var req model.CreateApplicantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid request body", nil)
+		return
+	}
+
+	req.UserID = authCtx.UserID
+
+	resp, err := h.pmbSvc.CreateApplicant(r.Context(), req)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	core.Created(w, r, resp)
+}
+
+// PATCH /api/v1/pmb/me/applicant
+func (h *PMBHandler) UpdateMyApplicant(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+
+	applicant, err := h.pmbSvc.GetApplicantByUserID(r.Context(), authCtx.UserID)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	var req model.UpdateApplicantRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid request body", nil)
+		return
+	}
+
+	resp, err := h.pmbSvc.UpdateApplicant(r.Context(), applicant.ID, req)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	core.OK(w, r, resp)
+}
+
 // PATCH /api/v1/admin/pmb/applicants/:id
 func (h *PMBHandler) UpdateApplicant(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
@@ -520,6 +566,19 @@ func (h *PMBHandler) CreateStudyProgram(w http.ResponseWriter, r *http.Request) 
 
 // GET /api/v1/admin/pmb/programs/:id
 func (h *PMBHandler) GetStudyProgram(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	resp, err := h.pmbSvc.GetStudyProgram(r.Context(), id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	core.OK(w, r, resp)
+}
+
+// GET /api/v1/pmb/programs/:id
+func (h *PMBHandler) GetPublicStudyProgram(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	resp, err := h.pmbSvc.GetStudyProgram(r.Context(), id)

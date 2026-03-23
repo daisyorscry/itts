@@ -101,6 +101,24 @@ export interface PMBFinalResult {
   updated_at: string;
 }
 
+export interface PMBAvailableQuota {
+  program_id: string;
+  academic_year: string;
+  available_quota: number;
+}
+
+export interface PublicPMBApplicantFormRequest {
+  full_name: string;
+  national_id: string;
+  place_of_birth: string;
+  date_of_birth: string;
+  gender: 'male' | 'female';
+  address: string;
+  phone_number: string;
+  school_origin: string;
+  graduation_year: string;
+}
+
 export interface PMBReRegistration {
   id: string;
   application_id: string;
@@ -190,6 +208,11 @@ export interface ListPMBProgramsParams {
   search?: string;
   faculty_id?: string;
   degree_level?: PMBDegreeLevel;
+}
+
+export interface ListPublicPMBPassedApplicantsParams {
+  academic_year: string;
+  program_id?: string;
 }
 
 export interface ListPMBApplicantsParams {
@@ -370,10 +393,23 @@ export const pmbApplicantSchema = z.object({
   graduation_year: z.string().length(4, 'Graduation year must be 4 digits'),
 });
 
+export const pmbPublicApplicantSchema = z.object({
+  full_name: z.string().min(3, 'Full name is required'),
+  national_id: z.string().length(16, 'National ID must be 16 digits'),
+  place_of_birth: z.string().min(2, 'Place of birth is required'),
+  date_of_birth: z.string().min(1, 'Date of birth is required'),
+  gender: z.enum(['male', 'female']),
+  address: z.string().min(5, 'Address is required'),
+  phone_number: z.string().min(8, 'Phone number is required'),
+  school_origin: z.string().min(2, 'School origin is required'),
+  graduation_year: z.string().regex(/^\d{4}$/, 'Graduation year must be 4 digits'),
+});
+
 export type PMBTrackFormData = z.infer<typeof pmbTrackSchema>;
 export type PMBFacultyFormData = z.infer<typeof pmbFacultySchema>;
 export type PMBStudyProgramFormData = z.infer<typeof pmbStudyProgramSchema>;
 export type PMBApplicantFormData = z.infer<typeof pmbApplicantSchema>;
+export type PMBPublicApplicantFormData = z.infer<typeof pmbPublicApplicantSchema>;
 export type PMBApplicationFormData = z.infer<typeof pmbApplicationSchema>;
 export type PMBEvaluationFormData = z.infer<typeof pmbEvaluationSchema>;
 export type PMBFinalResultFormData = z.infer<typeof pmbFinalResultSchema>;

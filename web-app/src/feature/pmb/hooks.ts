@@ -5,6 +5,7 @@ import {
   createPMBAdmissionTrackApi,
   createPMBApplicantApi,
   createPMBApplicationApi,
+  createMyPMBApplicantApi,
   createPMBEvaluationApi,
   createPMBFacultyApi,
   createPMBFinalResultApi,
@@ -20,6 +21,9 @@ import {
   getPMBAverageScoreApi,
   getPMBApplicationDetailsApi,
   getPMBProgramStatsApi,
+  getMyPMBApplicantApi,
+  getPublicPMBProgramApi,
+  getPublicPMBQuotaApi,
   listPMBAdmissionTracksApi,
   listPMBApplicantsApi,
   listPMBApplicationsApi,
@@ -27,6 +31,11 @@ import {
   listPMBFacultiesApi,
   listPMBPendingPaymentsApi,
   listPMBStudyProgramsApi,
+  listPublicPMBActiveTracksApi,
+  listPublicPMBFacultiesApi,
+  listPublicPMBPassedApplicantsApi,
+  listPublicPMBProgramsByFacultyApi,
+  updateMyPMBApplicantApi,
   updatePMBAdmissionTrackApi,
   updatePMBApplicantApi,
   updatePMBApplicationApi,
@@ -51,6 +60,7 @@ import type {
   ListPMBApplicantsParams,
   ListPMBApplicationsParams,
   ListPMBFacultiesParams,
+  ListPublicPMBPassedApplicantsParams,
   ListPMBProgramsParams,
   ListPMBTracksParams,
   UpdatePMBAdmissionTrackRequest,
@@ -63,11 +73,13 @@ import type {
   UpdatePMBFinalResultRequest,
   UpdatePMBPaymentStatusRequest,
   UpdatePMBStudyProgramRequest,
+  PublicPMBApplicantFormRequest,
 } from './types';
 
 export const pmbKeys = {
   all: ['pmb'] as const,
   applicants: () => [...pmbKeys.all, 'applicants'] as const,
+  myApplicant: () => [...pmbKeys.all, 'my-applicant'] as const,
   applicantList: (params?: ListPMBApplicantsParams) => [...pmbKeys.applicants(), params] as const,
   applications: () => [...pmbKeys.all, 'applications'] as const,
   applicationList: (params?: ListPMBApplicationsParams) => [...pmbKeys.applications(), params] as const,
@@ -81,6 +93,17 @@ export const pmbKeys = {
   applicationStatsByAcademicYear: (academicYear: string) => [...pmbKeys.applicationStats(), academicYear] as const,
   averageScores: () => [...pmbKeys.all, 'average-scores'] as const,
   averageScoreByApplication: (applicationId: string) => [...pmbKeys.averageScores(), applicationId] as const,
+  publicTracks: () => [...pmbKeys.all, 'public-tracks'] as const,
+  publicFaculties: () => [...pmbKeys.all, 'public-faculties'] as const,
+  publicFacultyList: (params?: ListPMBFacultiesParams) => [...pmbKeys.publicFaculties(), params] as const,
+  publicPrograms: () => [...pmbKeys.all, 'public-programs'] as const,
+  publicProgramsByFaculty: (facultyId: string) => [...pmbKeys.publicPrograms(), facultyId] as const,
+  publicQuota: () => [...pmbKeys.all, 'public-quota'] as const,
+  publicProgram: () => [...pmbKeys.all, 'public-program'] as const,
+  publicProgramById: (programId: string) => [...pmbKeys.publicProgram(), programId] as const,
+  publicQuotaByProgram: (programId: string, academicYear: string) => [...pmbKeys.publicQuota(), programId, academicYear] as const,
+  publicPassedApplicants: () => [...pmbKeys.all, 'public-passed'] as const,
+  publicPassedApplicantsList: (params: ListPublicPMBPassedApplicantsParams) => [...pmbKeys.publicPassedApplicants(), params] as const,
   programStats: () => [...pmbKeys.all, 'program-stats'] as const,
   programStatsById: (programId: string, academicYear: string) => [...pmbKeys.programStats(), programId, academicYear] as const,
   tracks: () => [...pmbKeys.all, 'tracks'] as const,
@@ -109,6 +132,19 @@ export function useListPMBApplicants(params?: ListPMBApplicantsParams) {
       const response = await listPMBApplicantsApi(params);
       return response.data;
     },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useMyPMBApplicant(enabled = true) {
+  return useQuery({
+    queryKey: pmbKeys.myApplicant(),
+    queryFn: async () => {
+      const response = await getMyPMBApplicantApi();
+      return response.data;
+    },
+    enabled,
+    retry: false,
     staleTime: 30 * 1000,
   });
 }
@@ -217,6 +253,76 @@ export function useListPMBStudyPrograms(params?: ListPMBProgramsParams) {
   });
 }
 
+export function useListPublicPMBActiveTracks() {
+  return useQuery({
+    queryKey: pmbKeys.publicTracks(),
+    queryFn: async () => {
+      const response = await listPublicPMBActiveTracksApi();
+      return response.data;
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useListPublicPMBFaculties(params?: ListPMBFacultiesParams) {
+  return useQuery({
+    queryKey: pmbKeys.publicFacultyList(params),
+    queryFn: async () => {
+      const response = await listPublicPMBFacultiesApi(params);
+      return response.data;
+    },
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useListPublicPMBProgramsByFaculty(facultyId: string, enabled = true) {
+  return useQuery({
+    queryKey: pmbKeys.publicProgramsByFaculty(facultyId),
+    queryFn: async () => {
+      const response = await listPublicPMBProgramsByFacultyApi(facultyId);
+      return response.data;
+    },
+    enabled: enabled && !!facultyId,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function usePublicPMBProgram(programId: string, enabled = true) {
+  return useQuery({
+    queryKey: pmbKeys.publicProgramById(programId),
+    queryFn: async () => {
+      const response = await getPublicPMBProgramApi(programId);
+      return response.data;
+    },
+    enabled: enabled && !!programId,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function usePublicPMBQuota(programId: string, academicYear: string, enabled = true) {
+  return useQuery({
+    queryKey: pmbKeys.publicQuotaByProgram(programId, academicYear),
+    queryFn: async () => {
+      const response = await getPublicPMBQuotaApi(programId, academicYear);
+      return response.data;
+    },
+    enabled: enabled && !!programId && !!academicYear,
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useListPublicPMBPassedApplicants(params: ListPublicPMBPassedApplicantsParams, enabled = true) {
+  return useQuery({
+    queryKey: pmbKeys.publicPassedApplicantsList(params),
+    queryFn: async () => {
+      const response = await listPublicPMBPassedApplicantsApi(params);
+      return response.data;
+    },
+    enabled: enabled && !!params.academic_year,
+    staleTime: 30 * 1000,
+  });
+}
+
 export function useCreatePMBAdmissionTrack() {
   const queryClient = useQueryClient();
 
@@ -232,6 +338,36 @@ export function useCreatePMBAdmissionTrack() {
   });
 }
 
+export function useCreateMyPMBApplicant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: PublicPMBApplicantFormRequest) => createMyPMBApplicantApi(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: pmbKeys.myApplicant() });
+      toast.success('Applicant profile created');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useUpdateMyPMBApplicant() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: Partial<PublicPMBApplicantFormRequest>) => updateMyPMBApplicantApi(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: pmbKeys.myApplicant() });
+      toast.success('Applicant profile updated');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
 export function useCreatePMBApplication() {
   const queryClient = useQueryClient();
 
@@ -239,6 +375,7 @@ export function useCreatePMBApplication() {
     mutationFn: (payload: CreatePMBApplicationRequest) => createPMBApplicationApi(payload),
     onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: pmbKeys.applications() });
+      queryClient.invalidateQueries({ queryKey: pmbKeys.myApplicant() });
       toast.success(`Application "${response.data.application_number}" created`);
     },
     onError: (error) => {

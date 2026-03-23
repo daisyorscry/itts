@@ -16,6 +16,7 @@ import type {
   ListPMBProgramsParams,
   ListPMBTracksParams,
   PMBAdmissionTrack,
+  PMBAvailableQuota,
   PMBApplicant,
   PMBApplicantDocument,
   PMBAverageScore,
@@ -29,6 +30,8 @@ import type {
   PMBProgramDetailStats,
   PMBReRegistration,
   PMBStudyProgram,
+  PublicPMBApplicantFormRequest,
+  ListPublicPMBPassedApplicantsParams,
   UpdatePMBAdmissionTrackRequest,
   UpdatePMBApplicantRequest,
   UpdatePMBApplicationRequest,
@@ -63,6 +66,50 @@ export async function createPMBApplicationApi(payload: CreatePMBApplicationReque
   return response.data;
 }
 
+export async function getMyPMBApplicantApi(): Promise<ApiResponse<PMBApplicant>> {
+  const response = await apiClient.get<ApiResponse<PMBApplicant>>('/pmb/me/applicant');
+  return response.data;
+}
+
+export async function createMyPMBApplicantApi(payload: PublicPMBApplicantFormRequest): Promise<ApiResponse<PMBApplicant>> {
+  const response = await apiClient.post<ApiResponse<PMBApplicant>>('/pmb/me/applicant', payload);
+  return response.data;
+}
+
+export async function updateMyPMBApplicantApi(payload: Partial<PublicPMBApplicantFormRequest>): Promise<ApiResponse<PMBApplicant>> {
+  const response = await apiClient.patch<ApiResponse<PMBApplicant>>('/pmb/me/applicant', payload);
+  return response.data;
+}
+
+export async function listPublicPMBActiveTracksApi(): Promise<ApiResponse<PMBAdmissionTrack[]>> {
+  const response = await apiClient.get<ApiResponse<PMBAdmissionTrack[]>>('/pmb/tracks/active');
+  return response.data;
+}
+
+export async function listPublicPMBProgramsByFacultyApi(facultyId: string): Promise<ApiResponse<PMBStudyProgram[]>> {
+  const response = await apiClient.get<ApiResponse<PMBStudyProgram[]>>(`/pmb/faculties/${facultyId}/programs`);
+  return response.data;
+}
+
+export async function getPublicPMBProgramApi(programId: string): Promise<ApiResponse<PMBStudyProgram>> {
+  const response = await apiClient.get<ApiResponse<PMBStudyProgram>>(`/pmb/programs/${programId}`);
+  return response.data;
+}
+
+export async function getPublicPMBQuotaApi(programId: string, academicYear: string): Promise<ApiResponse<PMBAvailableQuota>> {
+  const response = await apiClient.get<ApiResponse<PMBAvailableQuota>>(`/pmb/programs/${programId}/quota`, {
+    params: { academic_year: academicYear },
+  });
+  return response.data;
+}
+
+export async function listPublicPMBPassedApplicantsApi(
+  params: ListPublicPMBPassedApplicantsParams,
+): Promise<ApiResponse<PMBFinalResult[]>> {
+  const response = await apiClient.get<ApiResponse<PMBFinalResult[]>>('/pmb/results/passed', { params });
+  return response.data;
+}
+
 export async function getPMBApplicationDetailsApi(id: string): Promise<ApiResponse<PMBApplicationDetails>> {
   const response = await apiClient.get<ApiResponse<PMBApplicationDetails>>(`${PMB_BASE}/applications/${id}/details`);
   return response.data;
@@ -92,6 +139,11 @@ export async function listPMBAdmissionTracksApi(params?: ListPMBTracksParams): P
 
 export async function listPMBFacultiesApi(params?: ListPMBFacultiesParams): Promise<ApiResponse<PMBListResponse<PMBFaculty>>> {
   const response = await apiClient.get<ApiResponse<PMBListResponse<PMBFaculty>>>(`${PMB_BASE}/faculties`, { params });
+  return response.data;
+}
+
+export async function listPublicPMBFacultiesApi(params?: ListPMBFacultiesParams): Promise<ApiResponse<PMBListResponse<PMBFaculty>>> {
+  const response = await apiClient.get<ApiResponse<PMBListResponse<PMBFaculty>>>('/pmb/faculties', { params });
   return response.data;
 }
 
