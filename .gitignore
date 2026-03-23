@@ -140,3 +140,4 @@ vite.config.ts.timestamp-*
 
 deployment
 be-itts-community/server
+be-itts-community/tmp/main
