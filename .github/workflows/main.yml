@@ -3,7 +3,7 @@ name: Test Deploy ITTS Community
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   deploy:
