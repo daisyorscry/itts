@@ -1,0 +1,11 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+body {
+  font-family: 'Sora', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+h1, h2, h3, .display-text {
+  font-family: 'Outfit', 'Sora', sans-serif;
+}
