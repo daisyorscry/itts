@@ -17,5 +17,5 @@ jobs:
         run: |
           pwd
           ls -lah
-          docker compose down || true
+          docker compose --env-file /opt/env/itts.env down || true
           docker compose --env-file /opt/env/itts.env up -d --build
