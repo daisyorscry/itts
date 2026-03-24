@@ -1,10 +1,23 @@
 -- +goose Up
 -- +goose StatementBegin
 
-CREATE TYPE gender_enum AS ENUM ('male', 'female');
-CREATE TYPE degree_level_enum AS ENUM ('D3', 'S1', 'S2', 'S3');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'gender_enum') THEN
+        CREATE TYPE gender_enum AS ENUM ('male', 'female');
+    END IF;
+END
+$$;
 
-CREATE TABLE applicants (
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'degree_level_enum') THEN
+        CREATE TYPE degree_level_enum AS ENUM ('D3', 'S1', 'S2', 'S3');
+    END IF;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS applicants (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL UNIQUE,
     full_name VARCHAR(100) NOT NULL,
@@ -22,7 +35,7 @@ CREATE TABLE applicants (
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE admission_tracks (
+CREATE TABLE IF NOT EXISTS admission_tracks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     track_code VARCHAR(20) NOT NULL UNIQUE,
     track_name VARCHAR(100) NOT NULL,
@@ -32,7 +45,7 @@ CREATE TABLE admission_tracks (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE faculties (
+CREATE TABLE IF NOT EXISTS faculties (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     code VARCHAR(20) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
@@ -40,7 +53,7 @@ CREATE TABLE faculties (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE study_programs (
+CREATE TABLE IF NOT EXISTS study_programs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     faculty_id UUID NOT NULL,
     code VARCHAR(20) NOT NULL UNIQUE,
@@ -53,7 +66,7 @@ CREATE TABLE study_programs (
         FOREIGN KEY (faculty_id) REFERENCES faculties(id)
 );
 
-CREATE TABLE applications (
+CREATE TABLE IF NOT EXISTS applications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     applicant_id UUID NOT NULL,
     track_id UUID NOT NULL,
@@ -73,13 +86,13 @@ CREATE TABLE applications (
         FOREIGN KEY (program_id) REFERENCES study_programs(id)
 );
 
-CREATE INDEX idx_applications_applicant ON applications(applicant_id);
-CREATE INDEX idx_applications_track ON applications(track_id);
-CREATE INDEX idx_applications_program ON applications(program_id);
-CREATE INDEX idx_applications_academic_year ON applications(academic_year);
-CREATE INDEX idx_applications_status ON applications(status);
+CREATE INDEX IF NOT EXISTS idx_applications_applicant ON applications(applicant_id);
+CREATE INDEX IF NOT EXISTS idx_applications_track ON applications(track_id);
+CREATE INDEX IF NOT EXISTS idx_applications_program ON applications(program_id);
+CREATE INDEX IF NOT EXISTS idx_applications_academic_year ON applications(academic_year);
+CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
 
-CREATE TABLE applicant_documents (
+CREATE TABLE IF NOT EXISTS applicant_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     applicant_id UUID NOT NULL,
     document_type VARCHAR(50) NOT NULL,
@@ -97,11 +110,11 @@ CREATE TABLE applicant_documents (
         FOREIGN KEY (verified_by) REFERENCES users(id)
 );
 
-CREATE INDEX idx_applicant_documents_applicant ON applicant_documents(applicant_id);
-CREATE INDEX idx_applicant_documents_type ON applicant_documents(document_type);
-CREATE INDEX idx_applicant_documents_status ON applicant_documents(verification_status);
+CREATE INDEX IF NOT EXISTS idx_applicant_documents_applicant ON applicant_documents(applicant_id);
+CREATE INDEX IF NOT EXISTS idx_applicant_documents_type ON applicant_documents(document_type);
+CREATE INDEX IF NOT EXISTS idx_applicant_documents_status ON applicant_documents(verification_status);
 
-CREATE TABLE evaluations (
+CREATE TABLE IF NOT EXISTS evaluations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL,
     evaluation_type VARCHAR(30) NOT NULL CHECK (
@@ -115,9 +128,9 @@ CREATE TABLE evaluations (
         FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_evaluations_application ON evaluations(application_id);
+CREATE INDEX IF NOT EXISTS idx_evaluations_application ON evaluations(application_id);
 
-CREATE TABLE final_results (
+CREATE TABLE IF NOT EXISTS final_results (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL UNIQUE,
     result_status VARCHAR(20) NOT NULL CHECK (
@@ -133,9 +146,9 @@ CREATE TABLE final_results (
         FOREIGN KEY (decided_by) REFERENCES users(id)
 );
 
-CREATE INDEX idx_final_results_status ON final_results(result_status);
+CREATE INDEX IF NOT EXISTS idx_final_results_status ON final_results(result_status);
 
-CREATE TABLE re_registration (
+CREATE TABLE IF NOT EXISTS re_registration (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID NOT NULL UNIQUE,
     re_registration_date DATE NOT NULL,
@@ -149,7 +162,7 @@ CREATE TABLE re_registration (
         FOREIGN KEY (application_id) REFERENCES applications(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_re_registration_payment_status ON re_registration(payment_status);
+CREATE INDEX IF NOT EXISTS idx_re_registration_payment_status ON re_registration(payment_status);
 
 
 -- +goose StatementEnd

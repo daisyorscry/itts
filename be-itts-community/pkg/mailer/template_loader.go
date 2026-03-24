@@ -16,10 +16,21 @@ var (
 
 // TemplateData holds common data for email templates
 type TemplateData struct {
-	FullName   string
-	Program    string
-	Email      string
-	VerifyLink string
+	FullName         string
+	Program          string
+	Email            string
+	VerifyLink       string
+	ResumeLink       string
+	EventTitle       string
+	EventSummary     string
+	EventVenue       string
+	EventDate        string
+	Status           string
+	Reason           string
+	PaymentLink      string
+	PaymentReference string
+	Amount           string
+	Currency         string
 }
 
 // initTemplates loads all email templates once
@@ -68,5 +79,38 @@ func RenderApprovalEmail(fullName, program, email string) (string, error) {
 		FullName: fullName,
 		Program:  program,
 		Email:    email,
+	})
+}
+
+func RenderEventStatusEmail(fullName, eventTitle, status, reason string) (string, error) {
+	return RenderTemplate("event-status.html", TemplateData{
+		FullName:   fullName,
+		EventTitle: eventTitle,
+		Status:     status,
+		Reason:     reason,
+	})
+}
+
+func RenderEventVerificationEmail(fullName, eventTitle, eventSummary, eventVenue, eventDate, verifyLink string) (string, error) {
+	return RenderTemplate("event-verification.html", TemplateData{
+		FullName:     fullName,
+		EventTitle:   eventTitle,
+		EventSummary: eventSummary,
+		EventVenue:   eventVenue,
+		EventDate:    eventDate,
+		VerifyLink:   verifyLink,
+	})
+}
+
+func RenderEventInvoiceEmail(fullName, eventTitle, eventVenue, eventDate, amount, currency, paymentReference, resumeLink string) (string, error) {
+	return RenderTemplate("event-invoice.html", TemplateData{
+		FullName:         fullName,
+		EventTitle:       eventTitle,
+		EventVenue:       eventVenue,
+		EventDate:        eventDate,
+		Amount:           amount,
+		Currency:         currency,
+		PaymentReference: paymentReference,
+		ResumeLink:       resumeLink,
 	})
 }

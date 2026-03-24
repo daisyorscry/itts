@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { motion } from 'motion/react';
 import * as Icons from 'lucide-react';
 import { useCreateEventRegistrationPayment, useVerifyEventRegistration } from '@feature/event/hooks';
@@ -52,25 +52,30 @@ function getStatusTone(registration?: EventRegistration | null) {
 
 export function EventRegistrationVerify() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const token = searchParams.get('token')?.trim() ?? '';
   const verifyMutation = useVerifyEventRegistration();
+  const { mutate: verifyRegistration } = verifyMutation;
   const [registration, setRegistration] = useState<EventRegistration | null>(null);
   const paymentMutation = useCreateEventRegistrationPayment(registration?.id ?? '');
+  const verifiedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!token || verifyMutation.isSuccess || verifyMutation.isPending) {
+    if (!token || verifiedTokenRef.current === token) {
       return;
     }
 
-    verifyMutation.mutate(
+    verifiedTokenRef.current = token;
+    verifyRegistration(
       { token },
       {
         onSuccess: (response) => {
           setRegistration(response.data);
+          navigate(`/events/payment-resume?token=${encodeURIComponent(token)}`, { replace: true });
         },
       },
     );
-  }, [token, verifyMutation]);
+  }, [navigate, token, verifyRegistration]);
 
   const statusCopy = getStatusCopy(registration);
   const canCreatePayment = registration?.status === 'pending_payment';
@@ -160,34 +165,52 @@ export function EventRegistrationVerify() {
                   </div>
 
                   {paymentURL ? (
-                    <a
-                      href={paymentURL}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90"
-                    >
-                      Continue to payment
-                      <Icons.ArrowUpRight className="size-4" />
-                    </a>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <a
+                        href={paymentURL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90"
+                      >
+                        Continue to payment
+                        <Icons.ArrowUpRight className="size-4" />
+                      </a>
+                      <Link
+                        to={`/events/payment-resume?registration_id=${registration.id}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04]"
+                      >
+                        Track payment status
+                        <Icons.ReceiptText className="size-4" />
+                      </Link>
+                    </div>
                   ) : canCreatePayment ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        paymentMutation.mutate(
-                          { provider: 'midtrans' },
-                          {
-                            onSuccess: (response) => {
-                              setRegistration(response.data);
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          paymentMutation.mutate(
+                            { provider: 'midtrans' },
+                            {
+                              onSuccess: (response) => {
+                                setRegistration(response.data);
+                              },
                             },
-                          },
-                        );
-                      }}
-                      disabled={paymentMutation.isPending}
-                      className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {paymentMutation.isPending ? 'Preparing payment...' : 'Generate payment link'}
-                      <Icons.CreditCard className="size-4" />
-                    </button>
+                          );
+                        }}
+                        disabled={paymentMutation.isPending}
+                        className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {paymentMutation.isPending ? 'Preparing payment...' : 'Generate payment link'}
+                        <Icons.CreditCard className="size-4" />
+                      </button>
+                      <Link
+                        to={`/events/payment-resume?registration_id=${registration.id}`}
+                        className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04]"
+                      >
+                        Open payment resume
+                        <Icons.ReceiptText className="size-4" />
+                      </Link>
+                    </div>
                   ) : null}
                 </div>
               ) : null}

@@ -147,9 +147,5 @@ func (l *gormCoreLogger) Trace(ctx context.Context, begin time.Time, fc func() (
 }
 
 func resolveGormLogLevel(appEnv string) logger.LogLevel {
-	if appEnv == "production" {
-		return logger.Warn
-	}
-
-	return logger.Info
+	return logger.Error
 }

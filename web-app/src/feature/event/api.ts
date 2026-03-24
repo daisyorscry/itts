@@ -7,6 +7,8 @@ import type {
   CreateSpeakerRequest,
   Event,
   EventRegistration,
+  EventRegistrationActionResult,
+  EventRegistrationActivity,
   EventListResponse,
   EventRegistrationListResponse,
   ListEventRegistrationsParams,
@@ -15,6 +17,7 @@ import type {
   SetEventStatusRequest,
   Speaker,
   SpeakerListResponse,
+  RejectEventRegistrationRequest,
   UploadedEventImage,
   UpdateEventRequest,
   UpdateSpeakerRequest,
@@ -100,8 +103,67 @@ export async function listEventRegistrationsApi(params?: ListEventRegistrationsP
   return response.data;
 }
 
+export async function getEventRegistrationApi(id: string): Promise<ApiResponse<EventRegistration>> {
+  const response = await apiClient.get<ApiResponse<EventRegistration>>(`${REGISTRATION_BASE}/${id}`);
+  return response.data;
+}
+
+export async function getPublicEventRegistrationApi(id: string): Promise<ApiResponse<EventRegistration>> {
+  const response = await apiClient.get<ApiResponse<EventRegistration>>(`/events/registrations/${id}`);
+  return response.data;
+}
+
+export async function getPublicEventRegistrationByTokenApi(token: string): Promise<ApiResponse<EventRegistration>> {
+  const response = await apiClient.get<ApiResponse<EventRegistration>>('/events/registrations/access', {
+    params: { token },
+  });
+  return response.data;
+}
+
+export async function resendEventRegistrationVerificationApi(token: string): Promise<ApiResponse<{ message: string }>> {
+  const response = await apiClient.post<ApiResponse<{ message: string }>>('/events/registrations/resend-verification', undefined, {
+    params: { token },
+  });
+  return response.data;
+}
+
+export async function resendEventRegistrationInvoiceApi(token: string): Promise<ApiResponse<{ message: string }>> {
+  const response = await apiClient.post<ApiResponse<{ message: string }>>('/events/registrations/resend-invoice', undefined, {
+    params: { token },
+  });
+  return response.data;
+}
+
+export async function listEventRegistrationActivitiesApi(id: string): Promise<ApiResponse<EventRegistrationActivity[]>> {
+  const response = await apiClient.get<ApiResponse<EventRegistrationActivity[]>>(`${REGISTRATION_BASE}/${id}/activities`);
+  return response.data;
+}
+
 export async function deleteEventRegistrationApi(id: string): Promise<void> {
   await apiClient.delete(`${REGISTRATION_BASE}/${id}`);
+}
+
+export async function approveEventRegistrationApi(id: string): Promise<ApiResponse<EventRegistrationActionResult>> {
+  const response = await apiClient.patch<ApiResponse<EventRegistrationActionResult>>(`${REGISTRATION_BASE}/${id}/approve`);
+  return response.data;
+}
+
+export async function rejectEventRegistrationApi(
+  id: string,
+  payload: RejectEventRegistrationRequest,
+): Promise<ApiResponse<EventRegistrationActionResult>> {
+  const response = await apiClient.patch<ApiResponse<EventRegistrationActionResult>>(`${REGISTRATION_BASE}/${id}/reject`, payload);
+  return response.data;
+}
+
+export async function waitlistEventRegistrationApi(id: string): Promise<ApiResponse<EventRegistrationActionResult>> {
+  const response = await apiClient.patch<ApiResponse<EventRegistrationActionResult>>(`${REGISTRATION_BASE}/${id}/waitlist`);
+  return response.data;
+}
+
+export async function promoteEventRegistrationApi(id: string): Promise<ApiResponse<EventRegistrationActionResult>> {
+  const response = await apiClient.patch<ApiResponse<EventRegistrationActionResult>>(`${REGISTRATION_BASE}/${id}/promote`);
+  return response.data;
 }
 
 export async function registerToPublicEventApi(

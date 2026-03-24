@@ -46,6 +46,34 @@ func (r *eventRegistrationRepo) FindValidByVerificationHash(ctx context.Context,
 	return &out, nil
 }
 
+func (r *eventRegistrationRepo) FindByVerificationHash(ctx context.Context, hash string) (*model.EventRegistration, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "FindByVerificationHash")()
+	}
+	var out model.EventRegistration
+	if err := r.db.Get(ctx).
+		Preload("Event").
+		Where("verification_token_hash = ?", hash).
+		First(&out).Error; err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (r *eventRegistrationRepo) FindByPaymentReference(ctx context.Context, reference string) (*model.EventRegistration, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "FindByPaymentReference")()
+	}
+	var out model.EventRegistration
+	if err := r.db.Get(ctx).
+		Preload("Event").
+		Where("payment_reference = ?", reference).
+		First(&out).Error; err != nil {
+		return nil, err
+	}
+	return &out, nil
+}
+
 func (r *eventRegistrationRepo) CountByEventAndStatuses(ctx context.Context, eventID string, statuses []model.EventRegistrationStatus) (int64, error) {
 	if RepoTracer != nil {
 		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "CountByEventAndStatuses")()
@@ -59,6 +87,21 @@ func (r *eventRegistrationRepo) CountByEventAndStatuses(ctx context.Context, eve
 		return 0, err
 	}
 	return total, nil
+}
+
+func (r *eventRegistrationRepo) FindOldestByEventAndStatus(ctx context.Context, eventID string, status model.EventRegistrationStatus) (*model.EventRegistration, error) {
+	if RepoTracer != nil {
+		defer RepoTracer.StartDatastoreSegment(ctx, "event_registrations", "FindOldestByEventAndStatus")()
+	}
+	var out model.EventRegistration
+	if err := r.db.Get(ctx).
+		Preload("Event").
+		Where("event_id = ? AND status = ?", eventID, status).
+		Order("waitlisted_at ASC NULLS LAST, created_at ASC").
+		First(&out).Error; err != nil {
+		return nil, err
+	}
+	return &out, nil
 }
 
 func (r *eventRegistrationRepo) Update(ctx context.Context, m *model.EventRegistration) error {

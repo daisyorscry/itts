@@ -16,6 +16,8 @@ help:
 	@echo "  db-down         - Stop database"
 	@echo ""
 	@echo "Database Migrations:"
+	@echo "  seed            - Run backend migrations and seeds, then exit"
+	@echo "  fresh           - Reset public schema, rerun all migrations/seeds, then exit"
 	@echo "  migrate-up      - Run all pending migrations"
 	@echo "  migrate-down    - Rollback last migration"
 	@echo "  migrate-status  - Show migration status"
@@ -119,6 +121,12 @@ migrate-create:
 
 BE_DIR := be-itts-community
 BE_BINARY := server
+
+seed:
+	cd $(BE_DIR) && APP_MIGRATION_ONLY=true go run ./cmd
+
+fresh:
+	cd $(BE_DIR) && DB_FRESH_SEED=true APP_MIGRATION_ONLY=true go run ./cmd
 
 be-build:
 	cd $(BE_DIR) && go build -o $(BE_BINARY) ./cmd
