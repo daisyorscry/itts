@@ -28,6 +28,7 @@ import (
 	"be-itts-community/internal/service"
 	"be-itts-community/pkg/lock"
 	mailerpkg "be-itts-community/pkg/mailer"
+	midtranspkg "be-itts-community/pkg/midtrans"
 	"be-itts-community/pkg/observability/nr"
 	routes "be-itts-community/route"
 )
@@ -64,6 +65,22 @@ func runMigrations(sqlDB *sql.DB, log *core.Logger, migrationsDir string) error 
 	return nil
 }
 
+func resetPublicSchema(sqlDB *sql.DB) error {
+	if _, err := sqlDB.Exec(`DROP SCHEMA IF EXISTS public CASCADE`); err != nil {
+		return fmt.Errorf("failed to drop public schema: %w", err)
+	}
+	if _, err := sqlDB.Exec(`CREATE SCHEMA public`); err != nil {
+		return fmt.Errorf("failed to recreate public schema: %w", err)
+	}
+	if _, err := sqlDB.Exec(`GRANT ALL ON SCHEMA public TO public`); err != nil {
+		return fmt.Errorf("failed to grant schema permissions: %w", err)
+	}
+	if _, err := sqlDB.Exec(`GRANT ALL ON SCHEMA public TO current_user`); err != nil {
+		return fmt.Errorf("failed to grant current_user schema permissions: %w", err)
+	}
+	return nil
+}
+
 func main() {
 	if undo, err := maxprocs.Set(); err == nil {
 		defer undo()
@@ -73,6 +90,13 @@ func main() {
 
 	// core logger
 	log := core.NewLogger(core.LogConfig{
+		Level:         core.LogLevel(cfg.LogLevel),
+		ServiceName:   cfg.AppName,
+		Environment:   cfg.AppEnv,
+		Pretty:        cfg.AppEnv != "production",
+		ErrorFilePath: cfg.LogErrorFile,
+	})
+	core.InitGlobalLogger(core.LogConfig{
 		Level:         core.LogLevel(cfg.LogLevel),
 		ServiceName:   cfg.AppName,
 		Environment:   cfg.AppEnv,
@@ -94,11 +118,26 @@ func main() {
 	log.WithFields(map[string]any{"host": cfg.DB.Host}).Info("database connected")
 
 	// Run migrations automatically
+	if cfg.DB.FreshSeed {
+		log.Warn("DB_FRESH_SEED enabled: resetting public schema before migrations")
+		if err := resetPublicSchema(sqlDB); err != nil {
+			log.Critical("failed to reset database schema", err)
+			return
+		}
+	}
 	log.Info("running database migrations")
 	if err := runMigrations(sqlDB, log, "./migrations"); err != nil {
 		log.Critical("failed to run migrations", err)
+		return
 	}
 	log.Info("migrations completed successfully")
+	if cfg.MigrationOnly {
+		log.Info("migration-only mode enabled; exiting after successful migrations")
+		if err := sqlDB.Close(); err != nil {
+			log.WithError(err).Error("failed to close database connection")
+		}
+		return
+	}
 
 	r := chi.NewRouter()
 
@@ -192,6 +231,11 @@ func main() {
 		configuredMailer = mailerpkg.NewSMTPMailer(cfg.Mail.Host, cfg.Mail.Port, cfg.Mail.User, cfg.Mail.Password, cfg.Mail.From)
 	}
 
+	var midtransClient *midtranspkg.Client
+	if cfg.Midtrans.ServerKey != "" {
+		midtransClient = midtranspkg.NewClient(cfg.Midtrans.ServerKey, cfg.Midtrans.IsProduction)
+	}
+
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DBConn:             dbConn,
@@ -203,6 +247,7 @@ func main() {
 		JWTAccessDur:       jwtAccessDur,
 		JWTRefreshDur:      jwtRefreshDur,
 		JWTIssuer:          cfg.JWT.Issuer,
+		MidtransClient:     midtransClient,
 		GitHubClientID:     cfg.OAuth.GitHub.ClientID,
 		GitHubClientSecret: cfg.OAuth.GitHub.ClientSecret,
 		GitHubRedirectURI:  cfg.OAuth.GitHub.RedirectURI,

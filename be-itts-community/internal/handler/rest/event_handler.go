@@ -1,14 +1,20 @@
 package rest
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"encoding/xml"
+	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
+	"be-itts-community/internal/middleware"
 	"be-itts-community/internal/model"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
@@ -42,6 +48,13 @@ func withAbsoluteEventListImageURL(r *http.Request, list model.EventListResponse
 		list.Data[idx] = withAbsoluteEventImageURL(r, list.Data[idx])
 	}
 	return list
+}
+
+func withAbsoluteRegistrationEventImageURL(r *http.Request, reg model.EventRegistrationResponse) model.EventRegistrationResponse {
+	if reg.EventImageURL != "" {
+		reg.EventImageURL = buildAbsoluteAssetURL(r, reg.EventImageURL)
+	}
+	return reg
 }
 
 func buildAbsoluteAssetURL(r *http.Request, path string) string {
@@ -290,7 +303,7 @@ func (h *EventHandler) VerifyRegistration(w http.ResponseWriter, r *http.Request
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, reg)
+	core.OK(w, r, withAbsoluteRegistrationEventImageURL(r, reg))
 }
 
 func (h *EventHandler) CreateRegistrationPayment(w http.ResponseWriter, r *http.Request) {
@@ -305,7 +318,92 @@ func (h *EventHandler) CreateRegistrationPayment(w http.ResponseWriter, r *http.
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, reg)
+	core.OK(w, r, withAbsoluteRegistrationEventImageURL(r, reg))
+}
+
+func (h *EventHandler) GetPublicRegistration(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	reg, err := h.registerSvc.AdminGet(r.Context(), id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, withAbsoluteRegistrationEventImageURL(r, reg))
+}
+
+func (h *EventHandler) GetPublicRegistrationByToken(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	reg, err := h.registerSvc.PublicGetByAccessToken(r.Context(), token)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, withAbsoluteRegistrationEventImageURL(r, reg))
+}
+
+func (h *EventHandler) ResendRegistrationVerification(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if err := h.registerSvc.ResendVerification(r.Context(), token, h.resolveVerifyRegistrationURL(r)); err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, map[string]any{"message": "Verification email sent"})
+}
+
+func (h *EventHandler) ResendRegistrationInvoice(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	if err := h.registerSvc.ResendInvoice(r.Context(), token); err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, map[string]any{"message": "Invoice email sent"})
+}
+
+func (h *EventHandler) DownloadRegistrationInvoicePDF(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	reg, err := h.registerSvc.PublicGetByAccessToken(r.Context(), token)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	pdfBytes := buildInvoicePDF(reg)
+	filename := "invoice-" + strings.ToLower(reg.TicketCode) + ".pdf"
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Header().Set("Content-Length", strconv.Itoa(len(pdfBytes)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(pdfBytes)
+}
+
+func (h *EventHandler) RegistrationTicketQRCode(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	reg, err := h.registerSvc.PublicGetByAccessToken(r.Context(), token)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+
+	content := h.resolveTicketAccessURL(r, token, reg.ID)
+	svg := buildTicketSVG(content)
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Content-Length", strconv.Itoa(len(svg)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(svg))
+}
+
+func (h *EventHandler) HandlePaymentWebhook(w http.ResponseWriter, r *http.Request) {
+	var req model.EventPaymentWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
+	}
+	res, err := h.registerSvc.HandlePaymentWebhook(r.Context(), req)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, res)
 }
 
 func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request) {
@@ -332,6 +430,77 @@ func (h *EventHandler) ListRegistrations(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	core.OK(w, r, res)
+}
+
+func (h *EventHandler) GetRegistration(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	reg, err := h.registerSvc.AdminGet(r.Context(), id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
+}
+
+func (h *EventHandler) ListRegistrationActivities(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	activities, err := h.registerSvc.AdminActivities(r.Context(), id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, activities)
+}
+
+func (h *EventHandler) ApproveRegistration(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+	id := chi.URLParam(r, "id")
+	reg, err := h.registerSvc.AdminApprove(r.Context(), authCtx.UserID, id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
+}
+
+func (h *EventHandler) RejectRegistration(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+	id := chi.URLParam(r, "id")
+	var body struct {
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_BODY", "invalid body", nil)
+		return
+	}
+	reg, err := h.registerSvc.AdminReject(r.Context(), authCtx.UserID, id, strings.TrimSpace(body.Reason))
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
+}
+
+func (h *EventHandler) WaitlistRegistration(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+	id := chi.URLParam(r, "id")
+	reg, err := h.registerSvc.AdminWaitlist(r.Context(), authCtx.UserID, id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
+}
+
+func (h *EventHandler) PromoteRegistration(w http.ResponseWriter, r *http.Request) {
+	authCtx := middleware.MustGetAuthContext(r.Context())
+	id := chi.URLParam(r, "id")
+	reg, err := h.registerSvc.AdminPromote(r.Context(), authCtx.UserID, id)
+	if err != nil {
+		core.RespondError(w, r, err)
+		return
+	}
+	core.OK(w, r, reg)
 }
 
 func (h *EventHandler) Unregister(w http.ResponseWriter, r *http.Request) {
@@ -366,4 +535,234 @@ func (h *EventHandler) resolveVerifyRegistrationURL(r *http.Request) string {
 	parsedOrigin.RawQuery = ""
 	parsedOrigin.Fragment = ""
 	return parsedOrigin.String()
+}
+
+func (h *EventHandler) resolveTicketAccessURL(r *http.Request, token string, registrationID string) string {
+	requestOrigin := strings.TrimSpace(r.Header.Get("Origin"))
+	if requestOrigin == "" {
+		if referer := strings.TrimSpace(r.Referer()); referer != "" {
+			if parsedReferer, err := url.Parse(referer); err == nil && parsedReferer.Scheme != "" && parsedReferer.Host != "" {
+				requestOrigin = parsedReferer.Scheme + "://" + parsedReferer.Host
+			}
+		}
+	}
+	if requestOrigin == "" {
+		scheme := "http"
+		if forwardedProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwardedProto != "" {
+			scheme = forwardedProto
+		} else if r.TLS != nil {
+			scheme = "https"
+		}
+		host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
+		if host == "" {
+			host = r.Host
+		}
+		if host != "" {
+			requestOrigin = scheme + "://" + host
+		}
+	}
+	if requestOrigin == "" {
+		return ""
+	}
+
+	parsedOrigin, err := url.Parse(requestOrigin)
+	if err != nil || parsedOrigin.Scheme == "" || parsedOrigin.Host == "" {
+		return ""
+	}
+
+	parsedOrigin.Path = "/events/payment-resume"
+	values := url.Values{}
+	if token != "" {
+		values.Set("token", token)
+	} else if registrationID != "" {
+		values.Set("registration_id", registrationID)
+	}
+	parsedOrigin.RawQuery = values.Encode()
+	parsedOrigin.Fragment = ""
+	return parsedOrigin.String()
+}
+
+func buildInvoicePDF(reg model.EventRegistrationResponse) []byte {
+	lines := []string{
+		"ITTS EVENT INVOICE",
+		"",
+		"Ticket Code: " + reg.TicketCode,
+		"Reference: " + fallbackString(reg.PaymentReference, "-"),
+		"Registrant: " + reg.FullName,
+		"Email: " + reg.Email,
+		"Event: " + fallbackString(reg.EventTitle, reg.EventID),
+		"Venue: " + fallbackString(reg.EventVenue, "TBA"),
+		"Schedule: " + formatInvoiceDateRange(reg.EventStartsAt, reg.EventEndsAt),
+		"Amount: " + formatInvoiceMoney(reg.EventCurrency, reg.EventPrice, reg.EventIsPaid),
+		"Registration Status: " + strings.ReplaceAll(string(reg.Status), "_", " "),
+		"Payment Status: " + strings.ReplaceAll(string(reg.PaymentStatus), "_", " "),
+	}
+
+	content := buildPDFTextContent(lines)
+	var buf bytes.Buffer
+	buf.WriteString("%PDF-1.4\n")
+
+	offsets := make([]int, 0, 5)
+	writeObj := func(id int, body string) {
+		offsets = append(offsets, buf.Len())
+		buf.WriteString(strconv.Itoa(id))
+		buf.WriteString(" 0 obj\n")
+		buf.WriteString(body)
+		buf.WriteString("\nendobj\n")
+	}
+
+	writeObj(1, "<< /Type /Catalog /Pages 2 0 R >>")
+	writeObj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>")
+	writeObj(3, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>")
+	writeObj(4, "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
+	writeObj(5, "<< /Length "+strconv.Itoa(len(content))+" >>\nstream\n"+content+"\nendstream")
+
+	xrefPos := buf.Len()
+	buf.WriteString("xref\n0 6\n")
+	buf.WriteString("0000000000 65535 f \n")
+	for _, offset := range offsets {
+		buf.WriteString(fmt.Sprintf("%010d 00000 n \n", offset))
+	}
+	buf.WriteString("trailer << /Size 6 /Root 1 0 R >>\n")
+	buf.WriteString("startxref\n")
+	buf.WriteString(strconv.Itoa(xrefPos))
+	buf.WriteString("\n%%EOF")
+	return buf.Bytes()
+}
+
+func buildPDFTextContent(lines []string) string {
+	var builder strings.Builder
+	builder.WriteString("BT\n/F1 14 Tf\n50 790 Td\n18 TL\n")
+	for idx, line := range lines {
+		if idx == 0 {
+			builder.WriteString("(" + escapePDFText(line) + ") Tj\n")
+			continue
+		}
+		builder.WriteString("T*\n")
+		builder.WriteString("(" + escapePDFText(line) + ") Tj\n")
+	}
+	builder.WriteString("ET")
+	return builder.String()
+}
+
+func escapePDFText(input string) string {
+	replacer := strings.NewReplacer("\\", "\\\\", "(", "\\(", ")", "\\)")
+	return replacer.Replace(input)
+}
+
+func formatInvoiceDateRange(start *time.Time, end *time.Time) string {
+	if start == nil {
+		return "TBA"
+	}
+	if end == nil {
+		return start.Format("02 Jan 2006 15:04 MST")
+	}
+	if start.Format("2006-01-02") == end.Format("2006-01-02") {
+		return start.Format("02 Jan 2006 15:04") + " - " + end.Format("15:04 MST")
+	}
+	return start.Format("02 Jan 2006 15:04 MST") + " - " + end.Format("02 Jan 2006 15:04 MST")
+}
+
+func formatInvoiceMoney(currency string, amount int64, isPaid bool) string {
+	if !isPaid {
+		return "Free"
+	}
+	return fallbackString(currency, "IDR") + " " + formatThousands(amount)
+}
+
+func formatThousands(amount int64) string {
+	raw := strconv.FormatInt(amount, 10)
+	if len(raw) <= 3 {
+		return raw
+	}
+	parts := make([]string, 0, len(raw)/3+1)
+	for len(raw) > 3 {
+		parts = append([]string{raw[len(raw)-3:]}, parts...)
+		raw = raw[:len(raw)-3]
+	}
+	if raw != "" {
+		parts = append([]string{raw}, parts...)
+	}
+	return strings.Join(parts, ".")
+}
+
+func fallbackString(value string, fallback string) string {
+	if strings.TrimSpace(value) == "" {
+		return fallback
+	}
+	return value
+}
+
+func buildTicketSVG(content string) string {
+	const size = 29
+	const scale = 8
+	type rect struct {
+		X      int    `xml:"x,attr"`
+		Y      int    `xml:"y,attr"`
+		Width  int    `xml:"width,attr"`
+		Height int    `xml:"height,attr"`
+		Fill   string `xml:"fill,attr"`
+	}
+
+	hash := sha256.Sum256([]byte(content))
+	var rects []rect
+	rects = append(rects, rect{X: 0, Y: 0, Width: size * scale, Height: size * scale, Fill: "#FFFFFF"})
+
+	isFinder := func(x, y int, originX, originY int) bool {
+		return x >= originX && x < originX+7 && y >= originY && y < originY+7
+	}
+
+	fillCell := func(x, y int) {
+		rects = append(rects, rect{
+			X:      x * scale,
+			Y:      y * scale,
+			Width:  scale,
+			Height: scale,
+			Fill:   "#04090C",
+		})
+	}
+
+	drawFinder := func(originX, originY int) {
+		for y := 0; y < 7; y++ {
+			for x := 0; x < 7; x++ {
+				border := x == 0 || x == 6 || y == 0 || y == 6
+				center := x >= 2 && x <= 4 && y >= 2 && y <= 4
+				if border || center {
+					fillCell(originX+x, originY+y)
+				}
+			}
+		}
+	}
+
+	drawFinder(0, 0)
+	drawFinder(size-7, 0)
+	drawFinder(0, size-7)
+
+	bitIndex := 0
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			if isFinder(x, y, 0, 0) || isFinder(x, y, size-7, 0) || isFinder(x, y, 0, size-7) {
+				continue
+			}
+			byteIndex := (bitIndex / 8) % len(hash)
+			bit := (hash[byteIndex] >> uint(bitIndex%8)) & 1
+			if bit == 1 || (x+y)%7 == 0 {
+				fillCell(x, y)
+			}
+			bitIndex++
+		}
+	}
+
+	var out bytes.Buffer
+	out.WriteString(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 `)
+	out.WriteString(strconv.Itoa(size * scale))
+	out.WriteString(` `)
+	out.WriteString(strconv.Itoa(size * scale))
+	out.WriteString(`" role="img" aria-label="Ticket code">`)
+	for _, item := range rects {
+		chunk, _ := xml.Marshal(item)
+		out.Write(chunk)
+	}
+	out.WriteString(`</svg>`)
+	return out.String()
 }

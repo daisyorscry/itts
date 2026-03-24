@@ -2,17 +2,27 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { getErrorMessage } from '../../utility/response';
 import {
+  approveEventRegistrationApi,
   createEventRegistrationPaymentApi,
   getPublicEventBySlugApi,
+  getPublicEventRegistrationApi,
+  getPublicEventRegistrationByTokenApi,
   listPublicEventsApi,
+  promoteEventRegistrationApi,
+  rejectEventRegistrationApi,
+  resendEventRegistrationInvoiceApi,
+  resendEventRegistrationVerificationApi,
   registerToPublicEventApi,
   verifyEventRegistrationApi,
+  waitlistEventRegistrationApi,
   createEventApi,
   createSpeakerApi,
   deleteEventApi,
   deleteEventRegistrationApi,
   deleteSpeakerApi,
   getEventApi,
+  getEventRegistrationApi,
+  listEventRegistrationActivitiesApi,
   listEventRegistrationsApi,
   listEventsApi,
   listSpeakersApi,
@@ -29,6 +39,7 @@ import type {
   ListEventRegistrationsParams,
   ListEventsParams,
   ListSpeakersParams,
+  RejectEventRegistrationRequest,
   SetEventStatusRequest,
   UpdateEventRequest,
   UpdateSpeakerRequest,
@@ -49,6 +60,12 @@ export const eventKeys = {
   registrations: ['event-registrations'] as const,
   registrationLists: () => [...eventKeys.registrations, 'list'] as const,
   registrationList: (params?: ListEventRegistrationsParams) => [...eventKeys.registrationLists(), params] as const,
+  registrationDetails: () => [...eventKeys.registrations, 'detail'] as const,
+  registrationDetail: (id: string) => [...eventKeys.registrationDetails(), id] as const,
+  publicRegistrationDetails: () => [...eventKeys.registrations, 'public-detail'] as const,
+  publicRegistrationDetail: (id: string) => [...eventKeys.publicRegistrationDetails(), id] as const,
+  registrationActivities: () => [...eventKeys.registrations, 'activities'] as const,
+  registrationActivity: (id: string) => [...eventKeys.registrationActivities(), id] as const,
   verification: () => [...eventKeys.registrations, 'verification'] as const,
   verificationToken: (token: string) => [...eventKeys.verification(), token] as const,
 };
@@ -110,7 +127,7 @@ export function useListSpeakers(params?: ListSpeakersParams) {
   });
 }
 
-export function useListEventRegistrations(params?: ListEventRegistrationsParams) {
+export function useListEventRegistrations(params?: ListEventRegistrationsParams, refetchInterval?: number | false) {
   return useQuery({
     queryKey: eventKeys.registrationList(params),
     queryFn: async () => {
@@ -118,6 +135,59 @@ export function useListEventRegistrations(params?: ListEventRegistrationsParams)
       return response.data;
     },
     staleTime: 30 * 1000,
+    refetchInterval,
+  });
+}
+
+export function useEventRegistration(id: string, enabled = true, refetchInterval?: number | false) {
+  return useQuery({
+    queryKey: eventKeys.registrationDetail(id),
+    queryFn: async () => {
+      const response = await getEventRegistrationApi(id);
+      return response.data;
+    },
+    enabled: enabled && !!id,
+    staleTime: 30 * 1000,
+    refetchInterval,
+  });
+}
+
+export function usePublicEventRegistration(id: string, enabled = true, refetchInterval?: number | false) {
+  return useQuery({
+    queryKey: eventKeys.publicRegistrationDetail(id),
+    queryFn: async () => {
+      const response = await getPublicEventRegistrationApi(id);
+      return response.data;
+    },
+    enabled: enabled && !!id,
+    staleTime: 15 * 1000,
+    refetchInterval,
+  });
+}
+
+export function usePublicEventRegistrationByToken(token: string, enabled = true, refetchInterval?: number | false) {
+  return useQuery({
+    queryKey: [...eventKeys.publicRegistrationDetails(), 'token', token],
+    queryFn: async () => {
+      const response = await getPublicEventRegistrationByTokenApi(token);
+      return response.data;
+    },
+    enabled: enabled && !!token,
+    staleTime: 15 * 1000,
+    refetchInterval,
+  });
+}
+
+export function useEventRegistrationActivities(id: string, enabled = true, refetchInterval?: number | false) {
+  return useQuery({
+    queryKey: eventKeys.registrationActivity(id),
+    queryFn: async () => {
+      const response = await listEventRegistrationActivitiesApi(id);
+      return response.data;
+    },
+    enabled: enabled && !!id,
+    staleTime: 30 * 1000,
+    refetchInterval,
   });
 }
 
@@ -248,7 +318,92 @@ export function useDeleteEventRegistration() {
     mutationFn: (id: string) => deleteEventRegistrationApi(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: eventKeys.registrationLists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationDetails() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationActivities() });
       toast.success('Event registration removed');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useApproveEventRegistration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => approveEventRegistrationApi(id),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationLists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationDetails() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationActivities() });
+      toast.success(
+        response.data.promoted_registration
+          ? `Approved ${response.data.registration.full_name}. ${response.data.promoted_registration.full_name} was auto-promoted.`
+          : `Registration for ${response.data.registration.full_name} approved`,
+      );
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useRejectEventRegistration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: RejectEventRegistrationRequest }) => rejectEventRegistrationApi(id, payload),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationLists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationDetails() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationActivities() });
+      toast.success(
+        response.data.promoted_registration
+          ? `Rejected ${response.data.registration.full_name}. ${response.data.promoted_registration.full_name} was auto-promoted.`
+          : `Registration for ${response.data.registration.full_name} rejected`,
+      );
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useWaitlistEventRegistration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => waitlistEventRegistrationApi(id),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationLists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationDetails() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationActivities() });
+      toast.success(
+        response.data.promoted_registration
+          ? `${response.data.registration.full_name} moved to waitlist. ${response.data.promoted_registration.full_name} was auto-promoted.`
+          : `Registration for ${response.data.registration.full_name} moved to waitlist`,
+      );
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function usePromoteEventRegistration() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => promoteEventRegistrationApi(id),
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationLists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationDetails() });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationActivities() });
+      toast.success(`Registration for ${response.data.registration.full_name} promoted`);
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));
@@ -293,14 +448,42 @@ export function useVerifyEventRegistration() {
 }
 
 export function useCreateEventRegistrationPayment(id: string) {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationFn: (payload: CreateEventRegistrationPaymentRequest) => createEventRegistrationPaymentApi(id, payload),
     onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: eventKeys.publicRegistrationDetail(id) });
+      queryClient.invalidateQueries({ queryKey: eventKeys.registrationDetail(id) });
       if (response.data.payment_url) {
         toast.success('Payment link created.');
         return;
       }
       toast.success('Payment initialized.');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useResendEventRegistrationVerification(token: string) {
+  return useMutation({
+    mutationFn: async () => resendEventRegistrationVerificationApi(token),
+    onSuccess: () => {
+      toast.success('Verification email sent');
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+}
+
+export function useResendEventRegistrationInvoice(token: string) {
+  return useMutation({
+    mutationFn: async () => resendEventRegistrationInvoiceApi(token),
+    onSuccess: () => {
+      toast.success('Invoice email sent');
     },
     onError: (error) => {
       toast.error(getErrorMessage(error));

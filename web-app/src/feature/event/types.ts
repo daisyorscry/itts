@@ -49,6 +49,17 @@ export interface Event {
 export interface EventRegistration {
   id: string;
   event_id: string;
+  ticket_code?: string;
+  event_slug?: string;
+  event_title?: string;
+  event_summary?: string;
+  event_image_url?: string;
+  event_venue?: string;
+  event_starts_at?: string | null;
+  event_ends_at?: string | null;
+  event_is_paid?: boolean;
+  event_price?: number;
+  event_currency?: string;
   full_name: string;
   email: string;
   phone_number?: string;
@@ -56,11 +67,35 @@ export interface EventRegistration {
   status: EventRegistrationStatus;
   payment_status: EventPaymentStatus;
   payment_url?: string;
+  payment_reference?: string;
   verified_at?: string | null;
   approved_at?: string | null;
   waitlisted_at?: string | null;
   rejected_at?: string | null;
+  rejected_reason?: string | null;
   created_at: string;
+}
+
+export interface EventRegistrationActionResult {
+  registration: EventRegistration;
+  promoted_registration?: EventRegistration | null;
+}
+
+export interface EventRegistrationActivity {
+  id: string;
+  user_id?: string | null;
+  user_email?: string | null;
+  action: string;
+  resource_type?: string | null;
+  resource_id?: string | null;
+  metadata?: Record<string, unknown>;
+  ip_address?: string | null;
+  user_agent?: string | null;
+  created_at: string;
+}
+
+export interface RejectEventRegistrationRequest {
+  reason: string;
 }
 
 export interface CreatePublicEventRegistrationRequest {
@@ -209,14 +244,42 @@ export const eventSchema = z.object({
   starts_at: z.string().min(1, 'Start date is required'),
   ends_at: z.string().optional(),
   venue: z.string().optional(),
-}).refine((data) => {
-  if (!data.ends_at) {
-    return true;
+}).superRefine((data, ctx) => {
+  if (data.ends_at && new Date(data.ends_at).getTime() < new Date(data.starts_at).getTime()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'End date must be after start date',
+      path: ['ends_at'],
+    });
   }
-  return new Date(data.ends_at).getTime() >= new Date(data.starts_at).getTime();
-}, {
-  message: 'End date must be after start date',
-  path: ['ends_at'],
+
+  if (data.registration_deadline && data.starts_at) {
+    const deadlineTime = new Date(data.registration_deadline).getTime();
+    const startsAtTime = new Date(data.starts_at).getTime();
+    if (deadlineTime > startsAtTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Registration deadline must be before the event starts',
+        path: ['registration_deadline'],
+      });
+    }
+  }
+
+  if (data.is_paid && (!data.price || data.price <= 0)) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Paid events must have a ticket price greater than 0',
+      path: ['price'],
+    });
+  }
+
+  if (data.is_paid && !data.currency) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Currency is required for paid events',
+      path: ['currency'],
+    });
+  }
 });
 
 export const speakerSchema = z.object({
@@ -237,3 +300,7 @@ export const publicEventRegistrationSchema = z.object({
 export type EventFormData = z.infer<typeof eventSchema>;
 export type SpeakerFormData = z.infer<typeof speakerSchema>;
 export type PublicEventRegistrationFormData = z.infer<typeof publicEventRegistrationSchema>;
+export const rejectEventRegistrationSchema = z.object({
+  reason: z.string().min(5, 'Reason must be at least 5 characters'),
+});
+export type RejectEventRegistrationFormData = z.infer<typeof rejectEventRegistrationSchema>;

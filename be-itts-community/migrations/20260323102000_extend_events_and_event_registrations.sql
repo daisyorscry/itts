@@ -12,6 +12,7 @@ ALTER TABLE event_registrations
   ADD COLUMN IF NOT EXISTS phone_number TEXT,
   ADD COLUMN IF NOT EXISTS institution TEXT,
   ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending_verification',
+  ADD COLUMN IF NOT EXISTS rejected_reason TEXT,
   ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS verification_token_hash TEXT,
   ADD COLUMN IF NOT EXISTS verification_expires_at TIMESTAMPTZ,
@@ -51,6 +52,7 @@ ALTER TABLE event_registrations
   DROP COLUMN IF EXISTS verification_expires_at,
   DROP COLUMN IF EXISTS verification_token_hash,
   DROP COLUMN IF EXISTS email_verified_at,
+  DROP COLUMN IF EXISTS rejected_reason,
   DROP COLUMN IF EXISTS status,
   DROP COLUMN IF EXISTS institution,
   DROP COLUMN IF EXISTS phone_number;

@@ -12,6 +12,7 @@ import (
 	"be-itts-community/internal/service"
 	"be-itts-community/pkg/auth"
 	"be-itts-community/pkg/lock"
+	"be-itts-community/pkg/midtrans"
 	"be-itts-community/pkg/oauth"
 	"be-itts-community/pkg/observability/nr"
 )
@@ -26,6 +27,7 @@ type RouteDeps struct {
 	JWTAccessDur       time.Duration
 	JWTRefreshDur      time.Duration
 	JWTIssuer          string
+	MidtransClient     *midtrans.Client
 	GitHubClientID     string
 	GitHubClientSecret string
 	GitHubRedirectURI  string
@@ -98,7 +100,16 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	eventSvc := service.NewEventService(eventRepo, eventRegRepo, deps.Locker, deps.Tracer)
 	eventSpeakerRepo := repository.NewEventSpeakerRepository(deps.DBConn)
 	eventSpeakerSvc := service.NewEventSpeakerService(eventSpeakerRepo, deps.Locker, deps.Tracer)
-	eventRegSvc := service.NewEventRegistrationService(eventRepo, eventRegRepo, deps.Mailer, deps.Locker, deps.Tracer)
+	eventRegSvc := service.NewEventRegistrationService(
+		eventRepo,
+		eventRegRepo,
+		auditRepo,
+		deps.MidtransClient,
+		deps.FrontendBaseURL,
+		deps.Mailer,
+		deps.Locker,
+		deps.Tracer,
+	)
 	eventH := rest.NewEventHandler(eventSvc, eventSpeakerSvc, eventRegSvc)
 	uploadH := rest.NewUploadHandler()
 
@@ -141,7 +152,14 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 		api.Get("/events/slug/{slug}", eventH.GetEventBySlug)
 		api.Post("/events/{event_id}/register", eventH.RegisterToEvent)
 		api.Get("/events/registrations/verify", eventH.VerifyRegistration)
+		api.Get("/events/registrations/{id}", eventH.GetPublicRegistration)
+		api.Get("/events/registrations/access", eventH.GetPublicRegistrationByToken)
 		api.Post("/events/registrations/{id}/payment", eventH.CreateRegistrationPayment)
+		api.Post("/events/registrations/resend-verification", eventH.ResendRegistrationVerification)
+		api.Post("/events/registrations/resend-invoice", eventH.ResendRegistrationInvoice)
+		api.Get("/events/registrations/invoice.pdf", eventH.DownloadRegistrationInvoicePDF)
+		api.Get("/events/registrations/ticket-qr.svg", eventH.RegistrationTicketQRCode)
+		api.Post("/events/payments/webhook", eventH.HandlePaymentWebhook)
 
 		// ===== PMB PUBLIC ROUTES =====
 		api.Route("/pmb", func(pmb chi.Router) {
@@ -262,6 +280,12 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 
 			// ===== EVENT REGISTRATIONS =====
 			admin.With(middleware.RequirePermission("event_registrations:list")).Get("/event-registrations", eventH.ListRegistrations)
+			admin.With(middleware.RequirePermission("event_registrations:read")).Get("/event-registrations/{id}", eventH.GetRegistration)
+			admin.With(middleware.RequirePermission("event_registrations:read")).Get("/event-registrations/{id}/activities", eventH.ListRegistrationActivities)
+			admin.With(middleware.RequirePermission("event_registrations:update")).Patch("/event-registrations/{id}/approve", eventH.ApproveRegistration)
+			admin.With(middleware.RequirePermission("event_registrations:update")).Patch("/event-registrations/{id}/reject", eventH.RejectRegistration)
+			admin.With(middleware.RequirePermission("event_registrations:update")).Patch("/event-registrations/{id}/waitlist", eventH.WaitlistRegistration)
+			admin.With(middleware.RequirePermission("event_registrations:update")).Patch("/event-registrations/{id}/promote", eventH.PromoteRegistration)
 			admin.With(middleware.RequirePermission("event_registrations:delete")).Delete("/event-registrations/{id}", eventH.Unregister)
 
 			// ===== PMB - APPLICANTS =====

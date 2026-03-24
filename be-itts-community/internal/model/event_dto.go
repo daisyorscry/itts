@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // Event DTOs
 
@@ -98,8 +101,20 @@ type CreateEventRegistrationPaymentRequest struct {
 	Provider string `json:"provider" validate:"required"`
 }
 
+type EventPaymentWebhookRequest struct {
+	OrderID           string `json:"order_id"`
+	StatusCode        string `json:"status_code"`
+	GrossAmount       string `json:"gross_amount"`
+	SignatureKey      string `json:"signature_key"`
+	TransactionStatus string `json:"transaction_status"`
+	FraudStatus       string `json:"fraud_status"`
+	PaymentType       string `json:"payment_type"`
+	TransactionID     string `json:"transaction_id"`
+}
+
 type EventRegistrationStatusUpdateRequest struct {
 	Status EventRegistrationStatus `json:"status" validate:"required"`
+	Reason string                  `json:"reason,omitempty"`
 }
 
 type EventResponse struct {
@@ -137,20 +152,38 @@ type SpeakerResponse struct {
 }
 
 type EventRegistrationResponse struct {
-	ID            string                  `json:"id"`
-	EventID       string                  `json:"event_id"`
-	FullName      string                  `json:"full_name"`
-	Email         string                  `json:"email"`
-	PhoneNumber   string                  `json:"phone_number,omitempty"`
-	Institution   string                  `json:"institution,omitempty"`
-	Status        EventRegistrationStatus `json:"status"`
-	PaymentStatus EventPaymentStatus      `json:"payment_status"`
-	PaymentURL    string                  `json:"payment_url,omitempty"`
-	VerifiedAt    *time.Time              `json:"verified_at,omitempty"`
-	ApprovedAt    *time.Time              `json:"approved_at,omitempty"`
-	WaitlistedAt  *time.Time              `json:"waitlisted_at,omitempty"`
-	RejectedAt    *time.Time              `json:"rejected_at,omitempty"`
-	CreatedAt     time.Time               `json:"created_at"`
+	ID               string                  `json:"id"`
+	EventID          string                  `json:"event_id"`
+	TicketCode       string                  `json:"ticket_code,omitempty"`
+	EventSlug        string                  `json:"event_slug,omitempty"`
+	EventTitle       string                  `json:"event_title,omitempty"`
+	EventSummary     string                  `json:"event_summary,omitempty"`
+	EventImageURL    string                  `json:"event_image_url,omitempty"`
+	EventVenue       string                  `json:"event_venue,omitempty"`
+	EventStartsAt    *time.Time              `json:"event_starts_at,omitempty"`
+	EventEndsAt      *time.Time              `json:"event_ends_at,omitempty"`
+	EventIsPaid      bool                    `json:"event_is_paid"`
+	EventPrice       int64                   `json:"event_price"`
+	EventCurrency    string                  `json:"event_currency,omitempty"`
+	FullName         string                  `json:"full_name"`
+	Email            string                  `json:"email"`
+	PhoneNumber      string                  `json:"phone_number,omitempty"`
+	Institution      string                  `json:"institution,omitempty"`
+	Status           EventRegistrationStatus `json:"status"`
+	PaymentStatus    EventPaymentStatus      `json:"payment_status"`
+	PaymentURL       string                  `json:"payment_url,omitempty"`
+	PaymentReference string                  `json:"payment_reference,omitempty"`
+	VerifiedAt       *time.Time              `json:"verified_at,omitempty"`
+	ApprovedAt       *time.Time              `json:"approved_at,omitempty"`
+	WaitlistedAt     *time.Time              `json:"waitlisted_at,omitempty"`
+	RejectedAt       *time.Time              `json:"rejected_at,omitempty"`
+	RejectedReason   string                  `json:"rejected_reason,omitempty"`
+	CreatedAt        time.Time               `json:"created_at"`
+}
+
+type EventRegistrationActionResponse struct {
+	Registration         EventRegistrationResponse  `json:"registration"`
+	PromotedRegistration *EventRegistrationResponse `json:"promoted_registration,omitempty"`
 }
 
 type EventListResponse struct {
@@ -331,6 +364,11 @@ func EventRegistrationToResponse(m EventRegistration) EventRegistrationResponse 
 	resp := EventRegistrationResponse{
 		ID:            m.ID,
 		EventID:       m.EventID,
+		TicketCode:    BuildEventTicketCode(m),
+		EventTitle:    m.Event.Title,
+		EventIsPaid:   m.Event.IsPaid,
+		EventPrice:    m.Event.Price,
+		EventCurrency: m.Event.Currency,
 		FullName:      m.FullName,
 		Email:         m.Email,
 		Status:        m.Status,
@@ -344,11 +382,35 @@ func EventRegistrationToResponse(m EventRegistration) EventRegistrationResponse 
 	if m.PhoneNumber != nil {
 		resp.PhoneNumber = *m.PhoneNumber
 	}
+	if m.Event.Slug != nil {
+		resp.EventSlug = *m.Event.Slug
+	}
+	if m.Event.Summary != nil {
+		resp.EventSummary = *m.Event.Summary
+	}
+	if m.Event.ImageURL != nil {
+		resp.EventImageURL = *m.Event.ImageURL
+	}
+	if m.Event.Venue != nil {
+		resp.EventVenue = *m.Event.Venue
+	}
+	if !m.Event.StartsAt.IsZero() {
+		resp.EventStartsAt = &m.Event.StartsAt
+	}
+	if m.Event.EndsAt != nil {
+		resp.EventEndsAt = m.Event.EndsAt
+	}
 	if m.Institution != nil {
 		resp.Institution = *m.Institution
 	}
 	if m.PaymentURL != nil {
 		resp.PaymentURL = *m.PaymentURL
+	}
+	if m.PaymentReference != nil {
+		resp.PaymentReference = *m.PaymentReference
+	}
+	if m.RejectedReason != nil {
+		resp.RejectedReason = *m.RejectedReason
 	}
 	return resp
 }
@@ -365,6 +427,18 @@ func EventRegistrationListToResponse(data []EventRegistration, total int64, page
 		PageSize:   pageSize,
 		TotalPages: totalPages,
 	}
+}
+
+func BuildEventTicketCode(m EventRegistration) string {
+	eventID := m.EventID
+	regID := m.ID
+	if len(eventID) > 8 {
+		eventID = eventID[:8]
+	}
+	if len(regID) > 8 {
+		regID = regID[:8]
+	}
+	return "EVT-" + strings.ToUpper(eventID) + "-" + strings.ToUpper(regID)
 }
 
 func SpeakerListToResponse(data []EventSpeaker, total int64, page, pageSize, totalPages int) SpeakerListResponse {

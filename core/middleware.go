@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 )
@@ -54,8 +53,6 @@ func (rw *responseWriter) Flush() {
 func LoggingMiddleware(logger *Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-
 			// Generate or extract request ID
 			requestID := r.Header.Get("X-Request-Id")
 			if requestID == "" {
@@ -74,24 +71,6 @@ func LoggingMiddleware(logger *Logger) func(http.Handler) http.Handler {
 
 			// Process request
 			next.ServeHTTP(rw, r)
-
-			// Calculate duration
-			duration := time.Since(start)
-
-			if rw.statusCode >= http.StatusInternalServerError {
-				metadata := map[string]interface{}{
-					"remote_addr":  r.RemoteAddr,
-					"user_agent":   r.UserAgent(),
-					"content_type": r.Header.Get("Content-Type"),
-					"bytes_out":    rw.written,
-					"method":       r.Method,
-					"path":         r.URL.Path,
-					"status_code":  rw.statusCode,
-					"duration_ms":  duration.Milliseconds(),
-				}
-
-				logger.WithContext(ctx).WithFields(metadata).Error("HTTP request failed")
-			}
 		})
 	}
 }

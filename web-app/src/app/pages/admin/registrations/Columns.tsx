@@ -5,7 +5,7 @@ import * as DropdownMenuUI from '@components/ui/dropdown-menu';
 import * as LayoutUI from '@components/ui/layout';
 import { Text } from '@components/ui/text';
 import { type DataTableColumn } from '@components/ui/table';
-import type { EventRegistration } from '@feature/event/types';
+import type { EventPaymentStatus, EventRegistration, EventRegistrationStatus } from '@feature/event/types';
 import type { Registration, RegistrationStatus } from '@feature/registration/types';
 import { formatDate, formatDateTime } from '@utility/date';
 
@@ -24,20 +24,56 @@ interface CreateRegistrationColumnsOptions {
 }
 
 interface CreateEventRegistrationColumnsOptions {
+  isMutating: boolean;
   isDeleting: boolean;
   getEventTitle: (eventId: string) => string;
+  onView: (registration: EventRegistration) => void;
+  onApprove: (registration: EventRegistration) => void;
+  onReject: (registration: EventRegistration) => void;
+  onWaitlist: (registration: EventRegistration) => void;
+  onPromote: (registration: EventRegistration) => void;
   onDelete: (registration: EventRegistration) => void;
 }
 
 interface EventRegistrationActionsMenuProps {
   registration: EventRegistration;
+  isMutating: boolean;
   isDeleting: boolean;
+  onView: (registration: EventRegistration) => void;
+  onApprove: (registration: EventRegistration) => void;
+  onReject: (registration: EventRegistration) => void;
+  onWaitlist: (registration: EventRegistration) => void;
+  onPromote: (registration: EventRegistration) => void;
   onDelete: (registration: EventRegistration) => void;
 }
 
+const eventRegistrationStatusVariant: Record<EventRegistrationStatus, 'secondary' | 'success' | 'destructive'> = {
+  pending_verification: 'secondary',
+  pending_payment: 'secondary',
+  approved: 'success',
+  waitlisted: 'secondary',
+  rejected: 'destructive',
+  cancelled: 'destructive',
+  expired: 'destructive',
+};
+
+const eventPaymentStatusLabel: Record<EventPaymentStatus, string> = {
+  not_required: 'No payment',
+  pending: 'Pending payment',
+  paid: 'Paid',
+  failed: 'Failed',
+  expired: 'Expired',
+};
+
 function EventRegistrationActionsMenu({
   registration,
+  isMutating,
   isDeleting,
+  onView,
+  onApprove,
+  onReject,
+  onWaitlist,
+  onPromote,
   onDelete,
 }: EventRegistrationActionsMenuProps) {
   return (
@@ -58,9 +94,58 @@ function EventRegistrationActionsMenu({
           className="w-48 rounded-xl border-black/10 bg-[#F7F4EC] p-1.5"
         >
           <DropdownMenuUI.DropdownMenuItem
+            className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+            onClick={() => onView(registration)}
+          >
+            <Icons.Eye className="text-black/70" />
+            View details
+          </DropdownMenuUI.DropdownMenuItem>
+          <DropdownMenuUI.DropdownMenuSeparator className="my-1.5 bg-black/10" />
+          {registration.status !== 'approved' ? (
+            <DropdownMenuUI.DropdownMenuItem
+              className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+              disabled={isMutating}
+              onClick={() => onApprove(registration)}
+            >
+              <Icons.CheckCircle2 className="text-black/70" />
+              Approve
+            </DropdownMenuUI.DropdownMenuItem>
+          ) : null}
+          {registration.status !== 'waitlisted' ? (
+            <DropdownMenuUI.DropdownMenuItem
+              className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+              disabled={isMutating}
+              onClick={() => onWaitlist(registration)}
+            >
+              <Icons.Clock3 className="text-black/70" />
+              Move to waitlist
+            </DropdownMenuUI.DropdownMenuItem>
+          ) : null}
+          {registration.status === 'waitlisted' ? (
+            <DropdownMenuUI.DropdownMenuItem
+              className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+              disabled={isMutating}
+              onClick={() => onPromote(registration)}
+            >
+              <Icons.ArrowUpCircle className="text-black/70" />
+              Promote to approved
+            </DropdownMenuUI.DropdownMenuItem>
+          ) : null}
+          {registration.status !== 'rejected' ? (
+            <DropdownMenuUI.DropdownMenuItem
+              className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+              disabled={isMutating}
+              onClick={() => onReject(registration)}
+            >
+              <Icons.XCircle className="text-black/70" />
+              Reject
+            </DropdownMenuUI.DropdownMenuItem>
+          ) : null}
+          <DropdownMenuUI.DropdownMenuSeparator className="my-1.5 bg-black/10" />
+          <DropdownMenuUI.DropdownMenuItem
             variant="destructive"
             className="rounded-lg px-3 py-2.5"
-            disabled={isDeleting}
+            disabled={isDeleting || isMutating}
             onClick={() => onDelete(registration)}
           >
             <Icons.Trash2 />
@@ -155,6 +240,11 @@ export function createRegistrationColumns({
         <LayoutUI.Column gap="gap-1">
           <Text variant="inverse">{row.full_name}</Text>
           <Text variant="muted-inverse" size="xs">{row.email}</Text>
+          {row.rejected_reason ? (
+            <Text variant="muted-inverse" size="xs" className="max-w-xs text-red-700/80">
+              Reason: {row.rejected_reason}
+            </Text>
+          ) : null}
         </LayoutUI.Column>
       ),
     },
@@ -201,8 +291,14 @@ export function createRegistrationColumns({
 }
 
 export function createEventRegistrationColumns({
+  isMutating,
   isDeleting,
   getEventTitle,
+  onView,
+  onApprove,
+  onReject,
+  onWaitlist,
+  onPromote,
   onDelete,
 }: CreateEventRegistrationColumnsOptions): Array<DataTableColumn<EventRegistration>> {
   return [
@@ -222,6 +318,16 @@ export function createEventRegistrationColumns({
       cell: ({ row }) => <Text variant="muted-inverse">{getEventTitle(row.event_id)}</Text>,
     },
     {
+      id: 'status',
+      header: 'Status',
+      cell: ({ row }) => <Badge variant={eventRegistrationStatusVariant[row.status]}>{row.status.replaceAll('_', ' ')}</Badge>,
+    },
+    {
+      id: 'payment',
+      header: 'Payment',
+      cell: ({ row }) => <Text variant="muted-inverse">{eventPaymentStatusLabel[row.payment_status]}</Text>,
+    },
+    {
       id: 'registered',
       header: 'Registered',
       cell: ({ row }) => <Text variant="muted-inverse">{formatDateTime(row.created_at)}</Text>,
@@ -233,7 +339,13 @@ export function createEventRegistrationColumns({
       cell: ({ row }) => (
         <EventRegistrationActionsMenu
           registration={row}
+          isMutating={isMutating}
           isDeleting={isDeleting}
+          onView={onView}
+          onApprove={onApprove}
+          onReject={onReject}
+          onWaitlist={onWaitlist}
+          onPromote={onPromote}
           onDelete={onDelete}
         />
       ),

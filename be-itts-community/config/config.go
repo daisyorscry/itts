@@ -14,6 +14,7 @@ type Config struct {
 	AppEnv          string
 	AppHost         string
 	AppPort         string
+	MigrationOnly   bool
 	Prefork         bool
 	Workers         int
 	Cors            []string
@@ -21,13 +22,14 @@ type Config struct {
 	VerifyEmailURL  string
 
 	DB struct {
-		Host     string
-		Port     string
-		User     string
-		Password string
-		Name     string
-		SSLMode  string
-		Timezone string
+		Host      string
+		Port      string
+		User      string
+		Password  string
+		Name      string
+		SSLMode   string
+		Timezone  string
+		FreshSeed bool
 	}
 
 	Mail struct {
@@ -67,6 +69,13 @@ type Config struct {
 			RedirectURI  string
 		}
 	}
+
+	Midtrans struct {
+		ServerKey    string
+		ClientKey    string
+		MerchantID   string
+		IsProduction bool
+	}
 }
 
 func LoadConfig() *Config {
@@ -90,6 +99,7 @@ func LoadConfig() *Config {
 	cfg.AppEnv = viper.GetString("APP_ENV")
 	cfg.AppHost = viper.GetString("APP_HOST")
 	cfg.AppPort = viper.GetString("APP_PORT")
+	cfg.MigrationOnly = viper.GetBool("APP_MIGRATION_ONLY")
 	cfg.Prefork = viper.GetBool("APP_PREFORK")
 	cfg.Workers = viper.GetInt("APP_WORKERS")
 	cfg.FrontendBaseURL = viper.GetString("FRONTEND_BASE_URL")
@@ -103,6 +113,7 @@ func LoadConfig() *Config {
 	cfg.DB.Name = viper.GetString("DB_NAME")
 	cfg.DB.SSLMode = viper.GetString("DB_SSLMODE")
 	cfg.DB.Timezone = viper.GetString("DB_TIMEZONE")
+	cfg.DB.FreshSeed = viper.GetBool("DB_FRESH_SEED")
 
 	cfg.Mail.Host = viper.GetString("MAIL_HOST")
 	cfg.Mail.Port = viper.GetInt("MAIL_PORT")
@@ -129,6 +140,11 @@ func LoadConfig() *Config {
 	cfg.OAuth.GitHub.ClientID = viper.GetString("GITHUB_CLIENT_ID")
 	cfg.OAuth.GitHub.ClientSecret = viper.GetString("GITHUB_CLIENT_SECRET")
 	cfg.OAuth.GitHub.RedirectURI = viper.GetString("GITHUB_REDIRECT_URI")
+
+	cfg.Midtrans.ServerKey = viper.GetString("MIDTRANS_SERVER_KEY")
+	cfg.Midtrans.ClientKey = viper.GetString("MIDTRANS_CLIENT_KEY")
+	cfg.Midtrans.MerchantID = viper.GetString("MIDTRANS_MERCHANT_ID")
+	cfg.Midtrans.IsProduction = viper.GetBool("MIDTRANS_IS_PRODUCTION")
 
 	return cfg
 }

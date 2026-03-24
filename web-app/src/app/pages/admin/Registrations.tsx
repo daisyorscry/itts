@@ -7,11 +7,20 @@ import * as SelectUI from '@components/ui/select';
 import { DataTable } from '@components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@components/ui/tabs';
 import { Text } from '@components/ui/text';
-import { useDeleteEventRegistration, useListEventRegistrations, useListEvents } from '@feature/event/hooks';
-import type { EventRegistrationListResponse } from '@feature/event/types';
+import {
+  useApproveEventRegistration,
+  useDeleteEventRegistration,
+  useListEventRegistrations,
+  useListEvents,
+  usePromoteEventRegistration,
+  useWaitlistEventRegistration,
+} from '@feature/event/hooks';
+import type { EventRegistration, EventRegistrationListResponse, EventRegistrationStatus } from '@feature/event/types';
 import { useApproveRegistration, useDeleteRegistration, useListRegistrations } from '@feature/registration/hooks';
 import type { Registration, RegistrationListResponse, RegistrationStatus } from '@feature/registration/types';
 import { createEventRegistrationColumns, createRegistrationColumns } from '@pages/admin/registrations/Columns';
+import { EventRegistrationDetailModal } from '@pages/admin/registrations/EventRegistrationDetailModal';
+import { RejectEventRegistrationModal } from '@pages/admin/registrations/RejectEventRegistrationModal';
 import { RegistrationsQueryState } from '@pages/admin/registrations/RegistrationsQueryState';
 import { RejectRegistrationModal } from '@pages/admin/registrations/RejectRegistrationModal';
 
@@ -25,7 +34,10 @@ export function AdminRegistrations() {
   const [eventPageSize, setEventPageSize] = useState(10);
   const [eventSearch, setEventSearch] = useState('');
   const [eventId, setEventId] = useState('');
+  const [eventStatus, setEventStatus] = useState<EventRegistrationStatus | ''>('');
   const [registrationToReject, setRegistrationToReject] = useState<Registration | null>(null);
+  const [eventRegistrationToReject, setEventRegistrationToReject] = useState<EventRegistration | null>(null);
+  const [eventRegistrationToView, setEventRegistrationToView] = useState<EventRegistration | null>(null);
 
   const { data: registrations, isLoading: loadingMembers, error: memberError } = useListRegistrations({
     page: memberPage,
@@ -38,10 +50,14 @@ export function AdminRegistrations() {
     page_size: eventPageSize,
     search: eventSearch || undefined,
     event_id: eventId || undefined,
-  });
+    status: eventStatus || undefined,
+  }, tab === 'events' ? 8000 : false);
   const { data: events } = useListEvents({ page_size: 100 });
   const { mutate: approveRegistration, isPending: approving } = useApproveRegistration();
   const { mutate: deleteRegistration, isPending: deletingMemberRegistration } = useDeleteRegistration();
+  const { mutate: approveEventRegistration, isPending: approvingEventRegistration } = useApproveEventRegistration();
+  const { mutate: waitlistEventRegistration, isPending: waitlistingEventRegistration } = useWaitlistEventRegistration();
+  const { mutate: promoteEventRegistration, isPending: promotingEventRegistration } = usePromoteEventRegistration();
   const { mutate: deleteEventRegistration, isPending: deletingEventRegistration } = useDeleteEventRegistration();
 
   const memberResponse: RegistrationListResponse | null = registrations ?? null;
@@ -64,8 +80,14 @@ export function AdminRegistrations() {
   });
 
   const eventColumns = createEventRegistrationColumns({
+    isMutating: approvingEventRegistration || waitlistingEventRegistration || promotingEventRegistration,
     isDeleting: deletingEventRegistration,
     getEventTitle: (id) => eventTitleById.get(id) ?? id,
+    onView: setEventRegistrationToView,
+    onApprove: (registration) => approveEventRegistration(registration.id),
+    onReject: setEventRegistrationToReject,
+    onWaitlist: (registration) => waitlistEventRegistration(registration.id),
+    onPromote: (registration) => promoteEventRegistration(registration.id),
     onDelete: (registration) => deleteEventRegistration(registration.id),
   });
 
@@ -174,7 +196,7 @@ export function AdminRegistrations() {
 
             <CardUI.Card tone="inverse" border={false} className="w-full flex-1">
               <CardUI.CardContent>
-                <LayoutUI.Container className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_260px]">
+                <LayoutUI.Container className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_220px_220px]">
                   <SearchField
                     value={eventSearch}
                     onChange={(event) => {
@@ -201,6 +223,26 @@ export function AdminRegistrations() {
                           {event.title}
                         </SelectUI.SelectItem>
                       ))}
+                    </SelectUI.SelectContent>
+                  </SelectUI.Select>
+
+                  <SelectUI.Select
+                    value={eventStatus || 'all'}
+                    onValueChange={(value) => {
+                      setEventStatus(value === 'all' ? '' : (value as EventRegistrationStatus));
+                      setEventPage(1);
+                    }}
+                  >
+                    <SelectUI.SelectTrigger appearance="admin">
+                      <SelectUI.SelectValue>{eventStatus ? eventStatus.replaceAll('_', ' ') : 'All statuses'}</SelectUI.SelectValue>
+                    </SelectUI.SelectTrigger>
+                    <SelectUI.SelectContent appearance="admin">
+                      <SelectUI.SelectItem value="all">All statuses</SelectUI.SelectItem>
+                      <SelectUI.SelectItem value="pending_verification">Pending verification</SelectUI.SelectItem>
+                      <SelectUI.SelectItem value="pending_payment">Pending payment</SelectUI.SelectItem>
+                      <SelectUI.SelectItem value="approved">Approved</SelectUI.SelectItem>
+                      <SelectUI.SelectItem value="waitlisted">Waitlisted</SelectUI.SelectItem>
+                      <SelectUI.SelectItem value="rejected">Rejected</SelectUI.SelectItem>
                     </SelectUI.SelectContent>
                   </SelectUI.Select>
                 </LayoutUI.Container>
@@ -240,6 +282,16 @@ export function AdminRegistrations() {
         registration={registrationToReject}
         isOpen={Boolean(registrationToReject)}
         onClose={() => setRegistrationToReject(null)}
+      />
+      <RejectEventRegistrationModal
+        registration={eventRegistrationToReject}
+        isOpen={Boolean(eventRegistrationToReject)}
+        onClose={() => setEventRegistrationToReject(null)}
+      />
+      <EventRegistrationDetailModal
+        registrationId={eventRegistrationToView?.id ?? ''}
+        isOpen={Boolean(eventRegistrationToView)}
+        onClose={() => setEventRegistrationToView(null)}
       />
     </LayoutUI.Column>
   );

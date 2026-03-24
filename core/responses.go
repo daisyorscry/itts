@@ -96,12 +96,41 @@ func WriteAppError(w http.ResponseWriter, r *http.Request, err *AppError) {
 // RespondError handles error response - checks if error is AppError, otherwise returns 500
 func RespondError(w http.ResponseWriter, r *http.Request, err error) {
 	if appErr, ok := IsAppError(err); ok {
+		logErrorResponse(r, appErr)
 		WriteAppError(w, r, appErr)
 		return
 	}
 
+	logErrorResponse(r, err)
 	// Fallback to internal server error
 	WriteError(w, r, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Terjadi kesalahan internal", nil)
+}
+
+func logErrorResponse(r *http.Request, err error) {
+	if err == nil {
+		return
+	}
+
+	logger := GetGlobalLogger().WithContext(r.Context()).WithFields(map[string]any{
+		"method": r.Method,
+		"path":   r.URL.Path,
+	})
+
+	if appErr, ok := IsAppError(err); ok {
+		fields := map[string]any{
+			"error_code":   appErr.Code,
+			"http_status":  appErr.HTTPStatus,
+			"error_detail": appErr.Details,
+		}
+		log := logger.WithFields(fields)
+		if appErr.Err != nil {
+			log = log.WithError(appErr.Err)
+		}
+		log.Error(appErr.Message)
+		return
+	}
+
+	logger.WithError(err).Error("unhandled error response")
 }
 
 // Common response helpers

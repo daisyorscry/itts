@@ -10,6 +10,7 @@ import { Program } from "./pages/Program";
 import { Events } from "./pages/Events";
 import { EventDetail } from "./pages/EventDetail";
 import { EventRegistrationVerify } from "./pages/EventRegistrationVerify";
+import { EventRegistrationPaymentResume } from "./pages/EventRegistrationPaymentResume";
 import { Admission } from "./pages/Admission";
 import { AdmissionProgramDetail } from "./pages/AdmissionProgramDetail";
 import { Docs } from "./pages/Docs";
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
       { path: "events", Component: Events },
       { path: "events/:slug", Component: EventDetail },
       { path: "events/verify-registration", Component: EventRegistrationVerify },
+      { path: "events/payment-resume", Component: EventRegistrationPaymentResume },
       { path: "admission", Component: Admission },
       { path: "admission/programs/:id", Component: AdmissionProgramDetail },
       { path: "docs", Component: Docs },

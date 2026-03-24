@@ -11,6 +11,8 @@ DOCKERFILE := Dockerfile
 .PHONY: help
 help:
 	@echo "Available targets:"
+	@echo "  make seed         - Jalankan migrations + seed lalu exit"
+	@echo "  make fresh        - Reset public schema, jalankan migrations + seed lalu exit"
 	@echo "  make build        - Build Docker image"
 	@echo "  make push-harbor  - Build & push image ke Harbor registry"
 	@echo "  make run          - Jalankan server lokal (go run)"
@@ -32,6 +34,14 @@ push-harbor: build
 .PHONY: run
 run:
 	go run ./cmd
+
+.PHONY: seed
+seed:
+	APP_MIGRATION_ONLY=true go run ./cmd
+
+.PHONY: fresh
+fresh:
+	DB_FRESH_SEED=true APP_MIGRATION_ONLY=true go run ./cmd
 
 .PHONY: air
 air:

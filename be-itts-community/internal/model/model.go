@@ -284,6 +284,7 @@ type EventRegistration struct {
 	PhoneNumber             *string                 `gorm:"size:20"`
 	Institution             *string                 `gorm:"size:150"`
 	Status                  EventRegistrationStatus `gorm:"size:40;not null;default:'pending_verification';index"`
+	RejectedReason          *string                 `gorm:"type:text"`
 	EmailVerifiedAt         *time.Time
 	VerificationTokenHash   *string `gorm:"size:64;index"`
 	VerificationExpiresAt   *time.Time
