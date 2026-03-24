@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Icons from 'lucide-react';
 import * as CardUI from '@components/ui/card';
@@ -38,7 +38,7 @@ export function EvaluationFormModal({ applicationId, evaluation, isOpen, onClose
   const { mutate: createEvaluation, isPending: creating } = useCreatePMBEvaluation(applicationId);
   const { mutate: updateEvaluation, isPending: updating } = useUpdatePMBEvaluation(evaluation?.id ?? '', applicationId);
   const form = useForm<PMBEvaluationFormData>({
-    resolver: zodResolver(pmbEvaluationSchema),
+    resolver: zodResolver(pmbEvaluationSchema) as Resolver<PMBEvaluationFormData>,
     mode: 'onChange',
     reValidateMode: 'onChange',
     defaultValues,

@@ -2,11 +2,13 @@ import { motion } from "motion/react";
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router";
 
+const easeOutExpo = [0.16, 1, 0.3, 1] as const;
+
 const fadeUp = {
   initial: { opacity: 0, y: 20 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, amount: 0.15 },
-  transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] },
+  transition: { duration: 0.6, ease: easeOutExpo },
 };
 
 export function CookiePolicy() {
@@ -27,7 +29,7 @@ export function CookiePolicy() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.7, ease: easeOutExpo }}
           >
             <h1 className="font-['Sora'] text-[clamp(36px,6vw,64px)] font-extrabold tracking-tight leading-[1.1] mb-4" style={{ color: '#04090C' }}>
               Cookie Policy

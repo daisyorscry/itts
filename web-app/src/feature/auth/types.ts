@@ -45,9 +45,7 @@ export const registerSchema = z.object({
     .regex(/(?=.*[A-Z])/, 'Password must contain uppercase letter')
     .regex(/(?=.*\d)/, 'Password must contain number'),
   confirmPassword: z.string().min(1, 'Please confirm your password'),
-  program: z.enum(['networking', 'devsecops', 'programming'], {
-    errorMap: () => ({ message: 'Please select a learning track' }),
-  }),
+  program: z.enum(['networking', 'devsecops', 'programming']),
   student_id: z.string()
     .min(1, 'Student ID is required')
     .regex(/^\d+$/, 'Student ID must be a number')

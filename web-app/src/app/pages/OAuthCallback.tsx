@@ -59,7 +59,7 @@ export function OAuthCallback() {
         // 2. Fetch user data
         const userResponse = await getMeApi();
         
-        if (!userResponse.success || !userResponse.data) {
+        if (!userResponse.data) {
           throw new Error('Failed to fetch user data');
         }
 

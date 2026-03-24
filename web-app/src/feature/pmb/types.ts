@@ -14,7 +14,7 @@ export interface PMBApplicant {
   national_id: string;
   place_of_birth: string;
   date_of_birth?: string | null;
-  gender: string;
+  gender: 'male' | 'female';
   address: string;
   phone_number: string;
   school_origin: string;
@@ -94,11 +94,12 @@ export interface PMBEvaluation {
 export interface PMBFinalResult {
   id: string;
   application_id: string;
-  result_status: string;
+  result_status: PMBFinalResultStatus;
   final_score?: number | null;
   decided_by?: string | null;
   decision_date: string;
   updated_at: string;
+  application?: PMBApplication | null;
 }
 
 export interface PMBAvailableQuota {
@@ -261,7 +262,7 @@ export interface CreatePMBApplicationRequest {
   track_id: string;
   program_id: string;
   academic_year: string;
-  status?: PMBApplicationStatus;
+  status: PMBApplicationStatus;
 }
 
 export interface UpdatePMBApplicationRequest extends Partial<CreatePMBApplicationRequest> {}
@@ -340,7 +341,7 @@ export const pmbApplicationSchema = z.object({
   track_id: z.string().min(1, 'Admission track is required'),
   program_id: z.string().min(1, 'Study program is required'),
   academic_year: z.string().regex(/^\d{4}\/\d{4}$/, 'Academic year must use format YYYY/YYYY'),
-  status: z.enum(['draft', 'verified', 'passed', 'failed', 're_registered']).default('draft'),
+  status: z.enum(['draft', 'verified', 'passed', 'failed', 're_registered']),
 });
 
 export const pmbEvaluationSchema = z.object({
@@ -363,8 +364,8 @@ export const pmbReRegistrationSchema = z.object({
 export const pmbTrackSchema = z.object({
   track_code: z.string().min(1, 'Track code is required').max(20, 'Track code must be at most 20 characters'),
   track_name: z.string().min(1, 'Track name is required').max(100, 'Track name must be at most 100 characters'),
-  requires_test: z.boolean().default(false),
-  is_active: z.boolean().default(true),
+  requires_test: z.boolean(),
+  is_active: z.boolean(),
 });
 
 export const pmbFacultySchema = z.object({

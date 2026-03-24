@@ -320,7 +320,7 @@ export function createEventRegistrationColumns({
     {
       id: 'status',
       header: 'Status',
-      cell: ({ row }) => <Badge variant={eventRegistrationStatusVariant[row.status]}>{row.status.replaceAll('_', ' ')}</Badge>,
+      cell: ({ row }) => <Badge variant={eventRegistrationStatusVariant[row.status]}>{row.status.replace(/_/g, ' ')}</Badge>,
     },
     {
       id: 'payment',

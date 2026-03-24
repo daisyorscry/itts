@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Icons from 'lucide-react';
 import * as CardUI from '@components/ui/card';
@@ -57,7 +57,7 @@ export function ApplicationFormModal({
   const { mutate: createApplication, isPending: creating } = useCreatePMBApplication();
   const { mutate: updateApplication, isPending: updating } = useUpdatePMBApplication(application?.id ?? '');
   const form = useForm<PMBApplicationFormData>({
-    resolver: zodResolver(pmbApplicationSchema),
+    resolver: zodResolver(pmbApplicationSchema) as Resolver<PMBApplicationFormData>,
     mode: 'onChange',
     reValidateMode: 'onChange',
     defaultValues,

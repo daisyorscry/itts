@@ -234,7 +234,7 @@ export function AdminRegistrations() {
                     }}
                   >
                     <SelectUI.SelectTrigger appearance="admin">
-                      <SelectUI.SelectValue>{eventStatus ? eventStatus.replaceAll('_', ' ') : 'All statuses'}</SelectUI.SelectValue>
+                      <SelectUI.SelectValue>{eventStatus ? eventStatus.replace(/_/g, ' ') : 'All statuses'}</SelectUI.SelectValue>
                     </SelectUI.SelectTrigger>
                     <SelectUI.SelectContent appearance="admin">
                       <SelectUI.SelectItem value="all">All statuses</SelectUI.SelectItem>
