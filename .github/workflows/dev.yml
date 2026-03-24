@@ -1,22 +1,89 @@
-name: Test Deploy ITTS Community
+name: Dev Quality Checks
 
 on:
   push:
     branches:
       - dev
+  pull_request:
+    branches:
+      - dev
+
+concurrency:
+  group: dev-quality-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  backend-checks:
     runs-on: self-hosted
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build images first
-        run: |
-          docker compose --env-file /opt/env/itts.env build web api
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: be-itts-community/go.mod
+          cache-dependency-path: be-itts-community/go.sum
 
-      - name: Recreate only updated services
+      - name: Verify Go formatting
+        working-directory: /root/itts/be-itts-community
         run: |
-          docker compose --env-file /opt/env/itts.env up -d --no-deps web api
+          test -z "$(gofmt -l .)"
+
+      - name: Run Go tests
+        working-directory: /root/itts/be-itts-community
+        run: |
+          go test ./...
+
+      - name: Run Go race tests
+        working-directory: /root/itts/be-itts-community
+        run: |
+          go test -race ./...
+
+      - name: Run Go vet
+        working-directory: /root/itts/be-itts-community
+        run: |
+          go vet ./...
+
+  frontend-checks:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: web-app/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: /root/itts/web-app
+        run: |
+          npm ci
+
+      - name: Run TypeScript typecheck
+        working-directory: /root/itts/web-app
+        run: |
+          npx tsc --noEmit
+
+      - name: Build frontend
+        working-directory: /root/itts/web-app
+        env:
+          VITE_API_BASE_URL: https://dev-api.itts.fun/api/v1
+        run: |
+          npm run build
+
+  compose-checks:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate Docker Compose config
+        run: |
+          docker compose --env-file /opt/env/itts.env config >/dev/null
