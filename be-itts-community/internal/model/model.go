@@ -277,28 +277,28 @@ type EventSpeaker struct {
 }
 
 type EventRegistration struct {
-	ID                      string                  `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	EventID                 string                  `gorm:"type:uuid;not null;index:idx_event_email,unique"`
-	FullName                string                  `gorm:"not null"`
-	Email                   string                  `gorm:"type:citext;not null;index:idx_event_email,unique"`
-	PhoneNumber             *string                 `gorm:"size:20"`
-	Institution             *string                 `gorm:"size:150"`
-	Status                  EventRegistrationStatus `gorm:"size:40;not null;default:'pending_verification';index"`
-	RejectedReason          *string                 `gorm:"type:text"`
-	EmailVerifiedAt         *time.Time
-	VerificationTokenHash   *string `gorm:"size:64;index"`
-	VerificationExpiresAt   *time.Time
-	PaymentStatus           EventPaymentStatus `gorm:"size:20;not null;default:'not_required';index"`
-	PaymentProvider         *string            `gorm:"size:50"`
-	PaymentReference        *string            `gorm:"size:100"`
-	PaymentURL              *string            `gorm:"type:text"`
-	PaymentExpiresAt        *time.Time
-	ApprovedAt              *time.Time
-	WaitlistedAt            *time.Time
-	RejectedAt              *time.Time
-	CancelledAt             *time.Time
-	CreatedAt               time.Time `gorm:"not null;default:now()"`
-	UpdatedAt               time.Time `gorm:"not null;default:now()"`
+	ID                    string                  `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	EventID               string                  `gorm:"type:uuid;not null;index:idx_event_email,unique"`
+	FullName              string                  `gorm:"not null"`
+	Email                 string                  `gorm:"type:citext;not null;index:idx_event_email,unique"`
+	PhoneNumber           *string                 `gorm:"size:20"`
+	Institution           *string                 `gorm:"size:150"`
+	Status                EventRegistrationStatus `gorm:"size:40;not null;default:'pending_verification';index"`
+	RejectedReason        *string                 `gorm:"type:text"`
+	EmailVerifiedAt       *time.Time
+	VerificationTokenHash *string `gorm:"size:64;index"`
+	VerificationExpiresAt *time.Time
+	PaymentStatus         EventPaymentStatus `gorm:"size:20;not null;default:'not_required';index"`
+	PaymentProvider       *string            `gorm:"size:50"`
+	PaymentReference      *string            `gorm:"size:100"`
+	PaymentURL            *string            `gorm:"type:text"`
+	PaymentExpiresAt      *time.Time
+	ApprovedAt            *time.Time
+	WaitlistedAt          *time.Time
+	RejectedAt            *time.Time
+	CancelledAt           *time.Time
+	CreatedAt             time.Time `gorm:"not null;default:now()"`
+	UpdatedAt             time.Time `gorm:"not null;default:now()"`
 
 	Event Event `gorm:"foreignKey:EventID;references:ID"`
 }

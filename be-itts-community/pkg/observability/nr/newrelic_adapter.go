@@ -22,8 +22,8 @@ func (t *NRTracer) StartWebTxn(name string, w http.ResponseWriter, r *http.Reque
 	if w != nil {
 		w = txn.SetWebResponse(w)
 	}
-    ctx := newrelic.NewContext(r.Context(), txn)
-    return ctx, func() { txn.End() }
+	ctx := newrelic.NewContext(r.Context(), txn)
+	return ctx, func() { txn.End() }
 }
 
 func (t *NRTracer) StartSegment(ctx context.Context, name string) func() {

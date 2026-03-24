@@ -1,6 +1,5 @@
 package mailer
 
 type Mailer interface {
-    Send(to, subject, htmlBody string) error
+	Send(to, subject, htmlBody string) error
 }
-
