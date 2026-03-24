@@ -1,0 +1,22 @@
+name: Deploy ITTS Community
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build images first
+        run: |
+          docker compose --env-file /opt/env/itts.env build web api
+
+      - name: Recreate only updated services
+        run: |
+          docker compose --env-file /opt/env/itts.env up -d --no-deps web api

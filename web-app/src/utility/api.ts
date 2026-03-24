@@ -1,7 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
-// Base API URL - adjust sesuai environment
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://dev-api.itts.fun/api/v1';
+const viteApiBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim();
+
+// Base API URL - injected at Vite build time
+export const BASE_URL = viteApiBaseUrl || 'https://dev-api.itts.fun/api/v1';
 
 // Create axios instance
 export const apiClient = axios.create({
@@ -75,4 +77,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
