@@ -189,7 +189,7 @@ export function AdminPMB() {
 
   const applicantRows = applicants?.data ?? [];
   const documentRows = documents?.data ?? [];
-  const pendingPaymentRows = pendingPayments?.data ?? [];
+  const pendingPaymentRows = pendingPayments ?? [];
   const applicationRows = applications?.data ?? [];
   const trackRows = tracks?.data ?? [];
   const facultyRows = faculties?.data ?? [];

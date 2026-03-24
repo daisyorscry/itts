@@ -33,7 +33,7 @@ function parseDate(value?: string) {
   return new Date(year, month - 1, day);
 }
 
-function parseTime(value?: string, fallback: string) {
+function parseTime(value: string | undefined, fallback: string) {
   if (!value) {
     return fallback;
   }

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Icons from 'lucide-react';
 import * as CardUI from '@components/ui/card';
@@ -33,7 +33,7 @@ export function TrackFormModal({ track, isOpen, onClose }: TrackFormModalProps) 
   const { mutate: createTrack, isPending: creating } = useCreatePMBAdmissionTrack();
   const { mutate: updateTrack, isPending: updating } = useUpdatePMBAdmissionTrack(track?.id ?? '');
   const form = useForm<PMBTrackFormData>({
-    resolver: zodResolver(pmbTrackSchema),
+    resolver: zodResolver(pmbTrackSchema) as Resolver<PMBTrackFormData>,
     mode: 'onChange',
     reValidateMode: 'onChange',
     defaultValues: {

@@ -157,9 +157,9 @@ export function EventRegistrationVerify() {
                     </div>
                     <div className="rounded-[1rem] border border-black/10 bg-black/[0.03] p-4">
                       <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">Current status</p>
-                      <p className="mt-2 font-medium capitalize text-[#04090C]">{registration.status.replaceAll('_', ' ')}</p>
+                      <p className="mt-2 font-medium capitalize text-[#04090C]">{registration.status.replace(/_/g, ' ')}</p>
                       <p className="mt-1 text-sm capitalize text-[#04090C]/58">
-                        Payment: {registration.payment_status.replaceAll('_', ' ')}
+                        Payment: {registration.payment_status.replace(/_/g, ' ')}
                       </p>
                     </div>
                   </div>

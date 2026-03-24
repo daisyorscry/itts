@@ -14,14 +14,14 @@ import {
   useUpdateMyPMBApplicant,
   usePublicPMBQuota,
 } from '@feature/pmb/hooks';
-import type { PMBApplicationStatus } from '@feature/pmb/types';
+import type { PMBApplicationStatus, PublicPMBApplicantFormRequest } from '@feature/pmb/types';
 
-const initialApplicantForm = {
+const initialApplicantForm: PublicPMBApplicantFormRequest = {
   full_name: '',
   national_id: '',
   place_of_birth: '',
   date_of_birth: '',
-  gender: 'male' as const,
+  gender: 'male',
   address: '',
   phone_number: '',
   school_origin: '',
@@ -384,7 +384,7 @@ export function Admission() {
                             <Icons.ShieldCheck className="size-5" />
                           </div>
                           <div>
-                            <p className="font-semibold text-[#04090C]">{user?.name || user?.email || 'Signed-in account'}</p>
+                            <p className="font-semibold text-[#04090C]">{user?.full_name || user?.email || 'Signed-in account'}</p>
                             <p className="mt-1 text-sm leading-6 text-[#04090C]/58">
                               The PMB flow will create your applicant profile under this authenticated session. Move to the next step when you are ready.
                             </p>

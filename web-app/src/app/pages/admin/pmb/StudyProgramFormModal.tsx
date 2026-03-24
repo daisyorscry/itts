@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as Icons from 'lucide-react';
 import * as CardUI from '@components/ui/card';
@@ -26,7 +26,7 @@ export function StudyProgramFormModal({ program, faculties, isOpen, onClose }: S
   const { mutate: createProgram, isPending: creating } = useCreatePMBStudyProgram();
   const { mutate: updateProgram, isPending: updating } = useUpdatePMBStudyProgram(program?.id ?? '');
   const form = useForm<PMBStudyProgramFormData>({
-    resolver: zodResolver(pmbStudyProgramSchema),
+    resolver: zodResolver(pmbStudyProgramSchema) as Resolver<PMBStudyProgramFormData>,
     mode: 'onChange',
     reValidateMode: 'onChange',
     defaultValues: {

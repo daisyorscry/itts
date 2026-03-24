@@ -12,11 +12,13 @@ import {
 import { Link } from "react-router";
 import { ImageWithFallback } from "@components/figma/ImageWithFallback";
 
+const easeOutExpo = [0.16, 1, 0.3, 1] as const;
+
 const fadeUp = {
   initial: { opacity: 0, y: 40 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, amount: 0.2 },
-  transition: { duration: 0.75, ease: [0.16, 1, 0.3, 1] },
+  transition: { duration: 0.75, ease: easeOutExpo },
 };
 
 export function About() {
@@ -39,7 +41,7 @@ export function About() {
             animate={{ opacity: 1, y: 0 }}
             transition={{
               duration: 0.8,
-              ease: [0.16, 1, 0.3, 1],
+              ease: easeOutExpo,
               delay: 0.1,
             }}
             className="font-['Sora'] text-[clamp(40px,7vw,96px)] font-extrabold tracking-[-0.04em] leading-[1.0] max-w-4xl mb-6"
@@ -55,7 +57,7 @@ export function About() {
             animate={{ opacity: 1, y: 0 }}
             transition={{
               duration: 0.7,
-              ease: [0.16, 1, 0.3, 1],
+              ease: easeOutExpo,
               delay: 0.2,
             }}
             className="font-['Outfit'] text-[clamp(16px,2vw,20px)] text-white/60 max-w-2xl leading-relaxed"
@@ -104,7 +106,7 @@ export function About() {
               {...fadeUp}
               transition={{
                 duration: 0.75,
-                ease: [0.16, 1, 0.3, 1],
+                ease: easeOutExpo,
                 delay: 0.15,
               }}
               className="rounded-3xl overflow-hidden aspect-[4/3] border border-white/10"
@@ -177,7 +179,7 @@ export function About() {
                 {...fadeUp}
                 transition={{
                   duration: 0.7,
-                  ease: [0.16, 1, 0.3, 1],
+                  ease: easeOutExpo,
                   delay: i * 0.1,
                 }}
                 className="bg-[#e5e4d8] rounded-3xl p-7 flex flex-col gap-5 border border-black/[0.08] hover:border-black/[0.16] transition-colors duration-300"
@@ -272,7 +274,7 @@ export function About() {
                 {...fadeUp}
                 transition={{
                   duration: 0.7,
-                  ease: [0.16, 1, 0.3, 1],
+                  ease: easeOutExpo,
                   delay: i * 0.08,
                 }}
                 className="flex gap-5 bg-white/[0.03] border border-white/[0.08] rounded-3xl p-7 hover:border-white/15 transition-colors duration-300"
@@ -352,7 +354,7 @@ export function About() {
                 {...fadeUp}
                 transition={{
                   duration: 0.6,
-                  ease: [0.16, 1, 0.3, 1],
+                  ease: easeOutExpo,
                   delay: i * 0.06,
                 }}
               >

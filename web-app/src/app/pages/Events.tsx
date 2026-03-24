@@ -5,11 +5,13 @@ import * as Icons from 'lucide-react';
 import { ImageWithFallback } from '@components/figma/ImageWithFallback';
 import { useListPublicEvents } from '@feature/event/hooks';
 
+const easeOutExpo = [0.16, 1, 0.3, 1] as const;
+
 const fadeUp = {
   initial: { opacity: 0, y: 40 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, amount: 0.15 },
-  transition: { duration: 0.75, ease: [0.16, 1, 0.3, 1] },
+  transition: { duration: 0.75, ease: easeOutExpo },
 };
 
 function formatEventDate(value?: string | null) {
@@ -68,7 +70,7 @@ export function Events() {
           <motion.h1
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+            transition={{ duration: 0.8, ease: easeOutExpo, delay: 0.1 }}
             className="mb-6 max-w-5xl font-['Sora'] text-[clamp(40px,7vw,96px)] font-extrabold tracking-[-0.04em] leading-[1.0]"
           >
             Workshops &amp;
@@ -79,7 +81,7 @@ export function Events() {
           <motion.p
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.2 }}
             className="max-w-2xl font-['Outfit'] text-[clamp(16px,2vw,20px)] leading-relaxed text-white/60"
           >
             This page now consumes the public event endpoints directly. Open events are loaded from the backend and each card links to a public detail page by slug.
@@ -92,7 +94,7 @@ export function Events() {
         initial={{ scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
         viewport={{ once: true, amount: 0.5 }}
-        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 1, ease: easeOutExpo }}
         className="flex h-1.5"
         style={{ transformOrigin: 'left' }}
       >
@@ -114,7 +116,7 @@ export function Events() {
               <motion.form
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.3 }}
+                transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.3 }}
                 onSubmit={(event) => {
                   event.preventDefault();
                   const slug = eventSlug.trim();
@@ -143,7 +145,7 @@ export function Events() {
               <motion.form
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.35 }}
+                transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.35 }}
                 onSubmit={(event) => {
                   event.preventDefault();
                   setSearch(searchInput.trim());
@@ -185,7 +187,7 @@ export function Events() {
                 <motion.div
                   key={event.id}
                   {...fadeUp}
-                  transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: index * 0.08 }}
+                  transition={{ duration: 0.7, ease: easeOutExpo, delay: index * 0.08 }}
                   className="overflow-hidden rounded-3xl border border-black/[0.08] bg-[#ECE9DE] transition-colors duration-300 hover:border-black/[0.16]"
                 >
                   <div className="grid grid-cols-1 gap-0 md:grid-cols-[320px_1fr]">
@@ -271,7 +273,7 @@ export function Events() {
               <motion.div
                 key={event.id}
                 {...fadeUp}
-                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: index * 0.08 }}
+                transition={{ duration: 0.7, ease: easeOutExpo, delay: index * 0.08 }}
                 className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03] transition-colors duration-300 hover:border-white/15"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-white/5">

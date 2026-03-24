@@ -9,11 +9,13 @@ import {
   BookOpen,
 } from "lucide-react";
 
+const easeOutExpo = [0.16, 1, 0.3, 1] as const;
+
 const fadeUp = {
   initial: { opacity: 0, y: 40 },
   whileInView: { opacity: 1, y: 0 },
   viewport: { once: true, amount: 0.15 },
-  transition: { duration: 0.75, ease: [0.16, 1, 0.3, 1] },
+  transition: { duration: 0.75, ease: easeOutExpo },
 };
 
 const tracks = [
@@ -88,7 +90,7 @@ export function Docs() {
           <motion.h1
             initial={{ opacity: 0, y: 32 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.1 }}
+            transition={{ duration: 0.8, ease: easeOutExpo, delay: 0.1 }}
             className="font-['Sora'] text-[clamp(40px,7vw,96px)] font-extrabold tracking-[-0.04em] leading-[1.0] max-w-5xl mb-6"
           >
             Learning
@@ -99,7 +101,7 @@ export function Docs() {
           <motion.p
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+            transition={{ duration: 0.7, ease: easeOutExpo, delay: 0.2 }}
             className="font-['Outfit'] text-[clamp(16px,2vw,20px)] text-white/60 max-w-2xl leading-relaxed"
           >
             Comprehensive guides, modules, and resources for all 3 tracks.
@@ -113,7 +115,7 @@ export function Docs() {
         initial={{ scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
         viewport={{ once: true, amount: 0.5 }}
-        transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 1, ease: easeOutExpo }}
         className="h-1.5 flex"
         style={{ transformOrigin: "left" }}
       >
@@ -140,7 +142,7 @@ export function Docs() {
                 {...fadeUp}
                 transition={{
                   duration: 0.7,
-                  ease: [0.16, 1, 0.3, 1],
+                  ease: easeOutExpo,
                   delay: i * 0.08,
                 }}
                 className="rounded-3xl overflow-hidden border border-black/[0.08] hover:border-black/[0.14] transition-colors duration-300"
@@ -228,7 +230,7 @@ export function Docs() {
                 {...fadeUp}
                 transition={{
                   duration: 0.7,
-                  ease: [0.16, 1, 0.3, 1],
+                  ease: easeOutExpo,
                   delay: i * 0.08,
                 }}
                 className="bg-white/[0.03] border border-white/[0.08] rounded-3xl p-8 hover:border-white/15 transition-colors duration-300 group"

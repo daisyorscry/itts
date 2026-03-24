@@ -51,8 +51,8 @@ export function EventRegistrationDetailModal({
                   <DetailItem label="Email" value={data.email} />
                   <DetailItem label="Phone" value={data.phone_number || '-'} />
                   <DetailItem label="Institution" value={data.institution || '-'} />
-                  <DetailItem label="Status" value={data.status.replaceAll('_', ' ')} />
-                  <DetailItem label="Payment" value={data.payment_status.replaceAll('_', ' ')} />
+                  <DetailItem label="Status" value={data.status.replace(/_/g, ' ')} />
+                  <DetailItem label="Payment" value={data.payment_status.replace(/_/g, ' ')} />
                   <DetailItem label="Payment URL" value={data.payment_url || '-'} />
                   <DetailItem label="Verified at" value={data.verified_at || '-'} />
                   <DetailItem label="Approved at" value={data.approved_at || '-'} />

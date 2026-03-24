@@ -262,10 +262,10 @@ export function EventRegistrationPaymentResume() {
                     <>
                       <div className="flex flex-wrap items-center gap-3">
                         <span className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${getStatusBadge(registration)}`}>
-                          {registration.status.replaceAll('_', ' ')}
+                          {registration.status.replace(/_/g, ' ')}
                         </span>
                         <span className="rounded-full bg-black/[0.05] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#04090C]/70">
-                          Payment {registration.payment_status.replaceAll('_', ' ')}
+                          Payment {registration.payment_status.replace(/_/g, ' ')}
                         </span>
                         {registration.payment_reference ? (
                           <span className="rounded-full bg-black/[0.05] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#04090C]/70">
