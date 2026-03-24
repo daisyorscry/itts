@@ -14,6 +14,10 @@ type CreateEventRequest struct {
 	Description          string      `json:"description"`
 	ImageURL             string      `json:"image_url"`
 	FilePath             string      `json:"file_path"`
+	SquareImageURL       string      `json:"square_image_url"`
+	SquareFilePath       string      `json:"square_file_path"`
+	LandscapeImageURL    string      `json:"landscape_image_url"`
+	LandscapeFilePath    string      `json:"landscape_file_path"`
 	Benefits             []string    `json:"benefits"`
 	Program              ProgramEnum `json:"program" validate:"omitempty,oneof=networking devsecops programming"`
 	Status               EventStatus `json:"status" validate:"omitempty,oneof=draft open ongoing closed"`
@@ -34,6 +38,10 @@ type UpdateEventRequest struct {
 	Description          *string      `json:"description,omitempty"`
 	ImageURL             *string      `json:"image_url,omitempty"`
 	FilePath             *string      `json:"file_path,omitempty"`
+	SquareImageURL       *string      `json:"square_image_url,omitempty"`
+	SquareFilePath       *string      `json:"square_file_path,omitempty"`
+	LandscapeImageURL    *string      `json:"landscape_image_url,omitempty"`
+	LandscapeFilePath    *string      `json:"landscape_file_path,omitempty"`
 	Benefits             *[]string    `json:"benefits,omitempty"`
 	Program              *ProgramEnum `json:"program,omitempty" validate:"omitempty,oneof=networking devsecops programming"`
 	Status               *EventStatus `json:"status,omitempty" validate:"omitempty,oneof=draft open ongoing closed"`
@@ -119,25 +127,29 @@ type EventRegistrationStatusUpdateRequest struct {
 
 type EventResponse struct {
 	ID                   string            `json:"id"`
-	Slug                 string            `json:"slug,omitempty"`
+	Slug                 string            `json:"slug"`
 	Title                string            `json:"title"`
-	Summary              string            `json:"summary,omitempty"`
-	Description          string            `json:"description,omitempty"`
-	ImageURL             string            `json:"image_url,omitempty"`
-	FilePath             string            `json:"file_path,omitempty"`
-	Benefits             []string          `json:"benefits,omitempty"`
-	Program              string            `json:"program,omitempty"`
+	Summary              string            `json:"summary"`
+	Description          string            `json:"description"`
+	ImageURL             string            `json:"image_url"`
+	FilePath             string            `json:"file_path"`
+	SquareImageURL       string            `json:"square_image_url"`
+	SquareFilePath       string            `json:"square_file_path"`
+	LandscapeImageURL    string            `json:"landscape_image_url"`
+	LandscapeFilePath    string            `json:"landscape_file_path"`
+	Benefits             []string          `json:"benefits"`
+	Program              string            `json:"program"`
 	Status               EventStatus       `json:"status"`
 	Capacity             int               `json:"capacity"`
 	RemainingSlots       int               `json:"remaining_slots"`
-	RegistrationDeadline *time.Time        `json:"registration_deadline,omitempty"`
+	RegistrationDeadline *time.Time        `json:"registration_deadline"`
 	IsPaid               bool              `json:"is_paid"`
 	Price                int64             `json:"price"`
-	Currency             string            `json:"currency,omitempty"`
+	Currency             string            `json:"currency"`
 	StartsAt             time.Time         `json:"starts_at"`
-	EndsAt               *time.Time        `json:"ends_at,omitempty"`
-	Venue                string            `json:"venue,omitempty"`
-	Speakers             []SpeakerResponse `json:"speakers,omitempty"`
+	EndsAt               *time.Time        `json:"ends_at"`
+	Venue                string            `json:"venue"`
+	Speakers             []SpeakerResponse `json:"speakers"`
 	CreatedAt            time.Time         `json:"created_at"`
 	UpdatedAt            time.Time         `json:"updated_at"`
 }
@@ -233,6 +245,20 @@ func (r CreateEventRequest) ToModel() Event {
 	if imagePath != "" {
 		ev.ImageURL = &imagePath
 	}
+	squareImagePath := r.SquareImageURL
+	if squareImagePath == "" {
+		squareImagePath = r.SquareFilePath
+	}
+	if squareImagePath != "" {
+		ev.SquareImageURL = &squareImagePath
+	}
+	landscapeImagePath := r.LandscapeImageURL
+	if landscapeImagePath == "" {
+		landscapeImagePath = r.LandscapeFilePath
+	}
+	if landscapeImagePath != "" {
+		ev.LandscapeImageURL = &landscapeImagePath
+	}
 	if len(r.Benefits) > 0 {
 		ev.Benefits = append(StringArray{}, r.Benefits...)
 	}
@@ -298,6 +324,8 @@ func (r CreateEventRegistrationRequest) ToModel() EventRegistration {
 func EventToResponse(m Event) EventResponse {
 	resp := EventResponse{
 		ID:             m.ID,
+		Benefits:       []string{},
+		Speakers:       []SpeakerResponse{},
 		Title:          m.Title,
 		Status:         m.Status,
 		Capacity:       m.Capacity,
@@ -322,6 +350,14 @@ func EventToResponse(m Event) EventResponse {
 	if m.ImageURL != nil {
 		resp.ImageURL = *m.ImageURL
 		resp.FilePath = *m.ImageURL
+	}
+	if m.SquareImageURL != nil {
+		resp.SquareImageURL = *m.SquareImageURL
+		resp.SquareFilePath = *m.SquareImageURL
+	}
+	if m.LandscapeImageURL != nil {
+		resp.LandscapeImageURL = *m.LandscapeImageURL
+		resp.LandscapeFilePath = *m.LandscapeImageURL
 	}
 	if len(m.Benefits) > 0 {
 		resp.Benefits = append([]string{}, m.Benefits...)

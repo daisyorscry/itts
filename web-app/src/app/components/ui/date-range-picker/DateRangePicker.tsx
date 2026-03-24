@@ -10,6 +10,7 @@ import * as PopoverUI from '../popover';
 import { cn } from '../utils';
 
 interface DateRangePickerProps {
+  id?: string;
   startValue?: string;
   endValue?: string;
   onChange: (values: { startsAt: string; endsAt: string }) => void;
@@ -71,6 +72,7 @@ function formatDisplay(startValue?: string, endValue?: string) {
 }
 
 export function DateRangePicker({
+  id,
   startValue,
   endValue,
   onChange,
@@ -124,6 +126,7 @@ export function DateRangePicker({
     <PopoverUI.Popover open={open} onOpenChange={setOpen}>
       <PopoverUI.PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           disabled={disabled}

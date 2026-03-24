@@ -53,3 +53,37 @@ export function formatLastLoginDate(value: NullableDateInput) {
     },
   );
 }
+
+export function toDatetimeLocal(value?: string | null) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60_000);
+  return local.toISOString().slice(0, 16);
+}
+
+export function getFirstErrorField(errors: Record<string, unknown>): string | null {
+  const entries = Object.entries(errors);
+
+  for (const [key, value] of entries) {
+    if (!value) {
+      continue;
+    }
+
+    if (typeof value === 'object' && value !== null && ('message' in value || 'type' in value)) {
+      return key;
+    }
+
+    if (typeof value === 'object') {
+      const nestedField = getFirstErrorField(value as Record<string, unknown>);
+      if (nestedField) {
+        return nestedField;
+      }
+    }
+  }
+
+  return null;
+}

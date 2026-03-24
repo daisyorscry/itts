@@ -38,6 +38,10 @@ function getProgramColor(program?: string) {
   return '#F59E0B';
 }
 
+function getSquareEventImage(event: { square_image_url?: string; landscape_image_url?: string; image_url?: string }) {
+  return event.square_image_url || event.landscape_image_url || event.image_url || '';
+}
+
 export function Events() {
   const navigate = useNavigate();
   const [eventSlug, setEventSlug] = useState('');
@@ -192,7 +196,7 @@ export function Events() {
                 >
                   <div className="grid grid-cols-1 gap-0 md:grid-cols-[320px_1fr]">
                     <div className="relative aspect-[4/3] overflow-hidden bg-[#ECE9DE] md:h-full md:min-h-[320px] md:aspect-auto">
-                      <ImageWithFallback src={event.image_url || ''} alt={event.title} className="absolute inset-0 h-full w-full object-cover object-center" />
+                      <ImageWithFallback src={getSquareEventImage(event)} alt={event.title} className="absolute inset-0 h-full w-full object-cover object-center" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                       <div
                         className="absolute top-4 left-4 rounded-full px-3 py-1 font-['Outfit'] text-xs font-semibold"
@@ -277,7 +281,7 @@ export function Events() {
                 className="overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03] transition-colors duration-300 hover:border-white/15"
               >
                 <div className="relative aspect-[16/10] overflow-hidden bg-white/5">
-                  <ImageWithFallback src={event.image_url || ''} alt={event.title} className="absolute inset-0 h-full w-full object-cover object-center grayscale opacity-60" />
+                  <ImageWithFallback src={getSquareEventImage(event)} alt={event.title} className="absolute inset-0 h-full w-full object-cover object-center grayscale opacity-60" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
                   <div className="absolute left-4 top-4 rounded-full border border-white/15 bg-black/40 px-3 py-1 font-['Outfit'] text-xs text-white/70">
                     {event.program || 'General'}

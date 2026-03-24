@@ -9,6 +9,9 @@ import type { Event, EventStatus } from '@feature/event/types';
 import { formatDateTime } from '@utility/date';
 
 interface CreateEventColumnsOptions {
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
   isUpdatingStatus: boolean;
   isDeleting: boolean;
   onStatusChange: (event: Event, status: EventStatus) => void;
@@ -19,13 +22,26 @@ interface CreateEventColumnsOptions {
 
 interface EventActionsMenuProps {
   event: Event;
+  canRead: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
   isDeleting: boolean;
   onView: (event: Event) => void;
   onEdit: (event: Event) => void;
   onDelete: (event: Event) => void;
 }
 
-function EventActionsMenu({ event, isDeleting, onView, onEdit, onDelete }: EventActionsMenuProps) {
+function EventActionsMenu({ event, canRead, canUpdate, canDelete, isDeleting, onView, onEdit, onDelete }: EventActionsMenuProps) {
+  const hasActions = canRead || canUpdate || canDelete;
+
+  if (!hasActions) {
+    return (
+      <LayoutUI.Row justify="justify-end" className="w-full">
+        <Text variant="muted-inverse" size="sm">No actions</Text>
+      </LayoutUI.Row>
+    );
+  }
+
   return (
     <LayoutUI.Row justify="justify-end" className="w-full">
       <DropdownMenuUI.DropdownMenu>
@@ -42,30 +58,38 @@ function EventActionsMenu({ event, isDeleting, onView, onEdit, onDelete }: Event
           align="end"
           className="w-44 rounded-xl border-black/10 bg-[#F7F4EC] p-1.5"
         >
-          <DropdownMenuUI.DropdownMenuItem
-            className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
-            onClick={() => onView(event)}
-          >
-            <Icons.Eye className="text-black/70" />
-            View Details
-          </DropdownMenuUI.DropdownMenuItem>
-          <DropdownMenuUI.DropdownMenuItem
-            className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
-            onClick={() => onEdit(event)}
-          >
-            <Icons.Edit className="text-black/70" />
-            Edit Event
-          </DropdownMenuUI.DropdownMenuItem>
-          <DropdownMenuUI.DropdownMenuSeparator className="my-1.5 bg-black/10" />
-          <DropdownMenuUI.DropdownMenuItem
-            variant="destructive"
-            className="rounded-lg px-3 py-2.5"
-            disabled={isDeleting}
-            onClick={() => onDelete(event)}
-          >
-            <Icons.Trash2 />
-            Delete Event
-          </DropdownMenuUI.DropdownMenuItem>
+          {canRead ? (
+            <DropdownMenuUI.DropdownMenuItem
+              className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+              onClick={() => onView(event)}
+            >
+              <Icons.Eye className="text-black/70" />
+              View Details
+            </DropdownMenuUI.DropdownMenuItem>
+          ) : null}
+          {canUpdate ? (
+            <DropdownMenuUI.DropdownMenuItem
+              className="rounded-lg px-3 py-2.5 text-[#04090C] focus:bg-black/5 focus:text-[#04090C]"
+              onClick={() => onEdit(event)}
+            >
+              <Icons.Edit className="text-black/70" />
+              Edit Event
+            </DropdownMenuUI.DropdownMenuItem>
+          ) : null}
+          {canDelete ? (
+            <>
+              {(canRead || canUpdate) ? <DropdownMenuUI.DropdownMenuSeparator className="my-1.5 bg-black/10" /> : null}
+              <DropdownMenuUI.DropdownMenuItem
+                variant="destructive"
+                className="rounded-lg px-3 py-2.5"
+                disabled={isDeleting}
+                onClick={() => onDelete(event)}
+              >
+                <Icons.Trash2 />
+                Delete Event
+              </DropdownMenuUI.DropdownMenuItem>
+            </>
+          ) : null}
         </DropdownMenuUI.DropdownMenuContent>
       </DropdownMenuUI.DropdownMenu>
     </LayoutUI.Row>
@@ -73,6 +97,9 @@ function EventActionsMenu({ event, isDeleting, onView, onEdit, onDelete }: Event
 }
 
 export function createEventColumns({
+  canRead,
+  canUpdate,
+  canDelete,
   isUpdatingStatus,
   isDeleting,
   onStatusChange,
@@ -112,7 +139,7 @@ export function createEventColumns({
         <SelectUI.Select
           value={row.status}
           onValueChange={(value) => onStatusChange(row, value as EventStatus)}
-          disabled={isUpdatingStatus}
+          disabled={isUpdatingStatus || !canUpdate}
         >
           <SelectUI.SelectTrigger appearance="admin" className="h-auto min-w-28 rounded-lg px-2 py-1.5">
             <SelectUI.SelectValue>{row.status}</SelectUI.SelectValue>
@@ -133,6 +160,9 @@ export function createEventColumns({
       cell: ({ row }) => (
         <EventActionsMenu
           event={row}
+          canRead={canRead}
+          canUpdate={canUpdate}
+          canDelete={canDelete}
           isDeleting={isDeleting}
           onView={onView}
           onEdit={onEdit}

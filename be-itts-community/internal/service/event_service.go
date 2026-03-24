@@ -30,6 +30,12 @@ func (s *eventService) Create(ctx context.Context, req model.CreateEventRequest)
 	if req.ImageURL == "" && req.FilePath != "" {
 		req.ImageURL = req.FilePath
 	}
+	if req.SquareImageURL == "" && req.SquareFilePath != "" {
+		req.SquareImageURL = req.SquareFilePath
+	}
+	if req.LandscapeImageURL == "" && req.LandscapeFilePath != "" {
+		req.LandscapeImageURL = req.LandscapeFilePath
+	}
 
 	if err := validator.Validate(req); err != nil {
 		return model.EventResponse{}, core.ValidationError(err)
@@ -89,6 +95,12 @@ func (s *eventService) Update(ctx context.Context, id string, req model.UpdateEv
 	if req.ImageURL == nil && req.FilePath != nil {
 		req.ImageURL = req.FilePath
 	}
+	if req.SquareImageURL == nil && req.SquareFilePath != nil {
+		req.SquareImageURL = req.SquareFilePath
+	}
+	if req.LandscapeImageURL == nil && req.LandscapeFilePath != nil {
+		req.LandscapeImageURL = req.LandscapeFilePath
+	}
 
 	if err := validator.Validate(req); err != nil {
 		return model.EventResponse{}, core.ValidationError(err)
@@ -116,6 +128,12 @@ func (s *eventService) Update(ctx context.Context, id string, req model.UpdateEv
 	}
 	if req.ImageURL != nil {
 		ev.ImageURL = req.ImageURL
+	}
+	if req.SquareImageURL != nil {
+		ev.SquareImageURL = req.SquareImageURL
+	}
+	if req.LandscapeImageURL != nil {
+		ev.LandscapeImageURL = req.LandscapeImageURL
 	}
 	if req.Program != nil {
 		ev.Program = req.Program

@@ -29,6 +29,10 @@ export interface Event {
   description?: string;
   image_url?: string;
   file_path?: string;
+  square_image_url?: string;
+  square_file_path?: string;
+  landscape_image_url?: string;
+  landscape_file_path?: string;
   benefits?: string[];
   program?: ProgramType | '';
   status: EventStatus;
@@ -170,6 +174,10 @@ export interface CreateEventRequest {
   description?: string;
   image_url?: string;
   file_path?: string;
+  square_image_url?: string;
+  square_file_path?: string;
+  landscape_image_url?: string;
+  landscape_file_path?: string;
   benefits?: string[];
   program?: ProgramType;
   status?: EventStatus;
@@ -226,24 +234,30 @@ function isEventImageValue(value?: string) {
 }
 
 export const eventSchema = z.object({
-  slug: z.string().optional(),
+  slug: z.string().min(1, 'Slug is required'),
   title: z.string().min(3, 'Title must be at least 3 characters'),
-  summary: z.string().optional(),
-  description: z.string().optional(),
+  summary: z.string().min(1, 'Summary is required'),
+  description: z.string().min(1, 'Description is required'),
   image_url: z.string().optional().refine(isEventImageValue, {
     message: 'Image must be an uploaded file or a valid URL',
   }),
-  benefits: z.array(z.string().min(1)).optional(),
-  program: z.enum(['networking', 'devsecops', 'programming']).optional(),
-  status: z.enum(['draft', 'open', 'ongoing', 'closed']).default('draft'),
-  capacity: z.coerce.number().int().min(0).optional(),
-  registration_deadline: z.string().optional(),
+  square_image_url: z.string().min(1, 'Square image is required').refine(isEventImageValue, {
+    message: 'Square image must be an uploaded file or a valid URL',
+  }),
+  landscape_image_url: z.string().min(1, 'Landscape image is required').refine(isEventImageValue, {
+    message: 'Landscape image must be an uploaded file or a valid URL',
+  }),
+  benefits: z.array(z.string().min(1)).min(1, 'Add at least one benefit'),
+  program: z.enum(['networking', 'devsecops', 'programming'], { error: 'Program track is required' }),
+  status: z.enum(['draft', 'open', 'ongoing', 'closed'], { error: 'Status is required' }),
+  capacity: z.coerce.number().int().min(0, 'Capacity is required'),
+  registration_deadline: z.string().min(1, 'Registration deadline is required'),
   is_paid: z.boolean().optional(),
-  price: z.coerce.number().min(0).optional(),
-  currency: z.string().optional(),
+  price: z.coerce.number().min(0, 'Price is required'),
+  currency: z.string().min(1, 'Currency is required'),
   starts_at: z.string().min(1, 'Start date is required'),
-  ends_at: z.string().optional(),
-  venue: z.string().optional(),
+  ends_at: z.string().min(1, 'End date is required'),
+  venue: z.string().min(1, 'Venue is required'),
 }).superRefine((data, ctx) => {
   if (data.ends_at && new Date(data.ends_at).getTime() < new Date(data.starts_at).getTime()) {
     ctx.addIssue({

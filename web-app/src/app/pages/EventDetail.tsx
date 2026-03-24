@@ -16,6 +16,14 @@ function formatEventDate(value?: string | null) {
   }).format(date);
 }
 
+function getDetailEventImage(event?: { landscape_image_url?: string; square_image_url?: string; image_url?: string } | null) {
+  if (!event) {
+    return '';
+  }
+
+  return event.landscape_image_url || event.square_image_url || event.image_url || '';
+}
+
 export function EventDetail() {
   const { slug = '' } = useParams();
   const { data: event, isLoading, isError, error } = usePublicEvent(slug, !!slug);
@@ -69,23 +77,25 @@ export function EventDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-[#ECE9DE] text-[#04090C]">
-      <section className="relative overflow-hidden border-b border-black/10 bg-[#ECE9DE]">
-        <div
-          className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(0,0,0,0.45) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.45) 1px, transparent 1px)',
-            backgroundSize: '64px 64px',
-          }}
-        />
-        <div className="absolute right-0 top-0 h-[380px] w-[380px] rounded-full bg-accent/10 blur-[120px]" />
+    <div className="min-h-screen bg-[#ECE9DE] pt-6 text-[#04090C] sm:pt-8 lg:pt-10">
+      <section className="relative border-b border-black/10 bg-[#ECE9DE]">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage:
+                'linear-gradient(rgba(0,0,0,0.45) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.45) 1px, transparent 1px)',
+              backgroundSize: '64px 64px',
+            }}
+          />
+          <div className="absolute right-0 top-0 h-[380px] w-[380px] rounded-full bg-accent/10 blur-[120px]" />
+        </div>
 
         <div className="relative mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
-        <Link to="/events" className="mb-8 inline-flex items-center gap-2 text-sm text-[#04090C]/60 transition hover:text-[#04090C]">
-          <Icons.ArrowLeft className="size-4" />
-          Back to events
-        </Link>
+          <Link to="/events" className="mb-8 inline-flex items-center gap-2 text-sm text-[#04090C]/60 transition hover:text-[#04090C]">
+            <Icons.ArrowLeft className="size-4" />
+            Back to events
+          </Link>
 
         {isLoading ? (
           <div className="rounded-[2rem] border border-black/10 bg-black/[0.03] p-10 text-[#04090C]/70">
@@ -110,16 +120,16 @@ export function EventDetail() {
                 className="overflow-hidden rounded-[1.25rem] border border-black/10 bg-[#ECE9DE]"
               >
                 <div className="relative h-72 overflow-hidden sm:h-96">
-                  {event.image_url ? (
-                    <img src={event.image_url} alt={event.title} className="h-full w-full object-cover" />
+                  {getDetailEventImage(event) ? (
+                    <img src={getDetailEventImage(event)} alt={event.title} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-black/[0.03] text-[#04090C]/35">
                       No image
                     </div>
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-[#04090C]/85 via-[#04090C]/30 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-                    <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <div className="absolute bottom-0 right-0 p-6 sm:p-8">
+                    <div className="flex flex-wrap items-center justify-end gap-3">
                       <span className="rounded-full border border-[#29E68C]/20 bg-[#29E68C] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-black">
                         {event.status}
                       </span>
@@ -129,15 +139,18 @@ export function EventDetail() {
                         </span>
                       ) : null}
                     </div>
-                    <h1 className="max-w-3xl font-['Sora'] text-[clamp(32px,5vw,56px)] font-extrabold tracking-[-0.04em]">
-                      {event.title}
-                    </h1>
                   </div>
                 </div>
 
                 <div className="space-y-8 p-6 sm:p-8">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="rounded-[1rem] border border-black/10 bg-black/[0.045] p-5">
+                  <div>
+                    <h1 className="max-w-4xl font-['Sora'] text-[clamp(32px,5vw,56px)] font-extrabold tracking-[-0.04em] leading-[0.98] text-[#04090C]">
+                      {event.title}
+                    </h1>
+                  </div>
+
+                  <div className="grid gap-x-8 gap-y-6 border-t border-black/10 pt-6 sm:grid-cols-2">
+                    <div>
                       <div className="mb-2 flex items-center gap-2 text-sm text-[#04090C]/45">
                         <Icons.CalendarDays className="size-4" />
                         Date & time
@@ -147,14 +160,14 @@ export function EventDetail() {
                         <p className="mt-2 text-xs text-[#04090C]/45">Ends {formatEventDate(event.ends_at)}</p>
                       ) : null}
                     </div>
-                    <div className="rounded-[1rem] border border-black/10 bg-black/[0.045] p-5">
+                    <div>
                       <div className="mb-2 flex items-center gap-2 text-sm text-[#04090C]/45">
                         <Icons.MapPin className="size-4" />
                         Venue
                       </div>
                       <p className="text-sm leading-relaxed text-[#04090C]/80">{event.venue || 'Venue will be announced soon'}</p>
                     </div>
-                    <div className="rounded-[1rem] border border-black/10 bg-black/[0.045] p-5">
+                    <div>
                       <div className="mb-2 flex items-center gap-2 text-sm text-[#04090C]/45">
                         <Icons.Users className="size-4" />
                         Seats
@@ -163,7 +176,7 @@ export function EventDetail() {
                         {event.capacity > 0 ? `${event.remaining_slots} seats left from ${event.capacity}` : 'Open capacity'}
                       </p>
                     </div>
-                    <div className="rounded-[1rem] border border-black/10 bg-black/[0.045] p-5">
+                    <div>
                       <div className="mb-2 flex items-center gap-2 text-sm text-[#04090C]/45">
                         <Icons.BadgeDollarSign className="size-4" />
                         Ticket
@@ -175,7 +188,7 @@ export function EventDetail() {
                   </div>
 
                   {event.registration_deadline ? (
-                    <div className="rounded-[1rem] border border-black/10 bg-black/[0.045] p-5">
+                    <div className="border-t border-black/10 pt-6">
                       <div className="mb-2 flex items-center gap-2 text-sm text-[#04090C]/45">
                         <Icons.Clock3 className="size-4" />
                         Registration deadline
@@ -194,8 +207,8 @@ export function EventDetail() {
                       <h2 className="mb-4 font-['Sora'] text-2xl font-bold">Benefits</h2>
                       <div className="grid gap-3 sm:grid-cols-2">
                         {event.benefits.map((benefit) => (
-                          <div key={benefit} className="flex items-start gap-3 rounded-[1rem] border border-black/10 bg-black/[0.045] p-4">
-                            <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-accent text-black">
+                          <div key={benefit} className="flex items-start gap-3 border-b border-black/10 pb-3 last:border-b-0 last:pb-0">
+                            <div className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-black/[0.06] text-[#04090C]/70">
                               <Icons.Check className="size-4" />
                             </div>
                             <p className="text-sm leading-6 text-[#04090C]/75">{benefit}</p>
@@ -228,87 +241,89 @@ export function EventDetail() {
                 </div>
               </motion.article>
 
-              <motion.aside
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.55, delay: 0.05 }}
-                className="h-fit rounded-[1.25rem] border border-black/10 bg-[#ECE9DE] p-6 text-[#04090C] sm:p-8"
-              >
-                <div className="mb-6">
-                  <div
-                    className="mb-4 inline-block rounded-sm bg-accent px-4 py-2"
-                  >
-                    <span className="font-['Sora'] text-lg font-black tracking-[-0.03em] text-black">
-                      RESERVE A SEAT
-                    </span>
-                  </div>
-                  <h2 className="font-['Sora'] text-3xl font-extrabold tracking-[-0.04em]">Reserve your seat</h2>
-                  <p className="mt-3 text-sm leading-6 text-[#04090C]/60">
-                    Submit your details first. We will email a verification link before your registration moves to confirmed, waitlist, or payment.
-                  </p>
-                </div>
-
-                <form className="space-y-4" onSubmit={handleSubmit}>
-                  {submitted ? (
-                    <div className="rounded-[1rem] border border-[#29E68C]/20 bg-[#29E68C]/10 p-4 text-sm leading-6 text-[#04090C]/72">
-                      Registration submitted. Check your email and open the verification link to continue.
+              <div className="lg:sticky lg:top-20 lg:self-start">
+                <motion.aside
+                  initial={{ opacity: 0, y: 24 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.55, delay: 0.05 }}
+                  className="h-fit rounded-[1.25rem] border border-black/10 bg-[#ECE9DE] p-6 text-[#04090C] sm:p-8"
+                >
+                  <div className="mb-6">
+                    <div
+                      className="mb-4 inline-block rounded-sm bg-accent px-4 py-2"
+                    >
+                      <span className="font-['Sora'] text-lg font-black tracking-[-0.03em] text-black">
+                        RESERVE A SEAT
+                      </span>
                     </div>
-                  ) : null}
+                    <h2 className="font-['Sora'] text-3xl font-extrabold tracking-[-0.04em]">Reserve your seat</h2>
+                    <p className="mt-3 text-sm leading-6 text-[#04090C]/60">
+                      Submit your details first. We will email a verification link before your registration moves to confirmed, waitlist, or payment.
+                    </p>
+                  </div>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Full name</span>
-                    <input
-                      value={fullName}
-                      onChange={(inputEvent) => setFullName(inputEvent.target.value)}
-                      required
-                      minLength={3}
-                      className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
-                      placeholder="Your full name"
-                    />
-                  </label>
+                  <form className="space-y-4" onSubmit={handleSubmit}>
+                    {submitted ? (
+                      <div className="rounded-[1rem] border border-[#29E68C]/20 bg-[#29E68C]/10 p-4 text-sm leading-6 text-[#04090C]/72">
+                        Registration submitted. Check your email and open the verification link to continue.
+                      </div>
+                    ) : null}
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Email</span>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(inputEvent) => setEmail(inputEvent.target.value)}
-                      required
-                      className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
-                      placeholder="you@example.com"
-                    />
-                  </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Full name</span>
+                      <input
+                        value={fullName}
+                        onChange={(inputEvent) => setFullName(inputEvent.target.value)}
+                        required
+                        minLength={3}
+                        className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
+                        placeholder="Your full name"
+                      />
+                    </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Phone number</span>
-                    <input
-                      value={phoneNumber}
-                      onChange={(inputEvent) => setPhoneNumber(inputEvent.target.value)}
-                      className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
-                      placeholder="+62..."
-                    />
-                  </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Email</span>
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(inputEvent) => setEmail(inputEvent.target.value)}
+                        required
+                        className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
+                        placeholder="you@example.com"
+                      />
+                    </label>
 
-                  <label className="block">
-                    <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Institution</span>
-                    <input
-                      value={institution}
-                      onChange={(inputEvent) => setInstitution(inputEvent.target.value)}
-                      className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
-                      placeholder="Campus, school, or company"
-                    />
-                  </label>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Phone number</span>
+                      <input
+                        value={phoneNumber}
+                        onChange={(inputEvent) => setPhoneNumber(inputEvent.target.value)}
+                        className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
+                        placeholder="+62..."
+                      />
+                    </label>
 
-                  <button
-                    type="submit"
-                    disabled={registerMutation.isPending || !event.id}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {registerMutation.isPending ? 'Submitting...' : 'Register Now'}
-                    <Icons.ArrowRight className="size-4" />
-                  </button>
-                </form>
-              </motion.aside>
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-medium text-[#04090C]/70">Institution</span>
+                      <input
+                        value={institution}
+                        onChange={(inputEvent) => setInstitution(inputEvent.target.value)}
+                        className="w-full rounded-full border border-black/10 bg-black/[0.03] px-5 py-3 outline-none transition focus:border-black/25"
+                        placeholder="Campus, school, or company"
+                      />
+                    </label>
+
+                    <button
+                      type="submit"
+                      disabled={registerMutation.isPending || !event.id}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {registerMutation.isPending ? 'Submitting...' : 'Register Now'}
+                      <Icons.ArrowRight className="size-4" />
+                    </button>
+                  </form>
+                </motion.aside>
+              </div>
             </div>
 
             <motion.div

@@ -1,9 +1,15 @@
-import { type DragEvent, useEffect, useId, useRef, useState } from 'react';
+import { type DragEvent, useId, useRef, useState } from 'react';
 import * as Icons from 'lucide-react';
 import * as FormUI from '@components/ui/form';
 
 interface EventImageFieldProps {
+  id?: string;
+  label?: string;
+  required?: boolean;
+  description?: string;
+  aspect?: 'square' | 'landscape';
   value?: string;
+  previewUrl?: string;
   error?: string;
   disabled?: boolean;
   tone?: 'default' | 'inverse';
@@ -12,54 +18,33 @@ interface EventImageFieldProps {
 }
 
 export function EventImageField({
+  id,
+  label = 'Event image',
+  required = false,
+  description,
+  aspect = 'square',
   value = '',
+  previewUrl,
   error,
   disabled = false,
   tone = 'inverse',
   isUploading = false,
   onFileSelect,
 }: EventImageFieldProps) {
-  const inputId = useId();
+  const generatedId = useId();
+  const inputId = id || generatedId;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [localPreviewUrl, setLocalPreviewUrl] = useState('');
+  const isLandscape = aspect === 'landscape';
 
-  const remotePreviewSrc = value.startsWith('/uploads/')
+  const remotePreviewSrc = previewUrl || (value.startsWith('/uploads/')
     ? `${import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/v1\/?$/, '') || ''}${value}`
-    : value;
-  const previewSrc = localPreviewUrl || remotePreviewSrc;
-
-  useEffect(() => {
-    if (!value) {
-      setLocalPreviewUrl((current) => {
-        if (current.startsWith('blob:')) {
-          URL.revokeObjectURL(current);
-        }
-        return '';
-      });
-    }
-  }, [value]);
-
-  useEffect(() => {
-    return () => {
-      if (localPreviewUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(localPreviewUrl);
-      }
-    };
-  }, [localPreviewUrl]);
+    : value);
 
   const handleSelectedFile = (file?: File | null) => {
     if (!file) {
       return;
     }
-
-    const nextPreviewUrl = URL.createObjectURL(file);
-    setLocalPreviewUrl((current) => {
-      if (current.startsWith('blob:')) {
-        URL.revokeObjectURL(current);
-      }
-      return nextPreviewUrl;
-    });
 
     void onFileSelect(file);
   };
@@ -103,8 +88,9 @@ export function EventImageField({
   };
 
   return (
-    <FormUI.FormField id={inputId} label="Event Image" error={error} tone={tone}>
-      <div className="space-y-4">
+    <FormUI.FormField id={inputId} label={label} error={error} required={required} tone={tone}>
+      <div className="flex h-full flex-col gap-4">
+        {description ? <p className="min-h-[3rem] text-xs leading-5 text-[#04090C]/50">{description}</p> : null}
         <input
           id={inputId}
           ref={fileInputRef}
@@ -131,13 +117,21 @@ export function EventImageField({
               handlePickImage();
             }
           }}
-          className={`overflow-hidden rounded-2xl border bg-[#F7F4EC] transition ${
+          className={`mt-0 overflow-hidden rounded-2xl border bg-[#F7F4EC] transition ${
             isDragging ? 'border-[#29E68C] ring-2 ring-[#29E68C]/30' : 'border-black/10'
           } ${disabled || isUploading ? 'cursor-default opacity-70' : 'cursor-pointer'}`}
         >
           {value ? (
-            <div className="relative">
-              <img src={previewSrc} alt="Event preview" className="h-52 w-full object-cover" />
+            <div className="relative h-72">
+              {isLandscape ? (
+                <div className="absolute inset-0 overflow-hidden">
+                  <img src={remotePreviewSrc} alt="Event preview" className="h-full w-full object-cover" />
+                </div>
+              ) : (
+                <div className="absolute inset-y-0 left-1/2 flex aspect-square h-full -translate-x-1/2 overflow-hidden">
+                  <img src={remotePreviewSrc} alt="Event preview" className="h-full w-full object-cover" />
+                </div>
+              )}
               <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-black/65 to-transparent px-4 py-3 text-xs font-medium text-white">
                 <span>{isUploading ? 'Uploading image...' : 'Click or drag another image to replace'}</span>
                 {isUploading ? <Icons.LoaderCircle className="size-4 animate-spin" /> : <Icons.Upload className="size-4" />}
@@ -152,10 +146,20 @@ export function EventImageField({
               ) : null}
             </div>
           ) : (
-            <div className="flex h-52 flex-col items-center justify-center gap-3 px-6 text-center text-[#04090C]/45">
-              {isUploading ? <Icons.LoaderCircle className="size-8 animate-spin" /> : <Icons.ImagePlus className="size-8" />}
-              <p className="text-sm font-medium text-[#04090C]/70">{isUploading ? 'Uploading image...' : 'Drop image here or click to browse.'}</p>
-              <p className="text-xs leading-5 text-[#04090C]/45">PNG, JPG, WEBP, or any browser-supported image file.</p>
+            <div className="relative h-72">
+              {isLandscape ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-[#04090C]/45">
+                  {isUploading ? <Icons.LoaderCircle className="size-8 animate-spin" /> : <Icons.ImagePlus className="size-8" />}
+                  <p className="text-sm font-medium text-[#04090C]/70">{isUploading ? 'Uploading image...' : 'Drop image here or click to browse.'}</p>
+                  <p className="text-xs leading-5 text-[#04090C]/45">PNG, JPG, WEBP, or any browser-supported image file.</p>
+                </div>
+              ) : (
+                <div className="absolute inset-y-0 left-1/2 flex aspect-square h-full -translate-x-1/2 flex-col items-center justify-center gap-3 px-6 text-center text-[#04090C]/45">
+                  {isUploading ? <Icons.LoaderCircle className="size-8 animate-spin" /> : <Icons.ImagePlus className="size-8" />}
+                  <p className="text-sm font-medium text-[#04090C]/70">{isUploading ? 'Uploading image...' : 'Drop image here or click to browse.'}</p>
+                  <p className="text-xs leading-5 text-[#04090C]/45">PNG, JPG, WEBP, or any browser-supported image file.</p>
+                </div>
+              )}
             </div>
           )}
         </div>
