@@ -70,13 +70,14 @@ export const eventKeys = {
   verificationToken: (token: string) => [...eventKeys.verification(), token] as const,
 };
 
-export function useListEvents(params?: ListEventsParams) {
+export function useListEvents(params?: ListEventsParams, enabled = true) {
   return useQuery({
     queryKey: eventKeys.list(params),
     queryFn: async () => {
       const response = await listEventsApi(params);
       return response.data;
     },
+    enabled,
     staleTime: 30 * 1000,
   });
 }

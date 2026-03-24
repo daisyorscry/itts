@@ -25,6 +25,7 @@ import { DMCAPolicy } from "./pages/DMCAPolicy";
 import { AdminDashboard } from "./pages/admin/Dashboard";
 import { AdminEvents } from "./pages/admin/Events";
 import { AdminEventCreate } from "./pages/admin/events/ViewCreateEvent";
+import { AdminEventView } from "./pages/admin/events/ViewEvent";
 import { AdminEventEdit } from "./pages/admin/events/ViewEditEvent";
 import { AdminUsers } from "./pages/admin/Users";
 import { AdminUserCreate } from "./pages/admin/users/ViewCreateUser";
@@ -96,7 +97,7 @@ export const router = createBrowserRouter([
       { index: true, Component: AdminDashboard },
       { path: "events", Component: AdminEvents },
       { path: "events/create", Component: AdminEventCreate },
-      { path: "events/:id", Component: AdminEventEdit },
+      { path: "events/:id", Component: AdminEventView },
       { path: "events/edit/:id", Component: AdminEventEdit },
       { path: "users", Component: AdminUsers },
       { path: "users/:id", Component: AdminUserEdit },

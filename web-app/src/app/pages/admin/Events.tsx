@@ -13,6 +13,8 @@ import { useDeleteEvent, useListEvents, useSetEventStatus } from '@feature/event
 import { type Event, type EventListResponse, type EventStatus } from '@feature/event/types';
 import { createEventColumns } from '@pages/admin/events/Columns';
 import { EventsQueryState } from '@pages/admin/events/EventsQueryState';
+import { QueryStatePanel } from '@components/query-state-panel';
+import { PERMISSIONS, useHasPermission } from '@utils/permissions';
 
 export function AdminEvents() {
   const navigate = useNavigate();
@@ -20,13 +22,18 @@ export function AdminEvents() {
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<EventStatus | ''>('');
+  const canList = useHasPermission(PERMISSIONS.EVENTS_LIST);
+  const canRead = useHasPermission(PERMISSIONS.EVENTS_READ);
+  const canCreate = useHasPermission(PERMISSIONS.EVENTS_CREATE);
+  const canUpdate = useHasPermission(PERMISSIONS.EVENTS_UPDATE);
+  const canDelete = useHasPermission(PERMISSIONS.EVENTS_DELETE);
 
   const { data, isLoading, error } = useListEvents({
     page,
     page_size: pageSize,
     search: search || undefined,
     status: status || undefined,
-  });
+  }, canList);
   const { mutate: deleteEvent, isPending: deleting } = useDeleteEvent();
   const { mutate: setStatusMutation, isPending: updatingStatus } = useSetEventStatus();
 
@@ -35,6 +42,9 @@ export function AdminEvents() {
   const hasEvents = events.length > 0;
 
   const eventColumns = createEventColumns({
+    canRead,
+    canUpdate,
+    canDelete,
     isUpdatingStatus: updatingStatus,
     isDeleting: deleting,
     onStatusChange: (event, nextStatus) => {
@@ -47,6 +57,17 @@ export function AdminEvents() {
     },
   });
 
+  if (!canList) {
+    return (
+      <QueryStatePanel
+        tone="error"
+        icon={Icons.ShieldAlert}
+        title="You do not have permission to view events"
+        description="Ask an administrator for events:list access."
+      />
+    );
+  }
+
   return (
     <LayoutUI.Column gap="gap-8">
       <LayoutUI.Row justify="justify-between" align="items-center" className="gap-4 max-md:flex-col max-md:items-start">
@@ -58,10 +79,12 @@ export function AdminEvents() {
             Create, update, and publish community events.
           </Text>
         </LayoutUI.Column>
-        <Button onClick={() => navigate('/admin/events/create')} variant="accent" size="form">
-          <Icons.Plus />
-          Create Event
-        </Button>
+        {canCreate ? (
+          <Button onClick={() => navigate('/admin/events/create')} variant="accent" size="form">
+            <Icons.Plus />
+            Create Event
+          </Button>
+        ) : null}
       </LayoutUI.Row>
 
       <LayoutUI.Row justify="justify-between" align="items-start" className="gap-4 max-xl:flex-col max-xl:items-start">

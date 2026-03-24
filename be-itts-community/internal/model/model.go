@@ -249,6 +249,8 @@ type Event struct {
 	Summary              *string
 	Description          *string
 	ImageURL             *string
+	SquareImageURL       *string
+	LandscapeImageURL    *string
 	Benefits             StringArray  `gorm:"type:text[]"`
 	Program              *ProgramEnum `gorm:"type:program_enum"`
 	Status               EventStatus  `gorm:"type:event_status_enum;default:'draft';not null;index"`

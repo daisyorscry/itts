@@ -34,11 +34,23 @@ func NewEventHandler(eventSvc service.EventService, speakerSvc service.EventSpea
 }
 
 func withAbsoluteEventImageURL(r *http.Request, event model.EventResponse) model.EventResponse {
-	if event.FilePath == "" {
+	if event.FilePath == "" && isAssetPath(event.ImageURL) {
 		event.FilePath = event.ImageURL
 	}
-	if event.FilePath != "" {
-		event.ImageURL = buildAbsoluteAssetURL(r, event.FilePath)
+	if event.ImageURL != "" {
+		event.ImageURL = buildAbsoluteAssetURL(r, event.ImageURL)
+	}
+	if event.SquareFilePath == "" && isAssetPath(event.SquareImageURL) {
+		event.SquareFilePath = event.SquareImageURL
+	}
+	if event.SquareImageURL != "" {
+		event.SquareImageURL = buildAbsoluteAssetURL(r, event.SquareImageURL)
+	}
+	if event.LandscapeFilePath == "" && isAssetPath(event.LandscapeImageURL) {
+		event.LandscapeFilePath = event.LandscapeImageURL
+	}
+	if event.LandscapeImageURL != "" {
+		event.LandscapeImageURL = buildAbsoluteAssetURL(r, event.LandscapeImageURL)
 	}
 	return event
 }
@@ -84,6 +96,10 @@ func buildAbsoluteAssetURL(r *http.Request, path string) string {
 		return scheme + "://" + host + path
 	}
 	return scheme + "://" + host + "/" + path
+}
+
+func isAssetPath(value string) bool {
+	return value != "" && !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://")
 }
 
 // POST /api/v1/admin/events
