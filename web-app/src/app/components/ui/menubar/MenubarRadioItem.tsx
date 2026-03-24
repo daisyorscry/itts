@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import * * MenubarPrimitive from "@radix-ui/react-menubar";
+import * as MenubarPrimitive from "@radix-ui/react-menubar";
 import { CircleIcon } from "lucide-react";
 import { cn } from "../utils";
 
