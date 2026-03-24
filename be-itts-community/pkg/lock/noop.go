@@ -1,8 +1,8 @@
 package lock
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 )
 
 type noopLocker struct{}
@@ -11,6 +11,5 @@ type noopLocker struct{}
 func NewNoopLocker() Locker { return &noopLocker{} }
 
 func (l *noopLocker) WithLock(ctx context.Context, key string, ttl time.Duration, fn func(context.Context) error) error {
-    return fn(ctx)
+	return fn(ctx)
 }
-

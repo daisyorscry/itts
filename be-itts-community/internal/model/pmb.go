@@ -79,11 +79,11 @@ type Applicant struct {
 	NationalID     string `gorm:"size:16;unique;not null"`
 	PlaceOfBirth   string `gorm:"size:100;not null"`
 	DateOfBirth    *time.Time
-	Gender         Gender `gorm:"type:gender_enum;not null"`
-	Address        string `gorm:"size:255;not null"`
-	PhoneNumber    string `gorm:"size:20;not null"`
-	SchoolOrigin   string `gorm:"size:150;not null"`
-	GraduationYear string `gorm:"size:4;not null"`
+	Gender         Gender    `gorm:"type:gender_enum;not null"`
+	Address        string    `gorm:"size:255;not null"`
+	PhoneNumber    string    `gorm:"size:20;not null"`
+	SchoolOrigin   string    `gorm:"size:150;not null"`
+	GraduationYear string    `gorm:"size:4;not null"`
 	CreatedAt      time.Time `gorm:"autoCreateTime"`
 	UpdatedAt      time.Time `gorm:"autoUpdateTime"`
 
@@ -92,11 +92,11 @@ type Applicant struct {
 }
 
 type AdmissionTrack struct {
-	ID           string `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	TrackCode    string `gorm:"size:20;unique;not null"`
-	TrackName    string `gorm:"size:100;not null"`
-	RequiresTest bool   `gorm:"default:false"`
-	IsActive     bool   `gorm:"default:true"`
+	ID           string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	TrackCode    string    `gorm:"size:20;unique;not null"`
+	TrackName    string    `gorm:"size:100;not null"`
+	RequiresTest bool      `gorm:"default:false"`
+	IsActive     bool      `gorm:"default:true"`
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime"`
 
@@ -104,9 +104,9 @@ type AdmissionTrack struct {
 }
 
 type Faculty struct {
-	ID        string `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	Code      string `gorm:"size:20;unique;not null"`
-	Name      string `gorm:"size:100;not null"`
+	ID        string    `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
+	Code      string    `gorm:"size:20;unique;not null"`
+	Name      string    `gorm:"size:100;not null"`
 	CreatedAt time.Time `gorm:"autoCreateTime"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime"`
 
@@ -120,8 +120,8 @@ type StudyProgram struct {
 	Name        string      `gorm:"size:100;not null"`
 	DegreeLevel DegreeLevel `gorm:"type:degree_level_enum;not null"`
 	Quota       int         `gorm:"not null"`
-	CreatedAt   time.Time `gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
+	CreatedAt   time.Time   `gorm:"autoCreateTime"`
+	UpdatedAt   time.Time   `gorm:"autoUpdateTime"`
 
 	Faculty      Faculty       `gorm:"foreignKey:FacultyID;references:ID"`
 	Applications []Application `gorm:"foreignKey:ProgramID;references:ID"`
@@ -135,8 +135,8 @@ type Application struct {
 	AcademicYear      string            `gorm:"size:9;not null;index"`
 	ApplicationNumber string            `gorm:"size:30;unique;not null"`
 	Status            ApplicationStatus `gorm:"size:20;not null;index"`
-	CreatedAt         time.Time `gorm:"autoCreateTime"`
-	UpdatedAt         time.Time `gorm:"autoUpdateTime"`
+	CreatedAt         time.Time         `gorm:"autoCreateTime"`
+	UpdatedAt         time.Time         `gorm:"autoUpdateTime"`
 
 	Applicant Applicant      `gorm:"foreignKey:ApplicantID;references:ID"`
 	Track     AdmissionTrack `gorm:"foreignKey:TrackID;references:ID"`
@@ -167,8 +167,8 @@ type Evaluation struct {
 	EvaluationType EvaluationType `gorm:"size:30;not null"`
 	Score          *float64       `gorm:"type:numeric(5,2)"`
 	Notes          string         `gorm:"type:text"`
-	CreatedAt      time.Time `gorm:"autoCreateTime"`
-	UpdatedAt      time.Time `gorm:"autoUpdateTime"`
+	CreatedAt      time.Time      `gorm:"autoCreateTime"`
+	UpdatedAt      time.Time      `gorm:"autoUpdateTime"`
 
 	Application Application `gorm:"foreignKey:ApplicationID;references:ID"`
 }
@@ -179,8 +179,8 @@ type FinalResult struct {
 	ResultStatus  FinalResultStatus `gorm:"size:20;not null;index"`
 	FinalScore    *float64          `gorm:"type:numeric(6,2)"`
 	DecidedBy     *string           `gorm:"type:uuid"`
-	DecisionDate  time.Time `gorm:"autoCreateTime"`
-	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
+	DecisionDate  time.Time         `gorm:"autoCreateTime"`
+	UpdatedAt     time.Time         `gorm:"autoUpdateTime"`
 
 	Application Application `gorm:"foreignKey:ApplicationID;references:ID"`
 }
@@ -191,8 +191,8 @@ type ReRegistration struct {
 	ReRegistrationDate time.Time     `gorm:"type:date;not null"`
 	PaymentStatus      PaymentStatus `gorm:"size:20;not null;index"`
 	PaymentProof       string        `gorm:"type:text"`
-	CreatedAt          time.Time `gorm:"autoCreateTime"`
-	UpdatedAt          time.Time `gorm:"autoUpdateTime"`
+	CreatedAt          time.Time     `gorm:"autoCreateTime"`
+	UpdatedAt          time.Time     `gorm:"autoUpdateTime"`
 
 	Application Application `gorm:"foreignKey:ApplicationID;references:ID"`
 }

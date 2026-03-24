@@ -33,21 +33,21 @@ type UpdateApplicantRequest struct {
 }
 
 type ApplicantResponse struct {
-	ID             string                    `json:"id"`
-	UserID         string                    `json:"user_id"`
-	FullName       string                    `json:"full_name"`
-	NationalID     string                    `json:"national_id"`
-	PlaceOfBirth   string                    `json:"place_of_birth"`
-	DateOfBirth    *time.Time                `json:"date_of_birth,omitempty"`
-	Gender         string                    `json:"gender"`
-	Address        string                    `json:"address"`
-	PhoneNumber    string                    `json:"phone_number"`
-	SchoolOrigin   string                    `json:"school_origin"`
-	GraduationYear string                    `json:"graduation_year"`
-	Applications   []ApplicationResponse     `json:"applications,omitempty"`
+	ID             string                      `json:"id"`
+	UserID         string                      `json:"user_id"`
+	FullName       string                      `json:"full_name"`
+	NationalID     string                      `json:"national_id"`
+	PlaceOfBirth   string                      `json:"place_of_birth"`
+	DateOfBirth    *time.Time                  `json:"date_of_birth,omitempty"`
+	Gender         string                      `json:"gender"`
+	Address        string                      `json:"address"`
+	PhoneNumber    string                      `json:"phone_number"`
+	SchoolOrigin   string                      `json:"school_origin"`
+	GraduationYear string                      `json:"graduation_year"`
+	Applications   []ApplicationResponse       `json:"applications,omitempty"`
 	Documents      []ApplicantDocumentResponse `json:"documents,omitempty"`
-	CreatedAt      time.Time                 `json:"created_at"`
-	UpdatedAt      time.Time                 `json:"updated_at"`
+	CreatedAt      time.Time                   `json:"created_at"`
+	UpdatedAt      time.Time                   `json:"updated_at"`
 }
 
 /*
@@ -76,21 +76,21 @@ type UpdateApplicationStatusRequest struct {
 }
 
 type ApplicationResponse struct {
-	ID                string                `json:"id"`
-	ApplicantID       string                `json:"applicant_id"`
-	TrackID           string                `json:"track_id"`
-	ProgramID         string                `json:"program_id"`
-	AcademicYear      string                `json:"academic_year"`
-	ApplicationNumber string                `json:"application_number"`
-	Status            string                `json:"status"`
-	Applicant         *ApplicantResponse    `json:"applicant,omitempty"`
+	ID                string                  `json:"id"`
+	ApplicantID       string                  `json:"applicant_id"`
+	TrackID           string                  `json:"track_id"`
+	ProgramID         string                  `json:"program_id"`
+	AcademicYear      string                  `json:"academic_year"`
+	ApplicationNumber string                  `json:"application_number"`
+	Status            string                  `json:"status"`
+	Applicant         *ApplicantResponse      `json:"applicant,omitempty"`
 	Track             *AdmissionTrackResponse `json:"track,omitempty"`
-	Program           *StudyProgramResponse `json:"program,omitempty"`
-	Evaluations       []EvaluationResponse  `json:"evaluations,omitempty"`
-	FinalResult       *FinalResultResponse  `json:"final_result,omitempty"`
+	Program           *StudyProgramResponse   `json:"program,omitempty"`
+	Evaluations       []EvaluationResponse    `json:"evaluations,omitempty"`
+	FinalResult       *FinalResultResponse    `json:"final_result,omitempty"`
 	ReRegistration    *ReRegistrationResponse `json:"re_registration,omitempty"`
-	CreatedAt         time.Time             `json:"created_at"`
-	UpdatedAt         time.Time             `json:"updated_at"`
+	CreatedAt         time.Time               `json:"created_at"`
+	UpdatedAt         time.Time               `json:"updated_at"`
 }
 
 /*
@@ -140,12 +140,12 @@ type UpdateFacultyRequest struct {
 }
 
 type FacultyResponse struct {
-	ID            string                  `json:"id"`
-	Code          string                  `json:"code"`
-	Name          string                  `json:"name"`
-	StudyPrograms []StudyProgramResponse  `json:"study_programs,omitempty"`
-	CreatedAt     time.Time               `json:"created_at"`
-	UpdatedAt     time.Time               `json:"updated_at"`
+	ID            string                 `json:"id"`
+	Code          string                 `json:"code"`
+	Name          string                 `json:"name"`
+	StudyPrograms []StudyProgramResponse `json:"study_programs,omitempty"`
+	CreatedAt     time.Time              `json:"created_at"`
+	UpdatedAt     time.Time              `json:"updated_at"`
 }
 
 /*
@@ -200,15 +200,15 @@ type UpdateDocumentVerificationRequest struct {
 }
 
 type ApplicantDocumentResponse struct {
-	ID                 string    `json:"id"`
-	ApplicantID        string    `json:"applicant_id"`
-	DocumentType       string    `json:"document_type"`
-	FilePath           string    `json:"file_path"`
-	VerificationStatus string    `json:"verification_status"`
-	VerifiedBy         *string   `json:"verified_by,omitempty"`
+	ID                 string     `json:"id"`
+	ApplicantID        string     `json:"applicant_id"`
+	DocumentType       string     `json:"document_type"`
+	FilePath           string     `json:"file_path"`
+	VerificationStatus string     `json:"verification_status"`
+	VerifiedBy         *string    `json:"verified_by,omitempty"`
 	VerifiedAt         *time.Time `json:"verified_at,omitempty"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
 /*
@@ -260,14 +260,14 @@ type UpdateFinalResultRequest struct {
 }
 
 type FinalResultResponse struct {
-	ID            string              `json:"id"`
-	ApplicationID string              `json:"application_id"`
-	ResultStatus  string              `json:"result_status"`
-	FinalScore    *float64            `json:"final_score,omitempty"`
-	DecidedBy     *string             `json:"decided_by,omitempty"`
-	DecisionDate  time.Time           `json:"decision_date"`
+	ID            string               `json:"id"`
+	ApplicationID string               `json:"application_id"`
+	ResultStatus  string               `json:"result_status"`
+	FinalScore    *float64             `json:"final_score,omitempty"`
+	DecidedBy     *string              `json:"decided_by,omitempty"`
+	DecisionDate  time.Time            `json:"decision_date"`
 	Application   *ApplicationResponse `json:"application,omitempty"`
-	UpdatedAt     time.Time           `json:"updated_at"`
+	UpdatedAt     time.Time            `json:"updated_at"`
 }
 
 /*
@@ -295,14 +295,14 @@ type UpdatePaymentStatusRequest struct {
 }
 
 type ReRegistrationResponse struct {
-	ID                 string              `json:"id"`
-	ApplicationID      string              `json:"application_id"`
-	ReRegistrationDate time.Time           `json:"re_registration_date"`
-	PaymentStatus      string              `json:"payment_status"`
-	PaymentProof       string              `json:"payment_proof,omitempty"`
+	ID                 string               `json:"id"`
+	ApplicationID      string               `json:"application_id"`
+	ReRegistrationDate time.Time            `json:"re_registration_date"`
+	PaymentStatus      string               `json:"payment_status"`
+	PaymentProof       string               `json:"payment_proof,omitempty"`
 	Application        *ApplicationResponse `json:"application,omitempty"`
-	CreatedAt          time.Time           `json:"created_at"`
-	UpdatedAt          time.Time           `json:"updated_at"`
+	CreatedAt          time.Time            `json:"created_at"`
+	UpdatedAt          time.Time            `json:"updated_at"`
 }
 
 /*
@@ -390,11 +390,11 @@ type ReRegistrationListResponse struct {
 */
 
 type ApplicationStatsResponse struct {
-	AcademicYear string                 `json:"academic_year"`
-	Total        int64                  `json:"total"`
-	ByStatus     map[string]int64       `json:"by_status"`
-	ByTrack      []TrackStatistic       `json:"by_track"`
-	ByProgram    []ProgramStatistic     `json:"by_program"`
+	AcademicYear string             `json:"academic_year"`
+	Total        int64              `json:"total"`
+	ByStatus     map[string]int64   `json:"by_status"`
+	ByTrack      []TrackStatistic   `json:"by_track"`
+	ByProgram    []ProgramStatistic `json:"by_program"`
 }
 
 type TrackStatistic struct {
