@@ -14,7 +14,7 @@ import { resolveAssetUrl } from '@utility/asset';
 
 function formatDateRange(start?: string | null, end?: string | null) {
   if (!start) {
-    return 'Schedule will be announced';
+    return 'Schedule TBA';
   }
 
   const startDate = new Date(start);
@@ -24,8 +24,6 @@ function formatDateRange(start?: string | null, end?: string | null) {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 
   if (!endDate) {
@@ -69,13 +67,46 @@ function getRedirectCopy(midtransStatus?: string | null) {
 }
 
 function getResumeCopy(registration?: EventRegistration) {
+  if (registration && !registration.event_is_paid) {
+    switch (registration.status) {
+      case 'approved':
+        return {
+          title: 'Ticket ready',
+          description: 'Download your ticket.',
+        };
+      case 'pending_verification':
+        return {
+          title: 'Verify email',
+          description: 'Verify email to access your ticket.',
+        };
+      case 'expired':
+        return {
+          title: 'Registration expired',
+          description: 'This link has expired.',
+        };
+      case 'cancelled':
+        return {
+          title: 'Registration cancelled',
+          description: 'This registration is no longer active.',
+        };
+      case 'rejected':
+        return {
+          title: 'Registration rejected',
+          description: 'This registration cannot continue.',
+        };
+      default:
+        return {
+          title: 'Ticket ready',
+          description: 'Open or download your ticket.',
+        };
+    }
+  }
+
   switch (registration?.status) {
     case 'approved':
       return {
-        title: 'Your ticket is confirmed',
-        description: registration.event_is_paid
-          ? 'Payment has been received and your seat is secured.'
-          : 'This is a free event and your seat is already secured.',
+        title: 'Registration confirmed',
+        description: registration.event_is_paid ? 'Payment received.' : 'Free event confirmed.',
       };
     case 'waitlisted':
       return {
@@ -84,18 +115,18 @@ function getResumeCopy(registration?: EventRegistration) {
       };
     case 'pending_payment':
       return {
-        title: 'Complete your payment',
-        description: 'Finish payment to secure your registration before the payment window expires.',
+        title: 'Complete payment',
+        description: 'Pay now to secure your seat.',
       };
     case 'pending_verification':
       return {
-        title: 'Verify your email first',
-        description: 'Your registration is saved, but email verification is still required before we can continue.',
+        title: 'Verify email',
+        description: 'Verify email to continue.',
       };
     case 'expired':
       return {
         title: 'Registration expired',
-        description: 'Your previous payment or registration window has expired.',
+        description: 'This link has expired.',
       };
     case 'cancelled':
       return {
@@ -105,12 +136,12 @@ function getResumeCopy(registration?: EventRegistration) {
     case 'rejected':
       return {
         title: 'Registration rejected',
-        description: 'This registration cannot continue to payment.',
+        description: 'This registration cannot continue.',
       };
     default:
       return {
-        title: 'Your event ticket center',
-        description: 'Keep this page to track registration, payment, and invoice status without logging in.',
+        title: 'Event payment',
+        description: 'Check status and continue here.',
       };
   }
 }
@@ -153,10 +184,18 @@ export function EventRegistrationPaymentResume() {
   const copy = getResumeCopy(registration);
   const redirectCopy = getRedirectCopy(midtransStatus);
   const canCreatePayment =
+    registration?.event_is_paid &&
     registration?.status === 'pending_payment' &&
     (registration.payment_status === 'pending' || registration.payment_status === 'expired' || registration.payment_status === 'failed');
   const canResendVerification = Boolean(accessToken) && registration?.status === 'pending_verification';
   const canResendInvoice = Boolean(accessToken) && registration?.payment_status === 'paid';
+  const canDownloadFreeTicket =
+    Boolean(accessToken) &&
+    !registration?.event_is_paid &&
+    registration?.status !== 'pending_verification' &&
+    registration?.status !== 'rejected' &&
+    registration?.status !== 'cancelled' &&
+    registration?.status !== 'expired';
   const invoicePDFURL = accessToken ? `${BASE_URL}/events/registrations/invoice.pdf?token=${encodeURIComponent(accessToken)}` : '';
   const qrImageURL = accessToken ? `${BASE_URL}/events/registrations/ticket-qr.svg?token=${encodeURIComponent(accessToken)}` : '';
 
@@ -180,23 +219,6 @@ export function EventRegistrationPaymentResume() {
           </Link>
 
           <div className="space-y-8">
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.55 }}
-              className="rounded-[1.25rem] border border-black/10 bg-[#ECE9DE] p-6 sm:p-8"
-            >
-              <div className="mb-5 inline-block rounded-sm bg-accent px-4 py-2">
-                <span className="font-['Sora'] text-lg font-black tracking-[-0.03em] text-black">EVENT TICKET</span>
-              </div>
-              <h1 className="font-['Sora'] text-[clamp(32px,5vw,56px)] font-extrabold tracking-[-0.04em]">
-                {copy.title}
-              </h1>
-              <p className="mt-4 max-w-3xl text-base leading-7 text-[#04090C]/65">
-                {copy.description}
-              </p>
-            </motion.div>
-
             {redirectCopy ? (
               <motion.div
                 initial={{ opacity: 0, y: 24 }}
@@ -222,7 +244,7 @@ export function EventRegistrationPaymentResume() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.05 }}
-              className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]"
+              className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]"
             >
               <div className="overflow-hidden rounded-[1.25rem] border border-black/10 bg-[#ECE9DE]">
                 {registration?.event_image_url ? (
@@ -261,67 +283,31 @@ export function EventRegistrationPaymentResume() {
 
                   {registration ? (
                     <>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <span className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] ${getStatusBadge(registration)}`}>
-                          {registration.status.replace(/_/g, ' ')}
-                        </span>
-                        <span className="rounded-full bg-black/[0.05] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#04090C]/70">
-                          Payment {registration.payment_status.replace(/_/g, ' ')}
-                        </span>
-                        {registration.payment_reference ? (
-                          <span className="rounded-full bg-black/[0.05] px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#04090C]/70">
-                            Ref {registration.payment_reference}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="space-y-3">
-                        {registration.ticket_code ? (
-                          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#04090C]/45">
-                            {registration.ticket_code}
-                          </p>
-                        ) : null}
-                        <h2 className="font-['Sora'] text-[clamp(28px,4vw,44px)] font-extrabold tracking-[-0.04em] text-[#04090C]">
-                          {registration.event_title || 'Event registration'}
-                        </h2>
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="font-['Sora'] text-[clamp(28px,4vw,44px)] font-extrabold tracking-[-0.04em] text-[#04090C]">
+                            {registration.event_title || 'Event registration'}
+                          </h2>
+                        </div>
                         {registration.event_summary ? (
-                          <p className="max-w-3xl text-base leading-7 text-[#04090C]/65">
+                          <p className="max-w-2xl text-sm leading-6 text-[#04090C]/60 line-clamp-2">
                             {registration.event_summary}
                           </p>
                         ) : null}
-                      </div>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-[1rem] border border-black/10 bg-black/[0.03] p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">Schedule</p>
-                          <p className="mt-2 font-medium text-[#04090C]">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-2 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-[#04090C]/70">
+                            <Icons.MapPin className="size-3.5" />
+                            {registration.event_venue || 'Venue TBA'}
+                          </span>
+                          <span className="inline-flex items-center gap-2 rounded-full bg-black/[0.05] px-3 py-1.5 text-xs font-medium text-[#04090C]/70">
+                            <Icons.CalendarDays className="size-3.5" />
                             {formatDateRange(registration.event_starts_at, registration.event_ends_at)}
-                          </p>
+                          </span>
                         </div>
-                        <div className="rounded-[1rem] border border-black/10 bg-black/[0.03] p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">Venue</p>
-                          <p className="mt-2 font-medium text-[#04090C]">{registration.event_venue || 'To be announced'}</p>
-                        </div>
-                        <div className="rounded-[1rem] border border-black/10 bg-black/[0.03] p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">Attendee</p>
-                          <p className="mt-2 font-medium text-[#04090C]">{registration.full_name}</p>
-                          <p className="mt-1 text-sm text-[#04090C]/58">{registration.email}</p>
-                          {registration.phone_number ? <p className="mt-1 text-sm text-[#04090C]/58">{registration.phone_number}</p> : null}
-                          {registration.institution ? <p className="mt-1 text-sm text-[#04090C]/58">{registration.institution}</p> : null}
-                        </div>
-                        <div className="rounded-[1rem] border border-black/10 bg-black/[0.03] p-4">
-                          <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">Payment</p>
-                          <p className="mt-2 font-medium text-[#04090C]">
-                            {registration.event_is_paid ? formatMoney(registration.event_currency, registration.event_price) : 'Free event'}
-                          </p>
-                          <p className="mt-1 text-sm text-[#04090C]/58">
-                            {registration.event_is_paid
-                              ? registration.payment_status === 'paid'
-                                ? 'Payment completed'
-                                : 'Payment still required'
-                              : 'No payment required'}
-                          </p>
-                        </div>
+                        <p className="text-sm text-[#04090C]/58">
+                          {registration.full_name}
+                          {registration.email ? ` • ${registration.email}` : ''}
+                        </p>
                       </div>
 
                       {registration.status === 'approved' ? (
@@ -352,128 +338,169 @@ export function EventRegistrationPaymentResume() {
                         </div>
                       ) : null}
 
-                      <div className="flex flex-wrap items-center gap-3">
-                        {registration.payment_url && registration.status === 'pending_payment' ? (
-                          <a
-                            href={registration.payment_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-3 text-sm font-semibold text-black transition hover:bg-accent/90"
-                          >
-                            Continue payment
-                            <Icons.ArrowUpRight className="size-4" />
-                          </a>
-                        ) : null}
-
-                        {canCreatePayment ? (
-                          <button
-                            type="button"
-                            onClick={() => paymentMutation.mutate({ provider: 'midtrans' })}
-                            disabled={paymentMutation.isPending}
-                            className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {paymentMutation.isPending ? 'Preparing payment...' : 'Generate new payment link'}
-                            <Icons.CreditCard className="size-4" />
-                          </button>
-                        ) : null}
-
-                        {canResendVerification ? (
-                          <button
-                            type="button"
-                            onClick={() => resendVerificationMutation.mutate()}
-                            disabled={resendVerificationMutation.isPending}
-                            className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {resendVerificationMutation.isPending ? 'Sending email...' : 'Resend verification'}
-                            <Icons.Mail className="size-4" />
-                          </button>
-                        ) : null}
-
-                        {canResendInvoice ? (
-                          <button
-                            type="button"
-                            onClick={() => resendInvoiceMutation.mutate()}
-                            disabled={resendInvoiceMutation.isPending}
-                            className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04] disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {resendInvoiceMutation.isPending ? 'Sending invoice...' : 'Resend invoice'}
-                            <Icons.MailCheck className="size-4" />
-                          </button>
-                        ) : null}
-
-                        {registration.payment_status === 'paid' ? (
-                          <>
-                            {invoicePDFURL ? (
-                              <a
-                                href={invoicePDFURL}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04]"
-                              >
-                                Download invoice PDF
-                                <Icons.FileDown className="size-4" />
-                              </a>
-                            ) : null}
-                            <button
-                              type="button"
-                              onClick={() => window.print()}
-                              className="inline-flex items-center gap-2 rounded-full border border-black/10 px-5 py-3 text-sm font-semibold text-[#04090C] transition hover:bg-black/[0.04]"
-                            >
-                              Print page
-                              <Icons.Printer className="size-4" />
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-
                       {registration.rejected_reason ? (
                         <div className="rounded-[1rem] border border-orange-300/60 bg-orange-100/70 p-4">
                           <p className="text-xs uppercase tracking-[0.18em] text-orange-900/60">Registration note</p>
                           <p className="mt-2 text-sm leading-6 text-orange-950">{registration.rejected_reason}</p>
                         </div>
                       ) : null}
-
-                      <p className="text-sm leading-6 text-[#04090C]/58">
-                        Keep this page or email link. It refreshes automatically while payment status changes, and you can reopen it later without creating an account.
-                      </p>
                     </>
                   ) : null}
                 </div>
               </div>
 
-              <div className="space-y-6">
-                <div className="rounded-[1.25rem] border border-black/10 bg-[#ECE9DE] p-6">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">Ticket access</p>
-                  <h3 className="mt-3 font-['Sora'] text-2xl font-bold tracking-[-0.04em] text-[#04090C]">
-                    This page is your public event pass
-                  </h3>
-                  <p className="mt-3 text-sm leading-6 text-[#04090C]/65">
-                    You do not need to sign in to continue payment, reopen the invoice, or review your registration status.
+              <div className="space-y-6 lg:sticky lg:top-6 lg:self-start">
+                <div className="rounded-[1.25rem] border border-black/10 bg-[#04090C] p-6 text-white">
+                  {registration?.event_is_paid ? (
+                    <div className="mb-4 inline-block rounded-sm bg-accent px-4 py-2">
+                      <span className="font-['Sora'] text-lg font-black tracking-[-0.03em] text-black">PAYMENT</span>
+                    </div>
+                  ) : null}
+                  <h1 className="font-['Sora'] text-[clamp(28px,4vw,42px)] font-extrabold tracking-[-0.04em] text-white">
+                    {copy.title}
+                  </h1>
+                  <p className="mt-2 max-w-md text-sm leading-6 text-white/65">
+                    {copy.description}
                   </p>
-                </div>
 
-                <div className="rounded-[1.25rem] border border-black/10 bg-[#ECE9DE] p-6">
-                  <p className="text-xs uppercase tracking-[0.18em] text-[#04090C]/45">What happens next</p>
-                  <div className="mt-4 space-y-4">
-                    <div className="rounded-[1rem] bg-black/[0.03] p-4">
-                      <p className="font-semibold text-[#04090C]">1. Verify or continue</p>
-                      <p className="mt-1 text-sm leading-6 text-[#04090C]/60">
-                        Your email link can be reopened again later and still bring you back to this ticket center.
-                      </p>
-                    </div>
-                    <div className="rounded-[1rem] bg-black/[0.03] p-4">
-                      <p className="font-semibold text-[#04090C]">2. Complete payment if needed</p>
-                      <p className="mt-1 text-sm leading-6 text-[#04090C]/60">
-                        Paid events require Midtrans payment before your seat is fully secured.
-                      </p>
-                    </div>
-                    <div className="rounded-[1rem] bg-black/[0.03] p-4">
-                      <p className="font-semibold text-[#04090C]">3. Receive confirmation</p>
-                      <p className="mt-1 text-sm leading-6 text-[#04090C]/60">
-                        After payment succeeds, we send invoice and confirmation details to your email automatically.
-                      </p>
-                    </div>
+                  <div className="mt-6 border-t border-white/10 pt-6">
+                  <p className="text-xs uppercase tracking-[0.18em] text-white/55">
+                    {registration?.event_is_paid ? 'Payment summary' : 'Ticket summary'}
+                  </p>
+                  <div className="mt-4 space-y-2">
+                    <p className="font-['Sora'] text-[clamp(28px,4vw,42px)] font-extrabold tracking-[-0.04em]">
+                      {registration?.event_is_paid ? formatMoney(registration.event_currency, registration.event_price) : 'Free'}
+                    </p>
+                    <p className="text-sm text-white/65">
+                      {registration?.payment_status === 'paid'
+                        ? 'Payment completed'
+                        : registration?.status === 'pending_verification'
+                          ? 'Email verification required first'
+                        : registration?.event_is_paid
+                            ? 'Complete payment to confirm your seat'
+                            : 'Ticket available'}
+                    </p>
                   </div>
+                  </div>
+
+                  <div className="mt-6 space-y-3">
+                    {registration?.event_is_paid && registration.payment_url && registration.status === 'pending_payment' ? (
+                      <a
+                        href={registration.payment_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-accent/90"
+                      >
+                        Pay now
+                        <Icons.ArrowUpRight className="size-4" />
+                      </a>
+                    ) : null}
+
+                    {canCreatePayment ? (
+                      <button
+                        type="button"
+                        onClick={() => paymentMutation.mutate({ provider: 'midtrans' })}
+                        disabled={paymentMutation.isPending}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {paymentMutation.isPending ? 'Preparing payment...' : 'Generate new payment link'}
+                        <Icons.CreditCard className="size-4" />
+                      </button>
+                    ) : null}
+
+                    {canResendVerification ? (
+                      <button
+                        type="button"
+                        onClick={() => resendVerificationMutation.mutate()}
+                        disabled={resendVerificationMutation.isPending}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-accent/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {resendVerificationMutation.isPending ? 'Sending email...' : 'Verify email to continue'}
+                        <Icons.Mail className="size-4" />
+                      </button>
+                    ) : null}
+
+                    {canResendInvoice ? (
+                      <button
+                        type="button"
+                        onClick={() => resendInvoiceMutation.mutate()}
+                        disabled={resendInvoiceMutation.isPending}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {resendInvoiceMutation.isPending ? 'Sending invoice...' : 'Resend invoice'}
+                        <Icons.MailCheck className="size-4" />
+                      </button>
+                    ) : null}
+
+                    {canDownloadFreeTicket ? (
+                      <>
+                        {invoicePDFURL ? (
+                          <a
+                            href={invoicePDFURL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-accent/90"
+                          >
+                            Download ticket PDF
+                            <Icons.FileDown className="size-4" />
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                        >
+                          Print ticket
+                          <Icons.Printer className="size-4" />
+                        </button>
+                      </>
+                    ) : null}
+
+                    {registration?.payment_status === 'paid' ? (
+                      <>
+                        {invoicePDFURL ? (
+                          <a
+                            href={invoicePDFURL}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                          >
+                            Download invoice PDF
+                            <Icons.FileDown className="size-4" />
+                          </a>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => window.print()}
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                        >
+                          Print page
+                          <Icons.Printer className="size-4" />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+
+                  {registration?.payment_reference || registration?.ticket_code ? (
+                    <div className="mt-6 space-y-3 border-t border-white/10 pt-5 text-sm text-white/65">
+                      {registration.payment_reference ? (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Reference</p>
+                          <p className="mt-1 break-all text-white">{registration.payment_reference}</p>
+                        </div>
+                      ) : null}
+                      {registration.ticket_code ? (
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Ticket code</p>
+                          <p className="mt-1 font-['Sora'] text-base font-bold tracking-[0.08em] text-white">{registration.ticket_code}</p>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  <p className="mt-6 text-xs leading-6 text-white/45">
+                    You can reopen this page anytime from the same email link.
+                  </p>
                 </div>
               </div>
             </motion.div>
