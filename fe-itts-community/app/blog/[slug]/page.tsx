@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { resolveAssetUrl } from "@/lib/assets";
 import { getBlogPostBySlug, getRelatedPosts } from "@/lib/blog/data";
 
 export default function BlogDetailPage({ params }: { params: { slug: string } }) {
@@ -26,7 +27,7 @@ export default function BlogDetailPage({ params }: { params: { slug: string } })
       <article className="space-y-6">
         <div className="relative h-64 w-full overflow-hidden rounded-3xl border border-border">
           <Image
-            src={post.coverImage}
+            src={resolveAssetUrl(post.coverImage)}
             alt={post.title}
             fill
             className="object-cover"

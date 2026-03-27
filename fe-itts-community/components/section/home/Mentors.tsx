@@ -3,6 +3,7 @@
 import { motion, type Variants } from 'framer-motion';
 import Image from 'next/image';
 import { HiMiniUserPlus } from 'react-icons/hi2';
+import { resolveAssetUrl } from '@/lib/assets';
 
 const containerVar: Variants = {
   hidden: { opacity: 0, y: 8 },
@@ -18,17 +19,17 @@ const mentors = [
   {
     name: 'Networking Lead',
     role: 'CCNA track & lab',
-    image: '/mentors/networking.jpg',
+    image: resolveAssetUrl('/mentors/networking.jpg'),
   },
   {
     name: 'DevSecOps Lead',
     role: 'CI/CD & Kubernetes',
-    image: '/mentors/devsecops.jpg',
+    image: resolveAssetUrl('/mentors/devsecops.jpg'),
   },
   {
     name: 'Programming Lead',
     role: 'Go & Web Development',
-    image: '/mentors/programming.jpg',
+    image: resolveAssetUrl('/mentors/programming.jpg'),
   },
 ];
 

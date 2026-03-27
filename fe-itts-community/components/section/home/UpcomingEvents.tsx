@@ -9,6 +9,7 @@ import { useListEvents } from "@/feature/events/events";
 import { toast } from "sonner";
 
 import { Event, EventStatus } from "@/feature/events/adapter";
+import { resolveAssetUrl } from "@/lib/assets";
 
 type Status = Extract<EventStatus, "open" | "ongoing" | "closed">;
 
@@ -179,7 +180,7 @@ export default function UpcomingEvents({ onRegister, limit = 6 }: UpcomingEvents
                   {/* Gambar */}
                   <div className="relative h-40 w-full">
                     <Image
-                      src={event.image_url || "/events/placeholder.jpg"}
+                      src={resolveAssetUrl(event.image_url || "/events/placeholder.jpg")}
                       alt={event.title}
                       fill
                       className="object-cover"
