@@ -16,6 +16,20 @@ type MentorHandler struct {
 	svc service.MentorService
 }
 
+func withAbsoluteMentorAvatarURL(r *http.Request, mentor model.MentorResponse) model.MentorResponse {
+	if mentor.AvatarURL != "" {
+		mentor.AvatarURL = buildAbsoluteAssetURL(r, mentor.AvatarURL)
+	}
+	return mentor
+}
+
+func withAbsoluteMentorListAvatarURL(r *http.Request, list model.MentorListResponse) model.MentorListResponse {
+	for idx := range list.Data {
+		list.Data[idx] = withAbsoluteMentorAvatarURL(r, list.Data[idx])
+	}
+	return list
+}
+
 func NewMentorHandler(svc service.MentorService) *MentorHandler {
 	return &MentorHandler{svc: svc}
 }
@@ -32,7 +46,7 @@ func (h *MentorHandler) Create(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.Created(w, r, m)
+	core.Created(w, r, withAbsoluteMentorAvatarURL(r, m))
 }
 
 // GET /api/v1/admin/mentors/:id
@@ -43,7 +57,7 @@ func (h *MentorHandler) Get(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, m)
+	core.OK(w, r, withAbsoluteMentorAvatarURL(r, m))
 }
 
 // PATCH /api/v1/admin/mentors/:id
@@ -59,7 +73,7 @@ func (h *MentorHandler) Update(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, m)
+	core.OK(w, r, withAbsoluteMentorAvatarURL(r, m))
 }
 
 // DELETE /api/v1/admin/mentors/:id
@@ -113,7 +127,7 @@ func (h *MentorHandler) List(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, res)
+	core.OK(w, r, withAbsoluteMentorListAvatarURL(r, res))
 }
 
 // PATCH /api/v1/admin/mentors/:id/active
@@ -132,7 +146,7 @@ func (h *MentorHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, m)
+	core.OK(w, r, withAbsoluteMentorAvatarURL(r, m))
 }
 
 // PATCH /api/v1/admin/mentors/:id/priority
@@ -151,5 +165,5 @@ func (h *MentorHandler) SetPriority(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, m)
+	core.OK(w, r, withAbsoluteMentorAvatarURL(r, m))
 }

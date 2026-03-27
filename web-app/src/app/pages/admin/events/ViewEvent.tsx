@@ -9,6 +9,7 @@ import { Text } from '@components/ui/text';
 import { QueryStatePanel } from '@components/query-state-panel';
 import type { Event } from '@feature/event/types';
 import { useEvent } from '@feature/event/hooks';
+import { resolveAssetUrl } from '@utility/asset';
 import { formatDateTime } from '@utility/date';
 import { PERMISSIONS, useHasPermission } from '@utils/permissions';
 
@@ -98,9 +99,9 @@ export function AdminEventView() {
 }
 
 export function EventDetailContent({ event }: { event: Event }) {
-  const heroImage = event.landscape_image_url || event.square_image_url || event.image_url || '';
-  const squareImage = event.square_image_url || event.landscape_image_url || event.image_url || '';
-  const landscapeImage = event.landscape_image_url || event.square_image_url || event.image_url || '';
+  const heroImage = resolveAssetUrl(event.landscape_image_url || event.square_image_url || event.image_url || '');
+  const squareImage = resolveAssetUrl(event.square_image_url || event.landscape_image_url || event.image_url || '');
+  const landscapeImage = resolveAssetUrl(event.landscape_image_url || event.square_image_url || event.image_url || '');
   const priceLabel = event.is_paid
     ? `${event.currency || 'IDR'} ${new Intl.NumberFormat('id-ID').format(event.price || 0)}`
     : 'Free event';
@@ -263,7 +264,7 @@ export function EventDetailContent({ event }: { event: Event }) {
                               <div className="relative overflow-hidden rounded-full border border-black/10 bg-black/5">
                                 <div className="size-28 sm:size-36">
                                   {speaker.avatar_url ? (
-                                    <img src={speaker.avatar_url} alt={speaker.name} className="h-full w-full object-cover" />
+                                    <img src={resolveAssetUrl(speaker.avatar_url)} alt={speaker.name} className="h-full w-full object-cover" />
                                   ) : (
                                     <div className="flex h-full w-full items-center justify-center bg-black/10 text-3xl font-semibold text-[#04090C]">
                                       {speaker.name.slice(0, 2).toUpperCase()}

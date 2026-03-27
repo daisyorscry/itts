@@ -52,6 +52,9 @@ func withAbsoluteEventImageURL(r *http.Request, event model.EventResponse) model
 	if event.LandscapeImageURL != "" {
 		event.LandscapeImageURL = buildAbsoluteAssetURL(r, event.LandscapeImageURL)
 	}
+	for idx := range event.Speakers {
+		event.Speakers[idx] = withAbsoluteSpeakerAvatarURL(r, event.Speakers[idx])
+	}
 	return event
 }
 
@@ -69,37 +72,18 @@ func withAbsoluteRegistrationEventImageURL(r *http.Request, reg model.EventRegis
 	return reg
 }
 
-func buildAbsoluteAssetURL(r *http.Request, path string) string {
-	if path == "" {
-		return ""
+func withAbsoluteSpeakerAvatarURL(r *http.Request, speaker model.SpeakerResponse) model.SpeakerResponse {
+	if speaker.AvatarURL != "" {
+		speaker.AvatarURL = buildAbsoluteAssetURL(r, speaker.AvatarURL)
 	}
-	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-		return path
-	}
-
-	scheme := "http"
-	if forwardedProto := strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")); forwardedProto != "" {
-		scheme = forwardedProto
-	} else if r.TLS != nil {
-		scheme = "https"
-	}
-
-	host := strings.TrimSpace(r.Header.Get("X-Forwarded-Host"))
-	if host == "" {
-		host = r.Host
-	}
-	if host == "" {
-		return path
-	}
-
-	if strings.HasPrefix(path, "/") {
-		return scheme + "://" + host + path
-	}
-	return scheme + "://" + host + "/" + path
+	return speaker
 }
 
-func isAssetPath(value string) bool {
-	return value != "" && !strings.HasPrefix(value, "http://") && !strings.HasPrefix(value, "https://")
+func withAbsoluteSpeakerListAvatarURL(r *http.Request, list model.SpeakerListResponse) model.SpeakerListResponse {
+	for idx := range list.Data {
+		list.Data[idx] = withAbsoluteSpeakerAvatarURL(r, list.Data[idx])
+	}
+	return list
 }
 
 // POST /api/v1/admin/events
@@ -236,7 +220,7 @@ func (h *EventHandler) AddSpeaker(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.Created(w, r, sp)
+	core.Created(w, r, withAbsoluteSpeakerAvatarURL(r, sp))
 }
 
 func (h *EventHandler) UpdateSpeaker(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +235,7 @@ func (h *EventHandler) UpdateSpeaker(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, sp)
+	core.OK(w, r, withAbsoluteSpeakerAvatarURL(r, sp))
 }
 
 func (h *EventHandler) DeleteSpeaker(w http.ResponseWriter, r *http.Request) {
@@ -283,7 +267,7 @@ func (h *EventHandler) ListSpeakers(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, res)
+	core.OK(w, r, withAbsoluteSpeakerListAvatarURL(r, res))
 }
 
 /* ======================

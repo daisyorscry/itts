@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import * as Icons from 'lucide-react';
 import { ImageWithFallback } from '@components/figma/ImageWithFallback';
 import { useListPublicEvents } from '@feature/event/hooks';
+import { resolveAssetUrl } from '@utility/asset';
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as const;
 
@@ -39,7 +40,7 @@ function getProgramColor(program?: string) {
 }
 
 function getSquareEventImage(event: { square_image_url?: string; landscape_image_url?: string; image_url?: string }) {
-  return event.square_image_url || event.landscape_image_url || event.image_url || '';
+  return resolveAssetUrl(event.square_image_url || event.landscape_image_url || event.image_url || '');
 }
 
 export function Events() {

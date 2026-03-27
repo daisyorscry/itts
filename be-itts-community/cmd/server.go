@@ -24,12 +24,14 @@ import (
 
 	"be-itts-community/config"
 	"be-itts-community/internal/db"
+	"be-itts-community/internal/handler/rest"
 	"be-itts-community/internal/repository"
 	"be-itts-community/internal/service"
 	"be-itts-community/pkg/lock"
 	mailerpkg "be-itts-community/pkg/mailer"
 	midtranspkg "be-itts-community/pkg/midtrans"
 	"be-itts-community/pkg/observability/nr"
+	storagepkg "be-itts-community/pkg/storage"
 	routes "be-itts-community/route"
 )
 
@@ -194,11 +196,6 @@ func main() {
 		}
 		core.OK(w, req, map[string]any{"status": "ok"})
 	})
-	if err := os.MkdirAll("./uploads/events", 0o755); err != nil {
-		log.Critical("failed to prepare uploads directory", err)
-	}
-	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
-
 	// Wire repository tracer for instrumentation
 	repository.RepoTracer = tracer
 
@@ -236,11 +233,27 @@ func main() {
 		midtransClient = midtranspkg.NewClient(cfg.Midtrans.ServerKey, cfg.Midtrans.IsProduction)
 	}
 
+	var objectStorage rest.ObjectStorage
+	if cfg.Storage.Endpoint != "" && cfg.Storage.AccessKey != "" && cfg.Storage.SecretKey != "" {
+		minioClient, err := storagepkg.NewMinIOClient(cfg.Storage.Endpoint, cfg.Storage.AccessKey, cfg.Storage.SecretKey, cfg.Storage.UseSSL)
+		if err != nil {
+			log.Critical("failed to initialize minio client", err)
+			return
+		}
+		objectStorage = minioClient
+		log.WithFields(map[string]any{
+			"endpoint": cfg.Storage.Endpoint,
+			"bucket":   cfg.Storage.Bucket,
+		}).Info("object storage enabled")
+	}
+
 	// Routes
 	routes.RegisterRoutes(r, routes.RouteDeps{
 		DBConn:             dbConn,
 		FrontendBaseURL:    cfg.FrontendBaseURL,
 		Mailer:             configuredMailer,
+		ObjectStorage:      objectStorage,
+		StorageBucket:      cfg.Storage.Bucket,
 		Locker:             locker,
 		Tracer:             tracer,
 		JWTSecret:          cfg.JWT.Secret,

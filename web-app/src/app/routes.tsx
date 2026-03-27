@@ -32,6 +32,7 @@ import { AdminUserCreate } from "./pages/admin/users/ViewCreateUser";
 import { AdminUserEdit } from "./pages/admin/users/ViewEditUser";
 import { AdminSpeakers } from "./pages/admin/Speakers";
 import { AdminSpeakerCreate } from "./pages/admin/speakers/ViewCreateSpeaker";
+import { AdminSpeakerView } from "./pages/admin/speakers/ViewSpeaker";
 import { AdminSpeakerEdit } from "./pages/admin/speakers/ViewEditSpeaker";
 import { AdminRegistrations } from "./pages/admin/Registrations";
 import { AdminRoadmaps } from "./pages/admin/Roadmaps";
@@ -105,7 +106,7 @@ export const router = createBrowserRouter([
       { path: "users/edit/:id", Component: AdminUserEdit },
       { path: "speakers", Component: AdminSpeakers },
       { path: "speakers/create", Component: AdminSpeakerCreate },
-      { path: "speakers/:id", Component: AdminSpeakerEdit },
+      { path: "speakers/:id", Component: AdminSpeakerView },
       { path: "speakers/edit/:id", Component: AdminSpeakerEdit },
       { path: "registrations", Component: AdminRegistrations },
       { path: "roadmaps", Component: AdminRoadmaps },

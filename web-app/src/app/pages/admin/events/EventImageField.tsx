@@ -1,6 +1,7 @@
 import { type DragEvent, useId, useRef, useState } from 'react';
 import * as Icons from 'lucide-react';
 import * as FormUI from '@components/ui/form';
+import { resolveAssetUrl } from '@utility/asset';
 
 interface EventImageFieldProps {
   id?: string;
@@ -37,9 +38,7 @@ export function EventImageField({
   const [isDragging, setIsDragging] = useState(false);
   const isLandscape = aspect === 'landscape';
 
-  const remotePreviewSrc = previewUrl || (value.startsWith('/uploads/')
-    ? `${import.meta.env.VITE_API_BASE_URL?.replace(/\/api\/v1\/?$/, '') || ''}${value}`
-    : value);
+  const remotePreviewSrc = resolveAssetUrl(previewUrl || value);
 
   const handleSelectedFile = (file?: File | null) => {
     if (!file) {

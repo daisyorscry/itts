@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { resolveAssetUrl } from "@/lib/assets";
 import { getBlogPosts } from "@/lib/blog/data";
 
 export default function BlogIndexPage() {
@@ -29,7 +30,7 @@ export default function BlogIndexPage() {
           >
             <div className="relative h-48 w-full">
               <Image
-                src={post.coverImage}
+                src={resolveAssetUrl(post.coverImage)}
                 alt={post.title}
                 fill
                 className="object-cover transition group-hover:scale-105"

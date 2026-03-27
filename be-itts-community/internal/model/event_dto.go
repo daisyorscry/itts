@@ -424,7 +424,12 @@ func EventRegistrationToResponse(m EventRegistration) EventRegistrationResponse 
 	if m.Event.Summary != nil {
 		resp.EventSummary = *m.Event.Summary
 	}
-	if m.Event.ImageURL != nil {
+	switch {
+	case m.Event.LandscapeImageURL != nil && *m.Event.LandscapeImageURL != "":
+		resp.EventImageURL = *m.Event.LandscapeImageURL
+	case m.Event.SquareImageURL != nil && *m.Event.SquareImageURL != "":
+		resp.EventImageURL = *m.Event.SquareImageURL
+	case m.Event.ImageURL != nil:
 		resp.EventImageURL = *m.Event.ImageURL
 	}
 	if m.Event.Venue != nil {

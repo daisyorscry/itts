@@ -1,3 +1,5 @@
+import { resolveAssetUrl } from "@/lib/assets";
+
 export type BlogPost = {
   slug: string;
   title: string;
@@ -31,7 +33,7 @@ Di ITTS kami memulai dengan forum kecil setiap minggu dan sekarang berkembang me
 
 Terakhir, pastikan selalu ada ruang untuk umpan balik agar program tetap relevan.`,
     publishedAt: "2025-01-05T09:00:00.000Z",
-    coverImage: "/images/blog/community.jpg",
+    coverImage: resolveAssetUrl("/images/blog/community.jpg"),
     author: { name: "Dini Ramadhani", role: "Community Lead" },
     tags: ["community", "culture"],
   },
@@ -49,7 +51,7 @@ Terakhir, pastikan selalu ada ruang untuk umpan balik agar program tetap relevan
 ### Cara Menggunakan Roadmap
 Gabungkan roadmap dengan sesi live, lalu dokumentasikan progres di dashboard anggota.`,
     publishedAt: "2025-01-12T08:30:00.000Z",
-    coverImage: "/images/blog/roadmap.jpg",
+    coverImage: resolveAssetUrl("/images/blog/roadmap.jpg"),
     author: { name: "Raka Pranata", role: "Curriculum Designer" },
     tags: ["roadmap", "learning"],
   },
@@ -66,7 +68,7 @@ Setelah 8 bulan, ia ikut membantu review tugas dan kini rutin mengisi sesi mento
 
 Kami membuka jalur volunteer sepanjang tahun, tinggal isi form di dashboard.`,
     publishedAt: "2025-01-20T14:15:00.000Z",
-    coverImage: "/images/blog/member-story.jpg",
+    coverImage: resolveAssetUrl("/images/blog/member-story.jpg"),
     author: { name: "Tim Community", role: "Editor" },
     tags: ["story", "mentor"],
   },
@@ -84,7 +86,7 @@ Kami membuka jalur volunteer sepanjang tahun, tinggal isi form di dashboard.`,
 
 Bonus: siapkan template pesan cepat kalau ada downtime.`,
     publishedAt: "2025-01-24T10:00:00.000Z",
-    coverImage: "/images/blog/hybrid-event.jpg",
+    coverImage: resolveAssetUrl("/images/blog/hybrid-event.jpg"),
     author: { name: "Nadia Rahmania", role: "Event Ops" },
     tags: ["event", "ops"],
   },
@@ -101,7 +103,7 @@ Bonus: siapkan template pesan cepat kalau ada downtime.`,
 
 Kalau mau kirim cerita atau rekomendasi konten, tinggal reply newsletter atau chat tim community.`,
     publishedAt: "2025-01-28T07:45:00.000Z",
-    coverImage: "/images/blog/newsletter.jpg",
+    coverImage: resolveAssetUrl("/images/blog/newsletter.jpg"),
     author: { name: "Editorial ITTS", role: "Newsletter Team" },
     tags: ["newsletter", "community"],
   },

@@ -16,16 +16,16 @@
         Hi {{ .FullName }}, please confirm your registration for <strong>{{ .EventTitle }}</strong>.
       </p>
 
-      <div style="background:#f7f4ec;border-radius:14px;padding:20px;border:1px solid rgba(17,24,39,0.08);margin-bottom:20px;">
-        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Event Snapshot</p>
+      <div style="border-radius:14px;padding:20px;border:1px solid rgba(17,24,39,0.08);margin-bottom:20px;">
+        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Event Details</p>
         {{ if .EventSummary }}
         <p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#374151;">{{ .EventSummary }}</p>
         {{ end }}
         {{ if .EventDate }}
-        <p style="margin:0;font-size:14px;line-height:1.7;color:#4b5563;"><strong>Date:</strong> {{ .EventDate }}</p>
+        <p style="margin:0 0 8px;font-size:14px;line-height:1.7;color:#4b5563;"><strong>Date:</strong> {{ .EventDate }}</p>
         {{ end }}
         {{ if .EventVenue }}
-        <p style="margin:4px 0 0;font-size:14px;line-height:1.7;color:#4b5563;"><strong>Venue:</strong> {{ .EventVenue }}</p>
+        <p style="margin:0;font-size:14px;line-height:1.7;color:#4b5563;"><strong>Venue:</strong> {{ .EventVenue }}</p>
         {{ end }}
       </div>
 

@@ -11,15 +11,10 @@
       <div style="display:inline-block;background:#29E68C;color:#111827;font-weight:700;padding:10px 16px;border-radius:8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;">
         Event Update
       </div>
-      <h1 style="margin:24px 0 12px;font-size:30px;line-height:1.1;">Your registration status changed</h1>
+      <h1 style="margin:24px 0 12px;font-size:30px;line-height:1.1;">Registration {{ .Status }}</h1>
       <p style="margin:0 0 20px;font-size:16px;line-height:1.7;">
         Hi {{ .FullName }}, your registration for <strong>{{ .EventTitle }}</strong> has been updated.
       </p>
-
-      <div style="background:#f7f4ec;border-radius:14px;padding:20px;border:1px solid rgba(17,24,39,0.08);">
-        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Current Status</p>
-        <p style="margin:0;font-size:20px;font-weight:700;color:#111827;">{{ .Status }}</p>
-      </div>
 
       {{ if .Reason }}
       <div style="margin-top:18px;background:#fff7ed;border-radius:14px;padding:20px;border:1px solid rgba(249,115,22,0.18);">

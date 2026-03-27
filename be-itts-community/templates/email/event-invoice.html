@@ -16,16 +16,28 @@
         Hi {{ .FullName }}, your payment for <strong>{{ .EventTitle }}</strong> has been received.
       </p>
 
-      <div style="background:#f7f4ec;border-radius:14px;padding:20px;border:1px solid rgba(17,24,39,0.08);">
-        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Invoice Summary</p>
-        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Reference:</strong> {{ .PaymentReference }}</p>
-        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Amount:</strong> {{ .Currency }} {{ .Amount }}</p>
+      <div style="border-radius:14px;padding:20px;border:1px solid rgba(17,24,39,0.08);">
+        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Ticket Details</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Ticket No:</strong> {{ .TicketCode }}</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Event:</strong> {{ .EventTitle }}</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Attendee:</strong> {{ .FullName }}</p>
         {{ if .EventDate }}
-        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Date:</strong> {{ .EventDate }}</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Schedule:</strong> {{ .EventDate }}</p>
         {{ end }}
         {{ if .EventVenue }}
         <p style="margin:0;font-size:15px;line-height:1.7;color:#111827;"><strong>Venue:</strong> {{ .EventVenue }}</p>
         {{ end }}
+      </div>
+
+      <div style="margin-top:16px;border-radius:14px;padding:20px;border:1px solid rgba(17,24,39,0.08);">
+        <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">Access</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Seat:</strong> {{ .SeatLabel }}</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Ticket Type:</strong> {{ .TicketType }}</p>
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Payment:</strong> {{ .PaymentLabel }}</p>
+        {{ if .PaymentReference }}
+        <p style="margin:0 0 8px;font-size:15px;line-height:1.7;color:#111827;"><strong>Reference:</strong> {{ .PaymentReference }}</p>
+        {{ end }}
+        <p style="margin:0;font-size:15px;line-height:1.7;color:#111827;"><strong>Amount:</strong> {{ .Currency }} {{ .Amount }}</p>
       </div>
 
       <p style="margin:24px 0;font-size:15px;line-height:1.7;color:#4b5563;">
@@ -42,6 +54,10 @@
           </td>
         </tr>
       </table>
+      <p style="margin:16px 0 0;font-size:13px;line-height:1.7;color:#6b7280;word-break:break-all;">
+        If the button does not open, use this link:<br />
+        <a href="{{ .ResumeLink }}" target="_blank" style="color:#111827;">{{ .ResumeLink }}</a>
+      </p>
       {{ end }}
     </div>
   </div>
