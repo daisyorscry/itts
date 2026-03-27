@@ -18,6 +18,7 @@ import {
   type SpeakerFormData,
   type UpdateSpeakerRequest,
 } from '@feature/event/types';
+import { SpeakerAvatarField } from './SpeakerAvatarField';
 
 interface SpeakerFormModalProps {
   speaker: Speaker | null;
@@ -45,7 +46,7 @@ export function SpeakerFormModal({ speaker, defaultEventId, isOpen, onClose }: S
       sort_order: 0,
     },
   });
-  const { control, register, handleSubmit, reset, formState: { errors } } = form;
+  const { control, register, handleSubmit, reset, watch, setValue, formState: { errors } } = form;
   const isPending = creating || updating;
 
   const handleValidSubmit: SubmitHandler<SpeakerFormData> = (data) => {
@@ -156,9 +157,11 @@ export function SpeakerFormModal({ speaker, defaultEventId, isOpen, onClose }: S
               </LayoutUI.Container>
 
               <LayoutUI.Container className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_120px]">
-                <FormUI.FormField id="avatar_url" label="Avatar URL" error={errors.avatar_url?.message} tone="inverse">
-                  <Input id="avatar_url" {...register('avatar_url')} hasError={Boolean(errors.avatar_url)} tone="inverse" />
-                </FormUI.FormField>
+                <SpeakerAvatarField
+                  value={watch('avatar_url') || ''}
+                  error={errors.avatar_url?.message}
+                  onChange={(nextValue) => setValue('avatar_url', nextValue, { shouldDirty: true, shouldValidate: true })}
+                />
                 <FormUI.FormField id="sort_order" label="Sort Order" error={errors.sort_order?.message} tone="inverse">
                   <Input id="sort_order" type="number" {...register('sort_order')} hasError={Boolean(errors.sort_order)} tone="inverse" />
                 </FormUI.FormField>
