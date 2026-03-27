@@ -25,6 +25,10 @@ type TemplateData struct {
 	EventSummary     string
 	EventVenue       string
 	EventDate        string
+	TicketCode       string
+	SeatLabel        string
+	TicketType       string
+	PaymentLabel     string
 	Status           string
 	Reason           string
 	PaymentLink      string
@@ -102,12 +106,29 @@ func RenderEventVerificationEmail(fullName, eventTitle, eventSummary, eventVenue
 	})
 }
 
-func RenderEventInvoiceEmail(fullName, eventTitle, eventVenue, eventDate, amount, currency, paymentReference, resumeLink string) (string, error) {
+func RenderEventInvoiceEmail(
+	fullName,
+	eventTitle,
+	eventVenue,
+	eventDate,
+	ticketCode,
+	seatLabel,
+	ticketType,
+	paymentLabel,
+	amount,
+	currency,
+	paymentReference,
+	resumeLink string,
+) (string, error) {
 	return RenderTemplate("event-invoice.html", TemplateData{
 		FullName:         fullName,
 		EventTitle:       eventTitle,
 		EventVenue:       eventVenue,
 		EventDate:        eventDate,
+		TicketCode:       ticketCode,
+		SeatLabel:        seatLabel,
+		TicketType:       ticketType,
+		PaymentLabel:     paymentLabel,
 		Amount:           amount,
 		Currency:         currency,
 		PaymentReference: paymentReference,

@@ -689,11 +689,22 @@ func (s *eventRegistrationService) sendEventInvoiceEmail(reg model.EventRegistra
 		currency = "IDR"
 	}
 
+	ticketType := "Free ticket"
+	paymentLabel := "No payment required"
+	if reg.Event.IsPaid {
+		ticketType = "Paid ticket"
+		paymentLabel = "Paid in full"
+	}
+
 	body, err := mailer.RenderEventInvoiceEmail(
 		reg.FullName,
 		reg.Event.Title,
 		derefString(reg.Event.Venue),
 		formatEventDateRange(reg.Event.StartsAt, reg.Event.EndsAt),
+		model.BuildEventTicketCode(reg),
+		"General admission",
+		ticketType,
+		paymentLabel,
 		formatCurrencyAmount(reg.Event.Price),
 		currency,
 		derefString(reg.PaymentReference),
