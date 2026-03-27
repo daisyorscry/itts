@@ -1,10 +1,11 @@
 package rest
 
 import (
+	"bytes"
+	"context"
 	"io"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -14,13 +15,18 @@ import (
 
 const (
 	maxUploadSize = 5 << 20
-	uploadBaseDir = "./uploads/events"
 )
 
-type UploadHandler struct{}
+type UploadHandler struct {
+	storage ObjectStorage
+	bucket  string
+}
 
-func NewUploadHandler() *UploadHandler {
-	return &UploadHandler{}
+func NewUploadHandler(storage ObjectStorage, bucket string) *UploadHandler {
+	return &UploadHandler{
+		storage: storage,
+		bucket:  strings.TrimSpace(bucket),
+	}
 }
 
 func (h *UploadHandler) UploadEventImage(w http.ResponseWriter, r *http.Request) {
@@ -43,29 +49,34 @@ func (h *UploadHandler) UploadEventImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := os.MkdirAll(uploadBaseDir, 0o755); err != nil {
-		core.WriteAppError(w, r, core.InternalServerError("failed to prepare upload directory").WithError(err))
+	if h.storage == nil {
+		core.WriteAppError(w, r, core.InternalServerError("object storage is not configured"))
 		return
 	}
 
 	filename := buildUploadFilename(header.Filename)
-	targetPath := filepath.Join(uploadBaseDir, filename)
-	dst, err := os.Create(targetPath)
+	objectKey := filepath.ToSlash(filepath.Join("events", filename))
+	contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
+	payload, err := readUploadedFile(file)
 	if err != nil {
-		core.WriteAppError(w, r, core.InternalServerError("failed to create upload target").WithError(err))
-		return
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
-		core.WriteAppError(w, r, core.InternalServerError("failed to write upload file").WithError(err))
+		core.WriteAppError(w, r, core.InternalServerError("failed to read upload file").WithError(err))
 		return
 	}
 
+	if err := uploadEventImageToBucket(context.Background(), h.storage, h.bucket, objectKey, contentType, bytes.NewReader(payload)); err != nil {
+		core.WriteAppError(w, r, core.InternalServerError("failed to upload image to object storage").WithError(err))
+		return
+	}
+
+	filePath := "/" + objectKey
 	core.OK(w, r, map[string]string{
-		"file_path": "/uploads/events/" + filename,
-		"image_url": buildAbsoluteAssetURL(r, "/uploads/events/"+filename),
+		"file_path": filePath,
+		"image_url": buildAbsoluteAssetURL(r, filePath),
 	})
+}
+
+func readUploadedFile(file multipart.File) ([]byte, error) {
+	return io.ReadAll(file)
 }
 
 func isAllowedImage(header *multipart.FileHeader) bool {

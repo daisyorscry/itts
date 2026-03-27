@@ -21,6 +21,8 @@ type RouteDeps struct {
 	DBConn             db.Connection
 	FrontendBaseURL    string
 	Mailer             service.Mailer
+	ObjectStorage      rest.ObjectStorage
+	StorageBucket      string
 	Locker             lock.Locker
 	Tracer             nr.Tracer
 	JWTSecret          string
@@ -111,7 +113,7 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 		deps.Tracer,
 	)
 	eventH := rest.NewEventHandler(eventSvc, eventSpeakerSvc, eventRegSvc)
-	uploadH := rest.NewUploadHandler()
+	uploadH := rest.NewUploadHandler(deps.ObjectStorage, deps.StorageBucket)
 
 	// ===== PMB (Penerimaan Mahasiswa Baru) =====
 	pmbRepo := repository.NewPMBRepository(deps.DBConn)

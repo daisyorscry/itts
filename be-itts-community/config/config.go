@@ -40,6 +40,14 @@ type Config struct {
 		From     string
 	}
 
+	Storage struct {
+		Endpoint  string
+		AccessKey string
+		SecretKey string
+		UseSSL    bool
+		Bucket    string
+	}
+
 	LogLevel     string
 	LogErrorFile string
 
@@ -120,6 +128,12 @@ func LoadConfig() *Config {
 	cfg.Mail.User = viper.GetString("MAIL_USER")
 	cfg.Mail.Password = viper.GetString("MAIL_PASSWORD")
 	cfg.Mail.From = viper.GetString("MAIL_FROM")
+
+	cfg.Storage.Endpoint = viper.GetString("STORAGE_ENDPOINT")
+	cfg.Storage.AccessKey = viper.GetString("STORAGE_ACCESS_KEY")
+	cfg.Storage.SecretKey = viper.GetString("STORAGE_SECRET_KEY")
+	cfg.Storage.UseSSL = viper.GetBool("STORAGE_USE_SSL")
+	cfg.Storage.Bucket = viper.GetString("ASSET_BUCKET")
 
 	cfg.LogLevel = viper.GetString("LOG_LEVEL")
 	cfg.LogErrorFile = viper.GetString("LOG_ERROR_FILE")
