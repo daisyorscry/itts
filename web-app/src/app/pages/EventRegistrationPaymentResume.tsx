@@ -10,6 +10,7 @@ import {
 } from '@feature/event/hooks';
 import type { EventRegistration } from '@feature/event/types';
 import { BASE_URL } from '@utility/api';
+import { resolveAssetUrl } from '@utility/asset';
 
 function formatDateRange(start?: string | null, end?: string | null) {
   if (!start) {
@@ -226,7 +227,7 @@ export function EventRegistrationPaymentResume() {
               <div className="overflow-hidden rounded-[1.25rem] border border-black/10 bg-[#ECE9DE]">
                 {registration?.event_image_url ? (
                   <div className="relative aspect-[16/9] bg-black/[0.04]">
-                    <img src={registration.event_image_url} alt={registration.event_title || 'Event banner'} className="absolute inset-0 h-full w-full object-cover object-center" />
+                    <img src={resolveAssetUrl(registration.event_image_url)} alt={registration.event_title || 'Event banner'} className="absolute inset-0 h-full w-full object-cover object-center" />
                   </div>
                 ) : (
                   <div className="flex aspect-[16/9] items-center justify-center bg-black/[0.04]">

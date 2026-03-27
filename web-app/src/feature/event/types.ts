@@ -217,11 +217,7 @@ function isEventImageValue(value?: string) {
     return true;
   }
 
-  if (value.startsWith('data:image/')) {
-    return true;
-  }
-
-  if (value.startsWith('/uploads/')) {
+  if (value.startsWith('/')) {
     return true;
   }
 
@@ -300,7 +296,9 @@ export const speakerSchema = z.object({
   event_id: z.string().min(1, 'Event is required'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   title: z.string().optional(),
-  avatar_url: z.string().url('Must be a valid URL').or(z.literal('')).optional(),
+  avatar_url: z.string().refine(isEventImageValue, {
+    message: 'Avatar must be an uploaded file or a valid URL',
+  }).or(z.literal('')).optional(),
   sort_order: z.coerce.number().int().min(0).default(0),
 });
 

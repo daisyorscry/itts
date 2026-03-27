@@ -32,7 +32,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      host: env.VITE_DEV_HOST || env.APP_HOST || '10.66.66.1',
+      host: env.VITE_DEV_HOST || env.APP_HOST || '10.10.10.1',
       port: Number(env.VITE_DEV_PORT || '4001'),
       allowedHosts,
     },

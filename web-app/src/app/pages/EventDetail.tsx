@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router';
 import { motion } from 'motion/react';
 import * as Icons from 'lucide-react';
 import { useListPublicEvents, usePublicEvent, useRegisterToPublicEvent } from '@feature/event/hooks';
+import { resolveAssetUrl } from '@utility/asset';
 
 function formatEventDate(value?: string | null) {
   if (!value) {
@@ -21,7 +22,7 @@ function getDetailEventImage(event?: { landscape_image_url?: string; square_imag
     return '';
   }
 
-  return event.landscape_image_url || event.square_image_url || event.image_url || '';
+  return resolveAssetUrl(event.landscape_image_url || event.square_image_url || event.image_url || '');
 }
 
 export function EventDetail() {
