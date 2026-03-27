@@ -16,6 +16,20 @@ type PartnerHandler struct {
 	svc service.PartnerService
 }
 
+func withAbsolutePartnerLogoURL(r *http.Request, partner model.PartnerResponse) model.PartnerResponse {
+	if partner.LogoURL != "" {
+		partner.LogoURL = buildAbsoluteAssetURL(r, partner.LogoURL)
+	}
+	return partner
+}
+
+func withAbsolutePartnerListLogoURL(r *http.Request, list model.PartnerListResponse) model.PartnerListResponse {
+	for idx := range list.Data {
+		list.Data[idx] = withAbsolutePartnerLogoURL(r, list.Data[idx])
+	}
+	return list
+}
+
 func NewPartnerHandler(svc service.PartnerService) *PartnerHandler {
 	return &PartnerHandler{svc: svc}
 }
@@ -32,7 +46,7 @@ func (h *PartnerHandler) Create(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.Created(w, r, p)
+	core.Created(w, r, withAbsolutePartnerLogoURL(r, p))
 }
 
 // GET /api/v1/admin/partners/:id
@@ -43,7 +57,7 @@ func (h *PartnerHandler) Get(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, p)
+	core.OK(w, r, withAbsolutePartnerLogoURL(r, p))
 }
 
 // PATCH /api/v1/admin/partners/:id
@@ -59,7 +73,7 @@ func (h *PartnerHandler) Update(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, p)
+	core.OK(w, r, withAbsolutePartnerLogoURL(r, p))
 }
 
 // DELETE /api/v1/admin/partners/:id
@@ -99,7 +113,7 @@ func (h *PartnerHandler) List(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, res)
+	core.OK(w, r, withAbsolutePartnerListLogoURL(r, res))
 }
 
 func (h *PartnerHandler) SetActive(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +131,7 @@ func (h *PartnerHandler) SetActive(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, p)
+	core.OK(w, r, withAbsolutePartnerLogoURL(r, p))
 }
 
 // PATCH /api/v1/admin/partners/:id/priority
@@ -137,5 +151,5 @@ func (h *PartnerHandler) SetPriority(w http.ResponseWriter, r *http.Request) {
 		core.RespondError(w, r, err)
 		return
 	}
-	core.OK(w, r, p)
+	core.OK(w, r, withAbsolutePartnerLogoURL(r, p))
 }
