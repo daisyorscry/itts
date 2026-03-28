@@ -15,6 +15,7 @@ import { Admission } from "./pages/Admission";
 import { AdmissionProgramDetail } from "./pages/AdmissionProgramDetail";
 import { Docs } from "./pages/Docs";
 import { Blog } from "./pages/Blog";
+import { BlogDetail } from "./pages/BlogDetail";
 import { SignIn } from "./pages/SignIn";
 import { Register } from "./pages/Register";
 import { OAuthCallback } from "./pages/OAuthCallback";
@@ -46,6 +47,8 @@ import { AdminMentors } from "./pages/admin/Mentors";
 import { AdminMentorCreate } from "./pages/admin/mentors/ViewCreateMentor";
 import { AdminMentorEdit } from "./pages/admin/mentors/ViewEditMentor";
 import { AdminAnalytics } from "./pages/admin/Analytics";
+import { AdminBlog } from "./pages/admin/Blog";
+import { AdminBlogCreate } from "./pages/admin/BlogCreate";
 import { AdminRoles } from "./pages/admin/Roles";
 import { AdminRoleEdit } from "./pages/admin/roles/ViewEditRole";
 import { AdminPermissions } from "./pages/admin/Permissions";
@@ -82,6 +85,7 @@ export const router = createBrowserRouter([
       { path: "admission/programs/:id", Component: AdmissionProgramDetail },
       { path: "docs", Component: Docs },
       { path: "blog", Component: Blog },
+      { path: "blog/:slug", Component: BlogDetail },
       { path: "sign-in", Component: SignIn },
       { path: "register", Component: Register },
       { path: "auth/callback", Component: OAuthCallback },
@@ -123,6 +127,8 @@ export const router = createBrowserRouter([
       { path: "mentors/:id", Component: AdminMentorEdit },
       { path: "mentors/edit/:id", Component: AdminMentorEdit },
       { path: "analytics", Component: AdminAnalytics },
+      { path: "blog", Component: AdminBlog },
+      { path: "blog/create", Component: AdminBlogCreate },
       { path: "roles", Component: AdminRoles },
       { path: "roles/:id", Component: AdminRoleEdit },
       { path: "roles/edit/:id", Component: AdminRoleEdit },
