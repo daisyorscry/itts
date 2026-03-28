@@ -9,24 +9,30 @@ import { DataPagination } from '@components/ui/pagination';
 import { SearchField } from '@components/ui/search';
 import { DataTable, type DataTableColumn } from '@components/ui/table';
 import { Text } from '@components/ui/text';
-import { useListBlogSubmissions, useUpdateBlogSubmissionStatus } from '@feature/blog/hooks';
-import { type BlogSubmission, type BlogSubmissionListResponse, type BlogSubmissionStatus } from '@feature/blog/types';
+import { useListAdminBlogPosts, useUpdateBlogPostStatus } from '@feature/blog/hooks';
+import { type BlogPost, type BlogPostListResponse, type BlogPostStatus } from '@feature/blog/types';
+import { useAuthStore } from '@store/auth.store';
+import { hasPermission } from '@utility/permissions';
 import { formatDateTime } from '@utility/date';
 
-function createSubmissionColumns({
+function createBlogColumns({
   isUpdating,
+  canReview,
   onStatusChange,
 }: {
   isUpdating: boolean;
-  onStatusChange: (submission: BlogSubmission, status: BlogSubmissionStatus) => void;
-}): Array<DataTableColumn<BlogSubmission>> {
+  canReview: boolean;
+  onStatusChange: (post: BlogPost, status: BlogPostStatus) => void;
+}): Array<DataTableColumn<BlogPost>> {
   return [
     {
       id: 'article',
       header: 'Article',
       cell: ({ row }) => (
         <LayoutUI.Column gap="gap-1">
-          <Text variant="inverse">{row.title}</Text>
+          <Text variant="inverse" className="max-w-[320px] truncate" title={row.title}>
+            {row.title}
+          </Text>
           <Text variant="muted-inverse" size="xs">{row.slug}</Text>
         </LayoutUI.Column>
       ),
@@ -36,8 +42,8 @@ function createSubmissionColumns({
       header: 'Author',
       cell: ({ row }) => (
         <LayoutUI.Column gap="gap-1">
-          <Text variant="inverse">{row.authorName}</Text>
-          <Text variant="muted-inverse" size="xs">{row.authorEmail}</Text>
+          <Text variant="inverse">{row.author_name}</Text>
+          <Text variant="muted-inverse" size="xs">{row.author_email}</Text>
         </LayoutUI.Column>
       ),
     },
@@ -52,51 +58,56 @@ function createSubmissionColumns({
       cell: ({ row }) => (
         <SelectUI.Select
           value={row.status}
-          onValueChange={(value) => onStatusChange(row, value as BlogSubmissionStatus)}
-          disabled={isUpdating}
+          onValueChange={(value) => onStatusChange(row, value as BlogPostStatus)}
+          disabled={isUpdating || !canReview}
         >
           <SelectUI.SelectTrigger appearance="admin" className="h-auto min-w-32 rounded-lg px-2 py-1.5">
             <SelectUI.SelectValue>{row.status}</SelectUI.SelectValue>
           </SelectUI.SelectTrigger>
           <SelectUI.SelectContent appearance="admin">
-            <SelectUI.SelectItem value="submitted">Submitted</SelectUI.SelectItem>
             <SelectUI.SelectItem value="in_review">In Review</SelectUI.SelectItem>
-            <SelectUI.SelectItem value="approved">Approved</SelectUI.SelectItem>
+            <SelectUI.SelectItem value="draft">Draft</SelectUI.SelectItem>
+            <SelectUI.SelectItem value="published">Published</SelectUI.SelectItem>
             <SelectUI.SelectItem value="rejected">Rejected</SelectUI.SelectItem>
+            <SelectUI.SelectItem value="archived">Archived</SelectUI.SelectItem>
           </SelectUI.SelectContent>
         </SelectUI.Select>
       ),
     },
     {
       id: 'createdAt',
-      header: 'Submitted',
-      cell: ({ row }) => <Text variant="muted-inverse">{formatDateTime(row.createdAt)}</Text>,
+      header: 'Created',
+      cell: ({ row }) => <Text variant="muted-inverse">{formatDateTime(row.created_at)}</Text>,
     },
   ];
 }
 
 export function AdminBlog() {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
-  const [status, setStatus] = useState<BlogSubmissionStatus | ''>('');
+  const [status, setStatus] = useState<BlogPostStatus | ''>('in_review');
+  const canReview = hasPermission(user, 'blogs:review');
+  const canCreateDirectly = hasPermission(user, 'blogs:create');
 
-  const { data, isLoading, error } = useListBlogSubmissions({
+  const { data, isLoading, error } = useListAdminBlogPosts({
     page,
     page_size: pageSize,
     search: search || undefined,
     status: status || undefined,
   });
-  const { mutate: updateStatus, isPending: isUpdating } = useUpdateBlogSubmissionStatus();
+  const { mutate: updateStatus, isPending: isUpdating } = useUpdateBlogPostStatus();
 
-  const response: BlogSubmissionListResponse | null = data ?? null;
-  const submissions = response?.data ?? [];
-  const submissionColumns = createSubmissionColumns({
+  const response: BlogPostListResponse | null = data ?? null;
+  const posts = response?.data ?? [];
+  const postColumns = createBlogColumns({
     isUpdating,
-    onStatusChange: (submission, nextStatus) => {
+    canReview,
+    onStatusChange: (post, nextStatus) => {
       updateStatus({
-        id: submission.id,
+        id: post.id,
         payload: {
           status: nextStatus,
         },
@@ -112,7 +123,9 @@ export function AdminBlog() {
             Blog Review Queue
           </Text>
           <Text variant="muted-inverse">
-            Review contributor drafts and move them through the editorial flow.
+            {canReview
+              ? 'Review blog posts and decide which ones get published.'
+              : 'Track the blog posts you created and wait for admin approval.'}
           </Text>
         </LayoutUI.Column>
         <Button onClick={() => navigate('/admin/blog/create')} variant="accent" size="form">
@@ -125,7 +138,7 @@ export function AdminBlog() {
         {typeof response?.total === 'number' ? (
           <Text variant="muted-inverse" className="shrink-0 md:pt-2">
             Showing {(page - 1) * (response?.page_size ?? pageSize) + 1} to{' '}
-            {Math.min(page * (response?.page_size ?? pageSize), response.total)} of {response.total} submissions
+            {Math.min(page * (response?.page_size ?? pageSize), response.total)} of {response.total} posts
           </Text>
         ) : null}
 
@@ -138,12 +151,12 @@ export function AdminBlog() {
                   setSearch(event.target.value);
                   setPage(1);
                 }}
-                placeholder="Search blog submissions"
+                placeholder="Search blog posts"
               />
               <SelectUI.Select
                 value={status || 'all'}
                 onValueChange={(value) => {
-                  setStatus(value === 'all' ? '' : (value as BlogSubmissionStatus));
+                  setStatus(value === 'all' ? '' : (value as BlogPostStatus));
                   setPage(1);
                 }}
               >
@@ -152,10 +165,11 @@ export function AdminBlog() {
                 </SelectUI.SelectTrigger>
                 <SelectUI.SelectContent appearance="admin">
                   <SelectUI.SelectItem value="all">All statuses</SelectUI.SelectItem>
-                  <SelectUI.SelectItem value="submitted">Submitted</SelectUI.SelectItem>
                   <SelectUI.SelectItem value="in_review">In Review</SelectUI.SelectItem>
-                  <SelectUI.SelectItem value="approved">Approved</SelectUI.SelectItem>
+                  <SelectUI.SelectItem value="draft">Draft</SelectUI.SelectItem>
+                  <SelectUI.SelectItem value="published">Published</SelectUI.SelectItem>
                   <SelectUI.SelectItem value="rejected">Rejected</SelectUI.SelectItem>
+                  <SelectUI.SelectItem value="archived">Archived</SelectUI.SelectItem>
                 </SelectUI.SelectContent>
               </SelectUI.Select>
             </LayoutUI.Container>
@@ -176,7 +190,7 @@ export function AdminBlog() {
           <CardUI.CardContent>
             <LayoutUI.Row gap="gap-3" align="items-center">
               <Icons.AlertCircle className="size-5 text-red-500" />
-              <Text variant="inverse">Failed to load blog submissions.</Text>
+              <Text variant="inverse">Failed to load blog posts.</Text>
             </LayoutUI.Row>
           </CardUI.CardContent>
         </CardUI.Card>
@@ -186,12 +200,18 @@ export function AdminBlog() {
         <LayoutUI.Column>
           <CardUI.Card tone="inverse" className="overflow-hidden">
             <DataTable
-              data={submissions}
-              columns={submissionColumns}
+              data={posts}
+              columns={postColumns}
               rowKey="id"
-              emptyMessage="No blog submissions found."
+              emptyMessage="No blog posts found."
             />
           </CardUI.Card>
+
+          {!canReview ? (
+            <Text variant="muted-inverse" size="sm" className="mt-3">
+              Status changes are only available to admins with blog review access.
+            </Text>
+          ) : null}
 
           <DataPagination
             pagination={response}

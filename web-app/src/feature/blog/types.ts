@@ -2,48 +2,29 @@ import type { JSONContent } from '@tiptap/core';
 import { z } from 'zod';
 
 export type BlogCategory = 'Programming' | 'DevSecOps' | 'Networking' | 'Career' | 'Community';
-export type BlogSubmissionStatus = 'submitted' | 'in_review' | 'approved' | 'rejected';
+export type BlogPostStatus = 'draft' | 'in_review' | 'published' | 'rejected' | 'archived';
 
 export interface BlogPost {
   id: string;
   slug: string;
   title: string;
   excerpt: string;
-  content: JSONContent;
-  author: string;
-  role: string;
-  date: string;
-  readTime: string;
+  content_json: JSONContent;
+  cover_image_url: string;
   category: BlogCategory;
-  image: string;
-  featured?: boolean;
-}
-
-export interface BlogSubmission {
-  id: string;
-  title: string;
-  slug: string;
-  excerpt: string;
-  content: JSONContent;
-  authorName: string;
-  authorEmail: string;
-  role: string;
-  category: BlogCategory;
-  status: BlogSubmissionStatus;
-  notes?: string;
-  createdAt: string;
+  author_name: string;
+  author_email: string;
+  author_role: string;
+  status: BlogPostStatus;
+  published_at?: string | null;
+  created_by?: string | null;
+  updated_by?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BlogPostListResponse {
   data: BlogPost[];
-  total: number;
-  page: number;
-  page_size: number;
-  total_pages: number;
-}
-
-export interface BlogSubmissionListResponse {
-  data: BlogSubmission[];
   total: number;
   page: number;
   page_size: number;
@@ -55,29 +36,27 @@ export interface ListBlogPostsParams {
   page_size?: number;
   search?: string;
   category?: BlogCategory;
+  status?: BlogPostStatus;
 }
 
-export interface ListBlogSubmissionsParams {
-  page?: number;
-  page_size?: number;
-  search?: string;
-  status?: BlogSubmissionStatus;
-}
-
-export interface CreateBlogSubmissionRequest {
+export interface CreateBlogReviewRequest {
   title: string;
   slug: string;
   excerpt: string;
-  content: JSONContent;
-  authorName: string;
-  authorEmail: string;
-  role: string;
+  content_json: JSONContent;
+  author_name: string;
+  author_email: string;
+  author_role: string;
   category: BlogCategory;
+  cover_image_url?: string;
 }
 
-export interface UpdateBlogSubmissionStatusRequest {
-  status: BlogSubmissionStatus;
-  notes?: string;
+export interface CreateBlogPostRequest extends CreateBlogReviewRequest {
+  status?: BlogPostStatus;
+}
+
+export interface UpdateBlogPostStatusRequest {
+  status: BlogPostStatus;
 }
 
 function getNodeTextLength(node: unknown): number {
@@ -101,24 +80,31 @@ export const blogSubmissionSchema = z.object({
     .min(3, 'Slug must be at least 3 characters')
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must use lowercase letters, numbers, and hyphens only'),
   excerpt: z.string().min(24, 'Excerpt must be at least 24 characters').max(220, 'Excerpt must be 220 characters or less'),
-  content: z.custom<JSONContent>(
+  content_json: z.custom<JSONContent>(
     (value) => typeof value === 'object' && value !== null,
     { message: 'Content is required' },
   ),
-  authorName: z.string().min(3, 'Name must be at least 3 characters'),
-  authorEmail: z.string().email('Enter a valid email address'),
-  role: z.string().min(2, 'Role is required'),
+  author_name: z.string().min(3, 'Name must be at least 3 characters'),
+  author_email: z.string().email('Enter a valid email address'),
+  author_role: z.string().min(2, 'Role is required'),
   category: z.enum(['Programming', 'DevSecOps', 'Networking', 'Career', 'Community'], {
     error: 'Category is required',
   }),
+  cover_image_url: z.string().url('Cover image must be a valid URL').optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
-  if (getNodeTextLength(data.content) < 120) {
+  if (getNodeTextLength(data.content_json) < 120) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: 'Content must be at least 120 characters',
-      path: ['content'],
+      path: ['content_json'],
     });
   }
 });
 
 export type BlogSubmissionFormData = z.infer<typeof blogSubmissionSchema>;
+
+export function estimateReadTime(content: JSONContent): string {
+  const words = Math.max(1, Math.ceil(getNodeTextLength(content) / 5));
+  const minutes = Math.max(1, Math.ceil(words / 200));
+  return `${minutes} min read`;
+}

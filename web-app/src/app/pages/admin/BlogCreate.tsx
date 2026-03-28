@@ -12,9 +12,10 @@ import { Input } from '@components/ui/input';
 import * as LayoutUI from '@components/ui/layout';
 import * as SelectUI from '@components/ui/select';
 import { Text } from '@components/ui/text';
-import { useCreateBlogSubmission } from '@feature/blog/hooks';
+import { useCreateBlogPost, useCreateBlogReview } from '@feature/blog/hooks';
 import { blogSubmissionSchema, type BlogCategory, type BlogSubmissionFormData } from '@feature/blog/types';
 import { useAuthStore } from '@store/auth.store';
+import { hasPermission } from '@utility/permissions';
 
 const categoryOptions: BlogCategory[] = ['Programming', 'DevSecOps', 'Networking', 'Career', 'Community'];
 const emptyDocument: JSONContent = {
@@ -30,7 +31,9 @@ const emptyDocument: JSONContent = {
 export function AdminBlogCreate() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
-  const { mutate: createSubmission, isPending } = useCreateBlogSubmission();
+  const canPublishDirectly = hasPermission(user, 'blogs:create');
+  const { mutate: createBlogPost, isPending } = useCreateBlogPost();
+  const { mutate: createBlogReview, isPending: isSubmittingReview } = useCreateBlogReview();
   const {
     register,
     handleSubmit,
@@ -45,11 +48,12 @@ export function AdminBlogCreate() {
       title: '',
       slug: '',
       excerpt: '',
-      authorName: user?.full_name ?? '',
-      authorEmail: user?.email ?? '',
-      role: user?.roles?.[0]?.name ?? 'Admin',
+      author_name: user?.full_name ?? '',
+      author_email: user?.email ?? '',
+      author_role: user?.roles?.[0]?.name ?? 'Admin',
       category: undefined,
-      content: emptyDocument,
+      content_json: emptyDocument,
+      cover_image_url: '',
     },
   });
 
@@ -58,17 +62,32 @@ export function AdminBlogCreate() {
   useEffect(() => {
     reset((currentValues) => ({
       ...currentValues,
-      authorName: user?.full_name ?? currentValues.authorName,
-      authorEmail: user?.email ?? currentValues.authorEmail,
-      role: user?.roles?.[0]?.name ?? currentValues.role ?? 'Admin',
+      author_name: user?.full_name ?? currentValues.author_name,
+      author_email: user?.email ?? currentValues.author_email,
+      author_role: user?.roles?.[0]?.name ?? currentValues.author_role ?? 'Admin',
     }));
   }, [reset, user]);
 
   const onSubmit = (data: BlogSubmissionFormData) => {
-    createSubmission(data, {
-      onSuccess: () => {
-        navigate('/admin/blog');
-      },
+    const onSuccess = () => {
+      navigate('/admin/blog');
+    };
+
+    if (canPublishDirectly) {
+      createBlogPost(
+        {
+          ...data,
+          status: 'published',
+        },
+        {
+          onSuccess,
+        },
+      );
+      return;
+    }
+
+    createBlogReview(data, {
+      onSuccess,
     });
   };
 
@@ -84,7 +103,9 @@ export function AdminBlogCreate() {
               Create Blog
             </Text>
             <Text variant="muted-inverse" className="max-w-2xl">
-              Write on the left. Configure the post on the right.
+              {canPublishDirectly
+                ? 'Write on the left. Configure the post on the right.'
+                : 'Write on the left. Your post will be sent to admins for review before it is published.'}
             </Text>
           </LayoutUI.Column>
         </LayoutUI.Row>
@@ -92,9 +113,19 @@ export function AdminBlogCreate() {
           <Button type="button" variant="destructive" size="form" onClick={() => navigate('/admin/blog')}>
             Cancel
           </Button>
-          <Button type="submit" form="blog-create-form" variant="accent" size="form" disabled={isPending}>
+          <Button
+            type="submit"
+            form="blog-create-form"
+            variant="accent"
+            size="form"
+            disabled={isPending || isSubmittingReview}
+          >
             <Icons.Save size={18} />
-            {isPending ? 'Saving...' : 'Create Blog'}
+            {isPending || isSubmittingReview
+              ? 'Saving...'
+              : canPublishDirectly
+                ? 'Create Blog'
+                : 'Submit for Review'}
           </Button>
         </LayoutUI.Row>
       </LayoutUI.Row>
@@ -113,10 +144,10 @@ export function AdminBlogCreate() {
                   </Text>
                 </LayoutUI.Column>
 
-                <FormUI.FormField id="content" label="Content" error={errors.content?.message} required tone="inverse">
+                <FormUI.FormField id="content_json" label="Content" error={errors.content_json?.message} required tone="inverse">
                   <BlogEditor
-                    content={watch('content')}
-                    onChange={(value) => setValue('content', value, { shouldDirty: true, shouldValidate: true })}
+                    content={watch('content_json')}
+                    onChange={(value) => setValue('content_json', value, { shouldDirty: true, shouldValidate: true })}
                     placeholder="Start writing the post here..."
                     className="min-h-[calc(100vh-420px)]"
                   />
@@ -176,6 +207,17 @@ export function AdminBlogCreate() {
                   />
                 </FormUI.FormField>
 
+                <FormUI.FormField id="cover_image_url" label="Cover Image URL" error={errors.cover_image_url?.message} tone="inverse">
+                  <Input
+                    id="cover_image_url"
+                    {...register('cover_image_url')}
+                    icon={<Icons.Image size={18} />}
+                    hasError={Boolean(errors.cover_image_url)}
+                    tone="inverse"
+                    placeholder="https://example.com/cover.jpg"
+                  />
+                </FormUI.FormField>
+
                 <FormUI.FormField id="excerpt" label="Excerpt" error={errors.excerpt?.message} required tone="inverse">
                   <textarea
                     id="excerpt"
@@ -188,34 +230,34 @@ export function AdminBlogCreate() {
 
                 <div className="border-t border-black/10 pt-5">
                   <LayoutUI.Column gap="gap-5">
-                    <FormUI.FormField id="authorName" label="Author Name" error={errors.authorName?.message} required tone="inverse">
+                    <FormUI.FormField id="author_name" label="Author Name" error={errors.author_name?.message} required tone="inverse">
                       <Input
-                        id="authorName"
-                        {...register('authorName')}
+                        id="author_name"
+                        {...register('author_name')}
                         icon={<Icons.User size={18} />}
-                        hasError={Boolean(errors.authorName)}
+                        hasError={Boolean(errors.author_name)}
                         tone="inverse"
                         placeholder="Jane Contributor"
                       />
                     </FormUI.FormField>
 
-                    <FormUI.FormField id="authorEmail" label="Author Email" error={errors.authorEmail?.message} required tone="inverse">
+                    <FormUI.FormField id="author_email" label="Author Email" error={errors.author_email?.message} required tone="inverse">
                       <Input
-                        id="authorEmail"
+                        id="author_email"
                         type="email"
-                        {...register('authorEmail')}
+                        {...register('author_email')}
                         icon={<Icons.Mail size={18} />}
-                        hasError={Boolean(errors.authorEmail)}
+                        hasError={Boolean(errors.author_email)}
                         tone="inverse"
                         placeholder="jane@example.com"
                       />
                     </FormUI.FormField>
 
-                    <FormUI.FormField id="role" label="Author Role" error={errors.role?.message} required tone="inverse">
+                    <FormUI.FormField id="author_role" label="Author Role" error={errors.author_role?.message} required tone="inverse">
                       <Input
-                        id="role"
-                        {...register('role')}
-                        hasError={Boolean(errors.role)}
+                        id="author_role"
+                        {...register('author_role')}
+                        hasError={Boolean(errors.author_role)}
                         tone="inverse"
                         placeholder="Admin"
                       />

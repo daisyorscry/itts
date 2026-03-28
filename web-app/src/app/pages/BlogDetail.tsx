@@ -4,6 +4,7 @@ import { ImageWithFallback } from '@components/figma/ImageWithFallback';
 import { Badge } from '@components/ui/badge';
 import { BlogEditor } from '@components/blog/BlogEditor';
 import { usePublicBlogPost } from '@feature/blog/hooks';
+import { estimateReadTime } from '@feature/blog/types';
 import { formatDate } from '@utility/date';
 
 export function BlogDetail() {
@@ -54,17 +55,17 @@ export function BlogDetail() {
             <div className="mt-8 flex flex-col gap-3 text-sm text-white/65 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
               <div className="flex items-center gap-2">
                 <User size={16} />
-                <span>{post.author}</span>
+                <span>{post.author_name}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar size={16} />
-                <span>{formatDate(post.date)}</span>
+                <span>{formatDate(post.published_at ?? post.created_at)}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Clock3 size={16} />
-                <span>{post.readTime}</span>
+                <span>{estimateReadTime(post.content_json)}</span>
               </div>
-              <span>{post.role}</span>
+              <span>{post.author_role}</span>
             </div>
           </div>
         </div>
@@ -74,7 +75,7 @@ export function BlogDetail() {
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <div className="overflow-hidden rounded-3xl border border-border bg-background">
             <div className="relative h-72 md:h-[420px]">
-              <ImageWithFallback src={post.image} alt={post.title} className="h-full w-full object-cover" />
+              <ImageWithFallback src={post.cover_image_url} alt={post.title} className="h-full w-full object-cover" />
             </div>
           </div>
         </div>
@@ -82,7 +83,7 @@ export function BlogDetail() {
 
       <section className="pb-16 md:pb-24">
         <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <BlogEditor content={post.content} editable={false} className="border-0 bg-transparent" />
+          <BlogEditor content={post.content_json} editable={false} className="border-0 bg-transparent" />
 
           <div className="mt-12 rounded-3xl border border-border bg-background p-6 md:p-8">
             <h2 className="text-2xl font-bold">Write for the community</h2>

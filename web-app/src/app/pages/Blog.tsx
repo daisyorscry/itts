@@ -1,18 +1,23 @@
 import { motion } from 'motion/react';
+import { useState } from 'react';
 import { Calendar, User, ArrowRight, PenSquare } from 'lucide-react';
 import { Link } from 'react-router';
 import { Badge } from '@components/ui/badge';
 import { ImageWithFallback } from '@components/figma/ImageWithFallback';
 import { useListPublicBlogPosts } from '@feature/blog/hooks';
-import type { BlogCategory } from '@feature/blog/types';
+import { estimateReadTime, type BlogCategory } from '@feature/blog/types';
 import { formatDate } from '@utility/date';
 
 const categories: Array<'All' | BlogCategory> = ['All', 'Programming', 'DevSecOps', 'Networking', 'Career', 'Community'];
 
 export function Blog() {
-  const { data } = useListPublicBlogPosts({ page_size: 12 });
+  const [selectedCategory, setSelectedCategory] = useState<'All' | BlogCategory>('All');
+  const { data } = useListPublicBlogPosts({
+    page_size: 12,
+    category: selectedCategory === 'All' ? undefined : selectedCategory,
+  });
   const posts = data?.data ?? [];
-  const featuredPost = posts.find((post) => post.featured) ?? posts[0];
+  const featuredPost = posts[0];
   const latestPosts = posts.filter((post) => post.id !== featuredPost?.id);
 
   return (
@@ -43,11 +48,12 @@ export function Blog() {
       <section className="border-b border-border bg-card py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap gap-3">
-            {categories.map((category, index) => (
+            {categories.map((category) => (
               <button
                 key={category}
+                onClick={() => setSelectedCategory(category)}
                 className={`rounded-full px-4 py-2 font-medium transition-colors ${
-                  index === 0
+                  category === selectedCategory
                     ? 'bg-accent text-black'
                     : 'border border-border bg-background hover:border-accent hover:text-accent'
                 }`}
@@ -80,7 +86,7 @@ export function Blog() {
               <div className="grid grid-cols-1 lg:grid-cols-2">
                 <div className="relative h-72 lg:h-auto">
                   <ImageWithFallback
-                    src={featuredPost.image}
+                    src={featuredPost.cover_image_url}
                     alt={featuredPost.title}
                     className="h-full w-full object-cover"
                   />
@@ -94,13 +100,13 @@ export function Blog() {
                   <div className="mb-6 flex flex-col gap-3 text-sm text-foreground/60 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 sm:gap-y-2">
                     <div className="flex items-center gap-2">
                       <User size={16} />
-                      <span>{featuredPost.author}</span>
+                      <span>{featuredPost.author_name}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Calendar size={16} />
-                      <span>{formatDate(featuredPost.date)}</span>
+                      <span>{formatDate(featuredPost.published_at ?? featuredPost.created_at)}</span>
                     </div>
-                    <span>{featuredPost.readTime}</span>
+                    <span>{estimateReadTime(featuredPost.content_json)}</span>
                   </div>
                   <Link
                     to={`/blog/${featuredPost.slug}`}
@@ -141,7 +147,7 @@ export function Blog() {
                 <Link to={`/blog/${post.slug}`} className="block">
                   <div className="relative h-52 overflow-hidden">
                     <ImageWithFallback
-                      src={post.image}
+                      src={post.cover_image_url}
                       alt={post.title}
                       className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     />
@@ -158,12 +164,12 @@ export function Blog() {
 
                     <div className="flex flex-col gap-3 text-xs text-foreground/60 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
-                        <div className="font-medium text-foreground">{post.author}</div>
-                        <div>{post.role}</div>
+                        <div className="font-medium text-foreground">{post.author_name}</div>
+                        <div>{post.author_role}</div>
                       </div>
                       <div className="sm:text-right">
-                        <div>{formatDate(post.date)}</div>
-                        <div>{post.readTime}</div>
+                        <div>{formatDate(post.published_at ?? post.created_at)}</div>
+                        <div>{estimateReadTime(post.content_json)}</div>
                       </div>
                     </div>
                   </div>
