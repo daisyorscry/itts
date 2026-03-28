@@ -115,6 +115,11 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	eventH := rest.NewEventHandler(eventSvc, eventSpeakerSvc, eventRegSvc)
 	uploadH := rest.NewUploadHandler(deps.ObjectStorage, deps.StorageBucket)
 
+	// ===== BLOGS =====
+	blogRepo := repository.NewBlogRepository(deps.DBConn)
+	blogSvc := service.NewBlogService(blogRepo, deps.Locker, deps.Tracer)
+	blogH := rest.NewBlogHandler(blogSvc)
+
 	// ===== PMB (Penerimaan Mahasiswa Baru) =====
 	pmbRepo := repository.NewPMBRepository(deps.DBConn)
 	pmbSvc := service.NewPMBService(pmbRepo, deps.Tracer)
@@ -162,6 +167,15 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 		api.Get("/events/registrations/invoice.pdf", eventH.DownloadRegistrationInvoicePDF)
 		api.Get("/events/registrations/ticket-qr.svg", eventH.RegistrationTicketQRCode)
 		api.Post("/events/payments/webhook", eventH.HandlePaymentWebhook)
+
+		// Public blogs
+		api.Get("/blog", blogH.ListPublicPosts)
+		api.Get("/blog/slug/{slug}", blogH.GetPublicPostBySlug)
+		api.Group(func(protected chi.Router) {
+			protected.Use(middleware.RequireAuth())
+			protected.Post("/blog/submissions", blogH.CreateReviewPost)
+			protected.Get("/blog/submissions/me", blogH.ListMyPosts)
+		})
 
 		// ===== PMB PUBLIC ROUTES =====
 		api.Route("/pmb", func(pmb chi.Router) {
@@ -289,6 +303,14 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			admin.With(middleware.RequirePermission("event_registrations:update")).Patch("/event-registrations/{id}/waitlist", eventH.WaitlistRegistration)
 			admin.With(middleware.RequirePermission("event_registrations:update")).Patch("/event-registrations/{id}/promote", eventH.PromoteRegistration)
 			admin.With(middleware.RequirePermission("event_registrations:delete")).Delete("/event-registrations/{id}", eventH.Unregister)
+
+			// ===== BLOGS =====
+			admin.With(middleware.RequirePermission("blogs:create")).Post("/blog", blogH.CreatePost)
+			admin.Get("/blog", blogH.ListPosts)
+			admin.With(middleware.RequirePermission("blogs:read")).Get("/blog/{id}", blogH.GetPost)
+			admin.With(middleware.RequirePermission("blogs:update")).Patch("/blog/{id}", blogH.UpdatePost)
+			admin.With(middleware.RequirePermission("blogs:review")).Patch("/blog/{id}/status", blogH.UpdatePostStatus)
+			admin.With(middleware.RequirePermission("blogs:delete")).Delete("/blog/{id}", blogH.DeletePost)
 
 			// ===== PMB - APPLICANTS =====
 			admin.With(middleware.RequirePermission("pmb:applicants:create")).Post("/pmb/applicants", pmbH.CreateApplicant)

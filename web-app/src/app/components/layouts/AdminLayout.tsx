@@ -19,6 +19,7 @@ const menuGroups = [
     label: 'Content',
     items: [
       { icon: Icons.Calendar, label: 'Events', path: '/admin/events' },
+      { icon: Icons.NotebookPen, label: 'Blog', path: '/admin/blog' },
       { icon: Icons.ClipboardList, label: 'Registrations', path: '/admin/registrations' },
       { icon: Icons.Mic, label: 'Speakers', path: '/admin/speakers' },
     ],
