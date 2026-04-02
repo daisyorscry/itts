@@ -73,3 +73,75 @@ func TestUploadEventImageUploadsToObjectStorage(t *testing.T) {
 		t.Fatalf("expected image_url to point to storage bucket, got %q", imageURL)
 	}
 }
+
+func TestUploadLearningVideoUploadsToObjectStorage(t *testing.T) {
+	t.Setenv("ASSET_BASE_URL", "https://storage.itts.fun")
+	t.Setenv("ASSET_BUCKET", "itts")
+
+	storage := &fakeObjectStorage{}
+	handler := NewUploadHandler(storage, "itts")
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	fileWriter, err := writer.CreateFormFile("file", "lesson.mp4")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := fileWriter.Write([]byte("video-bytes")); err != nil {
+		t.Fatalf("write form file: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/uploads/videos", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	rec := httptest.NewRecorder()
+	handler.UploadLearningVideo(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d, body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	if !strings.HasPrefix(storage.key, "learning/videos/lesson-") || !strings.HasSuffix(storage.key, ".mp4") {
+		t.Fatalf("unexpected object key %q", storage.key)
+	}
+}
+
+func TestUploadLearningFileUploadsToObjectStorage(t *testing.T) {
+	t.Setenv("ASSET_BASE_URL", "https://storage.itts.fun")
+	t.Setenv("ASSET_BUCKET", "itts")
+
+	storage := &fakeObjectStorage{}
+	handler := NewUploadHandler(storage, "itts")
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	fileWriter, err := writer.CreateFormFile("file", "handout.pdf")
+	if err != nil {
+		t.Fatalf("create form file: %v", err)
+	}
+	if _, err := fileWriter.Write([]byte("pdf-bytes")); err != nil {
+		t.Fatalf("write form file: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart writer: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/uploads/files", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	rec := httptest.NewRecorder()
+	handler.UploadLearningFile(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d, body=%s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	if !strings.HasPrefix(storage.key, "learning/files/handout-") || !strings.HasSuffix(storage.key, ".pdf") {
+		t.Fatalf("unexpected object key %q", storage.key)
+	}
+}

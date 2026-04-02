@@ -1,5 +1,5 @@
 import * as Icons from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation } from 'react-router';
 import * as AdminHeader from '../header';
 import * as SidebarUI from '../sidebar';
@@ -37,6 +37,9 @@ const menuGroups = [
     icon: Icons.Map,
     label: 'Programs',
     items: [
+      { icon: Icons.BookOpenCheck, label: 'Learning', path: '/admin/learning' },
+      { icon: Icons.FileCheck2, label: 'Assignment Reviews', path: '/admin/learning/reviews' },
+      { icon: Icons.BadgeCheck, label: 'Certificates', path: '/admin/learning/certificates' },
       { icon: Icons.Map, label: 'Roadmaps', path: '/admin/roadmaps' },
       { icon: Icons.UsersRound, label: 'Mentors', path: '/admin/mentors' },
       { icon: Icons.Handshake, label: 'Partners', path: '/admin/partners' },
@@ -54,31 +57,63 @@ const menuGroups = [
 
 export function AdminLayout() {
   const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const isLearningBuilder = location.pathname.startsWith('/admin/learning/edit/');
+  const currentLessonLabel = searchParams.get('lesson_label') ?? '';
+  const builderBasePath = location.pathname;
+  const resolvedMenuGroups = useMemo(
+    () =>
+      menuGroups.map((group) => {
+        if (group.label !== 'Programs' || !isLearningBuilder) {
+          return group;
+        }
+
+        const createLearningBuilderPath = (view: string) => {
+          const next = new URLSearchParams(location.search);
+          next.set('view', view);
+          return `${builderBasePath}?${next.toString()}`;
+        };
+
+        return {
+          ...group,
+          items: [
+            ...group.items,
+            { icon: Icons.BookOpenText, label: 'Course', path: createLearningBuilderPath('overview') },
+            { icon: Icons.LayoutList, label: 'Curriculum', path: createLearningBuilderPath('curriculum') },
+            {
+              icon: Icons.FilePenLine,
+              label: currentLessonLabel ? `Lesson: ${currentLessonLabel}` : 'Lesson',
+              path: createLearningBuilderPath('lesson'),
+            },
+          ],
+        };
+      }),
+    [builderBasePath, currentLessonLabel, isLearningBuilder, location.search],
+  );
+  const isActive = (path: string) => {
+    if (path === '/admin') return location.pathname === '/admin';
+    return location.pathname.startsWith(path);
+  };
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(
-      menuGroups.map((group) => [
+      resolvedMenuGroups.map((group) => [
         group.label,
         group.items.some((item) => (item.path === '/admin' ? location.pathname === '/admin' : location.pathname.startsWith(item.path))),
       ]),
     ),
   );
 
-  const isActive = (path: string) => {
-    if (path === '/admin') return location.pathname === '/admin';
-    return location.pathname.startsWith(path);
-  };
-
   useEffect(() => {
     setOpenGroups((current) => ({
       ...current,
       ...Object.fromEntries(
-        menuGroups.map((group) => [
+        resolvedMenuGroups.map((group) => [
           group.label,
           current[group.label] || group.items.some((item) => isActive(item.path)),
         ]),
       ),
     }));
-  }, [location.pathname]);
+  }, [location.pathname, resolvedMenuGroups]);
 
   const toggleGroup = (label: string) => {
     setOpenGroups((current) => ({
@@ -93,7 +128,7 @@ export function AdminLayout() {
         <SidebarUI.SidebarHeader brandMark="IT" brandTitle="ITTS Admin" brandSubtitle="Dashboard" />
 
         <SidebarUI.SidebarContent>
-          {menuGroups.map((group) => (
+          {resolvedMenuGroups.map((group) => (
             <SidebarUI.SidebarGroup key={group.label}>
               <SidebarUI.SidebarGroupTrigger
                 icon={group.icon}

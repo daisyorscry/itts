@@ -13,6 +13,10 @@ type ObjectStorage interface {
 }
 
 func uploadEventImageToBucket(ctx context.Context, storage ObjectStorage, bucket, key, contentType string, file io.Reader) error {
+	return uploadAssetToBucket(ctx, storage, bucket, key, contentType, file)
+}
+
+func uploadAssetToBucket(ctx context.Context, storage ObjectStorage, bucket, key, contentType string, file io.Reader) error {
 	if storage == nil {
 		return fmt.Errorf("object storage is required")
 	}

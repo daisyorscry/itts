@@ -109,7 +109,7 @@ export function AdminEventCreate() {
       </LayoutUI.Row>
 
       <FormUI.FormRoot onSubmit={handleSubmit(handleValidSubmit)}>
-        <CardUI.Card tone="inverse">
+        <CardUI.Card tone="inverse" border={false}>
           <CardUI.CardContent padding="auth" spacing="lg">
             <EventEditorFields
               form={form}

@@ -21,6 +21,7 @@ const navLinks = [
   { name: 'Home', path: '/' },
   { name: 'About', path: '/about' },
   { name: 'Events', path: '/events' },
+  { name: 'Learning', path: '/learning' },
   { name: 'Blog', path: '/blog' },
   { name: 'Docs', path: '/docs' },
 ];
@@ -30,6 +31,7 @@ const footerLinks = {
     { label: 'About Us', to: '/about' },
     { label: 'Community', to: '/community' },
     { label: 'Programs', to: '/program' },
+    { label: 'Learning', to: '/learning' },
     { label: 'Events', to: '/events' },
     { label: 'Admission', to: '/admission' },
     { label: 'Mentors', to: '#' },
@@ -37,6 +39,7 @@ const footerLinks = {
   ],
   RESOURCES: [
     { label: 'Documentation', to: '/docs' },
+    { label: 'Learning Catalog', to: '/learning' },
     { label: 'Blog', to: '/blog' },
     { label: 'FAQ', to: '#' },
     { label: 'Support', to: '#' },

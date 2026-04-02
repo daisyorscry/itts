@@ -17,6 +17,12 @@ const (
 	maxUploadSize = 5 << 20
 )
 
+type uploadKind struct {
+	directory       string
+	defaultBaseName string
+	validator       func(*multipart.FileHeader) bool
+}
+
 type UploadHandler struct {
 	storage ObjectStorage
 	bucket  string
@@ -30,6 +36,30 @@ func NewUploadHandler(storage ObjectStorage, bucket string) *UploadHandler {
 }
 
 func (h *UploadHandler) UploadEventImage(w http.ResponseWriter, r *http.Request) {
+	h.uploadAsset(w, r, uploadKind{
+		directory:       "events",
+		defaultBaseName: "event",
+		validator:       isAllowedImage,
+	}, "only image uploads are allowed", "image_url")
+}
+
+func (h *UploadHandler) UploadLearningFile(w http.ResponseWriter, r *http.Request) {
+	h.uploadAsset(w, r, uploadKind{
+		directory:       "learning/files",
+		defaultBaseName: "learning-file",
+		validator:       isAllowedFile,
+	}, "invalid attachment file", "file_url")
+}
+
+func (h *UploadHandler) UploadLearningVideo(w http.ResponseWriter, r *http.Request) {
+	h.uploadAsset(w, r, uploadKind{
+		directory:       "learning/videos",
+		defaultBaseName: "learning-video",
+		validator:       isAllowedVideo,
+	}, "only video uploads are allowed", "file_url")
+}
+
+func (h *UploadHandler) uploadAsset(w http.ResponseWriter, r *http.Request, kind uploadKind, invalidTypeMessage, responseURLKey string) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 
 	if err := r.ParseMultipartForm(maxUploadSize); err != nil {
@@ -44,8 +74,8 @@ func (h *UploadHandler) UploadEventImage(w http.ResponseWriter, r *http.Request)
 	}
 	defer file.Close()
 
-	if !isAllowedImage(header) {
-		core.WriteError(w, r, http.StatusBadRequest, "INVALID_FILE_TYPE", "only image uploads are allowed", nil)
+	if kind.validator != nil && !kind.validator(header) {
+		core.WriteError(w, r, http.StatusBadRequest, "INVALID_FILE_TYPE", invalidTypeMessage, nil)
 		return
 	}
 
@@ -54,8 +84,8 @@ func (h *UploadHandler) UploadEventImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	filename := buildUploadFilename(header.Filename)
-	objectKey := filepath.ToSlash(filepath.Join("events", filename))
+	filename := buildUploadFilename(header.Filename, kind.defaultBaseName)
+	objectKey := filepath.ToSlash(filepath.Join(kind.directory, filename))
 	contentType := strings.TrimSpace(header.Header.Get("Content-Type"))
 	payload, err := readUploadedFile(file)
 	if err != nil {
@@ -63,16 +93,20 @@ func (h *UploadHandler) UploadEventImage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := uploadEventImageToBucket(context.Background(), h.storage, h.bucket, objectKey, contentType, bytes.NewReader(payload)); err != nil {
-		core.WriteAppError(w, r, core.InternalServerError("failed to upload image to object storage").WithError(err))
+	if err := uploadAssetToBucket(context.Background(), h.storage, h.bucket, objectKey, contentType, bytes.NewReader(payload)); err != nil {
+		core.WriteAppError(w, r, core.InternalServerError("failed to upload file to object storage").WithError(err))
 		return
 	}
 
 	filePath := "/" + objectKey
-	core.OK(w, r, map[string]string{
-		"file_path": filePath,
-		"image_url": buildAbsoluteAssetURL(r, filePath),
-	})
+	response := map[string]string{
+		"file_path":    filePath,
+		responseURLKey: buildAbsoluteAssetURL(r, filePath),
+	}
+	if responseURLKey != "image_url" {
+		response["image_url"] = response[responseURLKey]
+	}
+	core.OK(w, r, response)
 }
 
 func readUploadedFile(file multipart.File) ([]byte, error) {
@@ -94,12 +128,29 @@ func isAllowedImage(header *multipart.FileHeader) bool {
 	}
 }
 
-func buildUploadFilename(originalName string) string {
+func isAllowedFile(header *multipart.FileHeader) bool {
+	return strings.TrimSpace(header.Filename) != ""
+}
+
+func isAllowedVideo(header *multipart.FileHeader) bool {
+	contentType := strings.ToLower(strings.TrimSpace(header.Header.Get("Content-Type")))
+	if strings.HasPrefix(contentType, "video/") {
+		return true
+	}
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	switch ext {
+	case ".mp4", ".mov", ".m4v", ".webm", ".avi", ".mkv":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildUploadFilename(originalName, fallbackBaseName string) string {
 	ext := strings.ToLower(filepath.Ext(originalName))
 	switch ext {
 	case ".jpg", ".jpeg", ".png", ".webp", ".gif":
-	default:
-		ext = ".bin"
 	}
 
 	safeName := strings.TrimSuffix(filepath.Base(originalName), filepath.Ext(originalName))
@@ -118,7 +169,10 @@ func buildUploadFilename(originalName string) string {
 		}
 	}, safeName)
 	if safeName == "" {
-		safeName = "event"
+		safeName = fallbackBaseName
+	}
+	if ext == "" {
+		ext = ".bin"
 	}
 
 	return safeName + "-" + time.Now().Format("20060102150405.000000000") + ext

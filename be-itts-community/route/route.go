@@ -120,6 +120,11 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 	blogSvc := service.NewBlogService(blogRepo, deps.Locker, deps.Tracer)
 	blogH := rest.NewBlogHandler(blogSvc)
 
+	// ===== LEARNING =====
+	learningRepo := repository.NewLearningRepository(deps.DBConn)
+	learningSvc := service.NewLearningService(learningRepo, learningRepo, learningRepo, learningRepo, learningRepo, learningRepo, deps.Tracer)
+	learningH := rest.NewLearningHandler(learningSvc, learningSvc, learningSvc, learningSvc, learningSvc, learningSvc)
+
 	// ===== PMB (Penerimaan Mahasiswa Baru) =====
 	pmbRepo := repository.NewPMBRepository(deps.DBConn)
 	pmbSvc := service.NewPMBService(pmbRepo, deps.Tracer)
@@ -175,6 +180,21 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			protected.Use(middleware.RequireAuth())
 			protected.Post("/blog/submissions", blogH.CreateReviewPost)
 			protected.Get("/blog/submissions/me", blogH.ListMyPosts)
+		})
+
+		// Public learning
+		api.Get("/learning/courses", learningH.ListPublicCourses)
+		api.Get("/learning/courses/slug/{slug}", learningH.GetPublicCourseBySlug)
+		api.Get("/learning/certificates/verify/{certificate_number}", learningH.VerifyCertificate)
+		api.Group(func(protected chi.Router) {
+			protected.Use(middleware.RequireAuth())
+			protected.Get("/learning/enrollments/me", learningH.ListMyEnrollments)
+			protected.Get("/learning/certificates/me", learningH.ListMyCertificates)
+			protected.Get("/learning/assignment-submissions/me", learningH.ListMyAssignmentSubmissions)
+			protected.Post("/learning/enrollments", learningH.EnrollCourse)
+			protected.Patch("/learning/lessons/{lesson_id}/progress", learningH.UpdateLessonProgress)
+			protected.Post("/learning/quiz-attempts", learningH.SubmitQuizAttempt)
+			protected.Post("/learning/assignment-submissions", learningH.SubmitAssignment)
 		})
 
 		// ===== PMB PUBLIC ROUTES =====
@@ -287,6 +307,8 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			admin.With(middleware.RequirePermission("events:delete")).Delete("/events/{id}", eventH.DeleteEvent)
 			admin.With(middleware.RequirePermission("events:update")).Patch("/events/{id}/status", eventH.SetEventStatus)
 			admin.With(middleware.RequireAnyPermission("events:create", "events:update")).Post("/uploads/images", uploadH.UploadEventImage)
+			admin.With(middleware.RequireAnyPermission("lessons:create", "lessons:update", "assignments:create", "assignments:update")).Post("/uploads/files", uploadH.UploadLearningFile)
+			admin.With(middleware.RequireAnyPermission("lessons:create", "lessons:update")).Post("/uploads/videos", uploadH.UploadLearningVideo)
 
 			// ===== EVENT SPEAKERS =====
 			admin.With(middleware.RequirePermission("event_speakers:list")).Get("/event-speakers", eventH.ListSpeakers)
@@ -311,6 +333,34 @@ func RegisterRoutes(r chi.Router, deps RouteDeps) {
 			admin.With(middleware.RequirePermission("blogs:update")).Patch("/blog/{id}", blogH.UpdatePost)
 			admin.With(middleware.RequirePermission("blogs:review")).Patch("/blog/{id}/status", blogH.UpdatePostStatus)
 			admin.With(middleware.RequirePermission("blogs:delete")).Delete("/blog/{id}", blogH.DeletePost)
+
+			// ===== LEARNING =====
+			admin.With(middleware.RequirePermission("courses:create")).Post("/learning/courses", learningH.CreateCourse)
+			admin.With(middleware.RequirePermission("courses:list")).Get("/learning/courses", learningH.ListCourses)
+			admin.With(middleware.RequirePermission("courses:read")).Get("/learning/courses/{id}", learningH.GetCourse)
+			admin.With(middleware.RequirePermission("courses:update")).Patch("/learning/courses/{id}", learningH.UpdateCourse)
+			admin.With(middleware.RequirePermission("courses:delete")).Delete("/learning/courses/{id}", learningH.DeleteCourse)
+			admin.With(middleware.RequirePermission("course_sections:create")).Post("/learning/courses/{course_id}/sections", learningH.CreateSection)
+			admin.With(middleware.RequirePermission("course_sections:read")).Get("/learning/sections/{id}", learningH.GetSection)
+			admin.With(middleware.RequirePermission("course_sections:update")).Patch("/learning/sections/{id}", learningH.UpdateSection)
+			admin.With(middleware.RequirePermission("course_sections:delete")).Delete("/learning/sections/{id}", learningH.DeleteSection)
+			admin.With(middleware.RequirePermission("lessons:create")).Post("/learning/courses/{course_id}/sections/{section_id}/lessons", learningH.CreateLesson)
+			admin.With(middleware.RequirePermission("lessons:read")).Get("/learning/lessons/{id}", learningH.GetLesson)
+			admin.With(middleware.RequirePermission("lessons:update")).Patch("/learning/lessons/{id}", learningH.UpdateLesson)
+			admin.With(middleware.RequirePermission("lessons:delete")).Delete("/learning/lessons/{id}", learningH.DeleteLesson)
+			admin.With(middleware.RequirePermission("quizzes:create")).Post("/learning/lessons/{lesson_id}/quiz", learningH.CreateQuiz)
+			admin.With(middleware.RequirePermission("quizzes:read")).Get("/learning/quizzes/{id}", learningH.GetQuiz)
+			admin.With(middleware.RequirePermission("quizzes:update")).Patch("/learning/quizzes/{id}", learningH.UpdateQuiz)
+			admin.With(middleware.RequirePermission("quizzes:delete")).Delete("/learning/quizzes/{id}", learningH.DeleteQuiz)
+			admin.With(middleware.RequirePermission("assignments:create")).Post("/learning/lessons/{lesson_id}/assignment", learningH.CreateAssignment)
+			admin.With(middleware.RequirePermission("assignments:read")).Get("/learning/assignments/{id}", learningH.GetAssignment)
+			admin.With(middleware.RequirePermission("assignments:update")).Patch("/learning/assignments/{id}", learningH.UpdateAssignment)
+			admin.With(middleware.RequirePermission("assignments:delete")).Delete("/learning/assignments/{id}", learningH.DeleteAssignment)
+			admin.With(middleware.RequirePermission("assignment_submissions:list")).Get("/learning/assignments/{id}/submissions", learningH.ListAssignmentSubmissions)
+			admin.With(middleware.RequirePermission("assignment_submissions:grade")).Patch("/learning/assignment-submissions/{id}/review", learningH.ReviewAssignmentSubmission)
+			admin.With(middleware.RequirePermission("course_certificates:list")).Get("/learning/certificates", learningH.ListCertificates)
+			admin.With(middleware.RequirePermission("learning_analytics:read")).Get("/learning/analytics/overview", learningH.GetLearningAnalyticsOverview)
+			admin.With(middleware.RequirePermission("learning_analytics:list")).Get("/learning/analytics/courses", learningH.ListCourseAnalytics)
 
 			// ===== PMB - APPLICANTS =====
 			admin.With(middleware.RequirePermission("pmb:applicants:create")).Post("/pmb/applicants", pmbH.CreateApplicant)

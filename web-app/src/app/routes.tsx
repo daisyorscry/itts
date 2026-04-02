@@ -16,6 +16,10 @@ import { AdmissionProgramDetail } from "./pages/AdmissionProgramDetail";
 import { Docs } from "./pages/Docs";
 import { Blog } from "./pages/Blog";
 import { BlogDetail } from "./pages/BlogDetail";
+import { Learning } from "./pages/Learning";
+import { LearningDetail } from "./pages/LearningDetail";
+import { LearningHub } from "./pages/LearningHub";
+import { LearningCertificateVerify } from "./pages/LearningCertificateVerify";
 import { SignIn } from "./pages/SignIn";
 import { Register } from "./pages/Register";
 import { OAuthCallback } from "./pages/OAuthCallback";
@@ -49,6 +53,12 @@ import { AdminMentorEdit } from "./pages/admin/mentors/ViewEditMentor";
 import { AdminAnalytics } from "./pages/admin/Analytics";
 import { AdminBlog } from "./pages/admin/Blog";
 import { AdminBlogCreate } from "./pages/admin/BlogCreate";
+import { AdminLearning } from "./pages/admin/Learning";
+import { AdminLearningAssignmentReviews } from "./pages/admin/learning/AssignmentReviews";
+import { AdminLearningCertificateDetail } from "./pages/admin/learning/CertificateDetail";
+import { AdminLearningCertificates } from "./pages/admin/learning/Certificates";
+import { AdminLearningCourseCreate } from "./pages/admin/learning/ViewCreateCourse";
+import { AdminLearningCourseEdit } from "./pages/admin/learning/ViewEditCourse";
 import { AdminRoles } from "./pages/admin/Roles";
 import { AdminRoleEdit } from "./pages/admin/roles/ViewEditRole";
 import { AdminPermissions } from "./pages/admin/Permissions";
@@ -64,6 +74,14 @@ function ProtectedAdminLayout() {
   return (
     <ProtectedRoute requireAuth>
       <AdminLayout />
+    </ProtectedRoute>
+  );
+}
+
+function ProtectedLearningHub() {
+  return (
+    <ProtectedRoute requireAuth>
+      <LearningHub />
     </ProtectedRoute>
   );
 }
@@ -86,6 +104,10 @@ export const router = createBrowserRouter([
       { path: "docs", Component: Docs },
       { path: "blog", Component: Blog },
       { path: "blog/:slug", Component: BlogDetail },
+      { path: "learning", Component: Learning },
+      { path: "learning/:slug", Component: LearningDetail },
+      { path: "learning/hub", Component: ProtectedLearningHub },
+      { path: "learning/certificates/:certificateNumber", Component: LearningCertificateVerify },
       { path: "sign-in", Component: SignIn },
       { path: "register", Component: Register },
       { path: "auth/callback", Component: OAuthCallback },
@@ -129,6 +151,12 @@ export const router = createBrowserRouter([
       { path: "analytics", Component: AdminAnalytics },
       { path: "blog", Component: AdminBlog },
       { path: "blog/create", Component: AdminBlogCreate },
+      { path: "learning", Component: AdminLearning },
+      { path: "learning/create", Component: AdminLearningCourseCreate },
+      { path: "learning/reviews", Component: AdminLearningAssignmentReviews },
+      { path: "learning/certificates", Component: AdminLearningCertificates },
+      { path: "learning/certificates/:certificateNumber", Component: AdminLearningCertificateDetail },
+      { path: "learning/edit/:id", Component: AdminLearningCourseEdit },
       { path: "roles", Component: AdminRoles },
       { path: "roles/:id", Component: AdminRoleEdit },
       { path: "roles/edit/:id", Component: AdminRoleEdit },

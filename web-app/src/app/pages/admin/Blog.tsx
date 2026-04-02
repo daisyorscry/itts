@@ -90,7 +90,6 @@ export function AdminBlog() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<BlogPostStatus | ''>('in_review');
   const canReview = hasPermission(user, 'blogs:review');
-  const canCreateDirectly = hasPermission(user, 'blogs:create');
 
   const { data, isLoading, error } = useListAdminBlogPosts({
     page,
