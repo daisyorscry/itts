@@ -14,6 +14,7 @@ concurrency:
 jobs:
   build-and-push:
     runs-on: self-hosted
+    environment: dev
 
     steps:
       - name: Build and push on build machine
