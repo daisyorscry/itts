@@ -21,7 +21,7 @@ jobs:
         with:
           host: 192.168.10.2
           username: ${{ secrets.BUILD_USER }}
-          password: "test"
+          password: ${{ secrets.BUILD_PASSWORD }}
           port: 22
           script: |
             set -e
