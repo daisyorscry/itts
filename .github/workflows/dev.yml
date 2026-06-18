@@ -22,7 +22,6 @@ jobs:
           host: 192.168.10.2
           username: ${{ secrets.BUILD_USER }}
           password: ${{ secrets.BUILD_PASSWORD }}
-          key: ${{ secrets.BUILD_SSH_KEY }}
           port: 22
           script: |
             set -e
