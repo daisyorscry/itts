@@ -1,13 +1,61 @@
-name: Ping Test
+name: Build and Push Backend via Build Machine
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
+
+concurrency:
+  group: build-push-backend-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  ping-test:
+  build-and-push:
     runs-on: self-hosted
 
     steps:
-      - name: Ping 192.168.10.254
-        run: |
-          ping -c 4 192.168.10.254
+      - name: Build and push on build machine
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: 192.168.10.2
+          username: ${{ secrets.BUILD_USER }}
+          password: ${{ secrets.BUILD_PASSWORD }}
+          key: ${{ secrets.BUILD_SSH_KEY }}
+          port: 22
+          script: |
+            set -e
+
+            sudo sh -c 'grep -q "registry.lab.local" /etc/hosts || echo "192.168.10.254 registry.lab.local" >> /etc/hosts'
+
+            APP_DIR="$HOME/apps/itts"
+            REGISTRY="registry.lab.local"
+            IMAGE_NAME="itts/be-itts-community"
+            IMAGE_TAG="${{ github.sha }}"
+            BRANCH="${{ github.ref_name }}"
+
+            mkdir -p "$HOME/apps"
+
+            if [ ! -d "$APP_DIR/.git" ]; then
+              git clone git@github.com:daisyorscry/itts.git "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+
+            git fetch origin
+            git checkout "$BRANCH"
+            git reset --hard "origin/$BRANCH"
+
+            echo "${{ secrets.HARBOR_PASSWORD }}" | docker login "$REGISTRY" \
+              --username "${{ secrets.HARBOR_USERNAME }}" \
+              --password-stdin
+
+            docker build \
+              -f be-itts-community/Dockerfile \
+              -t "$REGISTRY/$IMAGE_NAME:$IMAGE_TAG" \
+              -t "$REGISTRY/$IMAGE_NAME:latest" \
+              .
+
+            docker push "$REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+            docker push "$REGISTRY/$IMAGE_NAME:latest"
