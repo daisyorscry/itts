@@ -39,6 +39,7 @@ jobs:
             id
             hostname
             pwd
+            
 
             echo "== Hosts =="
             echo "${{ secrets.BUILD_PASSWORD }}" | sudo -S sh -c 'grep -q "registry.lab.local" /etc/hosts || echo "192.168.10.254 registry.lab.local" >> /etc/hosts'
@@ -74,8 +75,10 @@ jobs:
             git reset --hard "origin/$BRANCH"
 
             echo "== Harbor Login =="
-            echo "${{ secrets.HARBOR_PASSWORD }}" | docker login "$REGISTRY" \
-              --username "${{ secrets.HARBOR_USERNAME }}" \
+            docker logout "$REGISTRY" || true
+            
+            printf '%s' '${{ secrets.HARBOR_PASSWORD }}' | docker login "$REGISTRY" \
+              --username '${{ secrets.HARBOR_USERNAME }}' \
               --password-stdin
 
             echo "== Docker Build =="
